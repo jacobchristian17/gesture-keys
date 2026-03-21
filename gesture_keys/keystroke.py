@@ -13,6 +13,7 @@ SPECIAL_KEYS: dict[str, Key] = {
     "ctrl": Key.ctrl,
     "alt": Key.alt,
     "shift": Key.shift,
+    "win": Key.cmd,
     "space": Key.space,
     "enter": Key.enter,
     "tab": Key.tab,
