@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from gesture_keys.swipe import SwipeDetector, SwipeDirection
+from gesture_keys.swipe import SwipeDetector, SwipeDirection, _SwipeState
 
 
 # --- Helpers ---
@@ -255,3 +255,101 @@ class TestSwipeDirectionValues:
 
     def test_swipe_down_value(self):
         assert SwipeDirection.SWIPE_DOWN.value == "swipe_down"
+
+
+class TestSwipeIsSwiping:
+    """Tests for the is_swiping read-only property."""
+
+    def test_idle_not_swiping(self):
+        """Fresh detector should not be swiping."""
+        det = SwipeDetector()
+        assert det.is_swiping is False
+
+    def test_armed_is_swiping(self):
+        """After entering ARMED state, is_swiping should be True."""
+        det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        # Feed first 5 positions of a fast swipe to enter ARMED (before deceleration)
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        t = 0.0
+        for x, y in positions[:5]:
+            det.update(_make_wrist_landmarks(x, y), t)
+            t += 0.033
+            if det._state == _SwipeState.ARMED:
+                break
+        assert det._state == _SwipeState.ARMED, "Setup failed: detector not in ARMED state"
+        assert det.is_swiping is True
+
+    def test_cooldown_is_swiping(self):
+        """After a swipe fires (COOLDOWN), is_swiping should be True."""
+        det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        results = _swipe_sequence(det, positions, dt=0.033)
+        assert any(r is not None for r in results), "Setup failed: swipe did not fire"
+        assert det._state == _SwipeState.COOLDOWN
+        assert det.is_swiping is True
+
+    def test_back_to_idle_not_swiping(self):
+        """After cooldown expires, is_swiping should be False."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            cooldown_duration=0.1,
+        )
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
+        # Advance past cooldown
+        det.update(_make_wrist_landmarks(0.3, 0.5), 1.0)
+        assert det._state == _SwipeState.IDLE
+        assert det.is_swiping is False
+
+
+class TestSwipeReset:
+    """Tests for the reset() method."""
+
+    def test_reset_clears_buffer(self):
+        """After reset, buffer is empty so next updates return None (< 3 entries)."""
+        det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        # Build buffer
+        for i in range(4):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
+        det.reset()
+        # Only 1 entry after reset -- should return None
+        result = det.update(_make_wrist_landmarks(0.5, 0.5), 1.0)
+        assert result is None
+
+    def test_reset_returns_to_idle(self):
+        """When in ARMED state, reset() transitions to IDLE."""
+        det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        t = 0.0
+        for x, y in positions[:5]:
+            det.update(_make_wrist_landmarks(x, y), t)
+            t += 0.033
+            if det._state == _SwipeState.ARMED:
+                break
+        assert det._state == _SwipeState.ARMED, "Setup failed"
+        det.reset()
+        assert det._state == _SwipeState.IDLE
+
+    def test_reset_preserves_cooldown(self):
+        """When in COOLDOWN, reset() does NOT change state to IDLE."""
+        det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        results = _swipe_sequence(det, positions, dt=0.033)
+        assert any(r is not None for r in results), "Setup failed"
+        assert det._state == _SwipeState.COOLDOWN
+        det.reset()
+        assert det._state == _SwipeState.COOLDOWN
+
+    def test_reset_clears_armed_direction(self):
+        """After entering ARMED, reset() clears _armed_direction to None."""
+        det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        t = 0.0
+        for x, y in positions[:5]:
+            det.update(_make_wrist_landmarks(x, y), t)
+            t += 0.033
+            if det._state == _SwipeState.ARMED:
+                break
+        assert det._armed_direction is not None, "Setup failed"
+        det.reset()
+        assert det._armed_direction is None
