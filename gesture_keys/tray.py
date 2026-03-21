@@ -226,7 +226,7 @@ class TrayApp:
 
                     # Swipe detection (parallel path, bypasses smoother/debouncer)
                     if config.swipe_enabled:
-                        swipe_result = swipe_detector.update(landmarks, current_time)
+                        swipe_result = swipe_detector.update(landmarks or None, current_time)
                         if swipe_result is not None:
                             swipe_name = swipe_result.value
                             if swipe_name in swipe_key_mappings:

@@ -153,7 +153,10 @@ class SwipeDetector:
         if self._state == _SwipeState.COOLDOWN:
             if timestamp - self._cooldown_start >= self._cooldown_duration:
                 self._state = _SwipeState.IDLE
+                self._buffer.clear()
+                self._prev_speed = 0.0
                 logger.debug("Swipe COOLDOWN -> IDLE")
+                return None  # Skip this frame to avoid re-arming on stale motion
             else:
                 return None
 
