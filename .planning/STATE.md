@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Distance Threshold and Swiping Gestures
-status: in-progress
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-21T15:28:02.000Z"
-last_activity: 2026-03-21 -- Completed 05-01 SwipeDetector and Config
+status: completed
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-21T15:33:28.064Z"
+last_activity: 2026-03-21 -- Completed 05-02 Pipeline Integration
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 5 of 7 (Swipe Detection)
-Plan: 1 of 2
-Status: Plan 1 Complete
-Last activity: 2026-03-21 -- Completed 05-01 SwipeDetector and Config
+Plan: 2 of 2
+Status: Phase 5 Complete
+Last activity: 2026-03-21 -- Completed 05-02 Pipeline Integration
 
-Progress: [█████-----] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [█████-----] 50%
 *Updated after each plan completion*
 | Phase 04 P02 | 126s | 1 tasks | 2 files |
 | Phase 05 P01 | 243s | 2 tasks | 4 files |
+| Phase 05 P02 | 137 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Research]: Rolling deque (5-8 frames) for velocity, not frame-to-frame deltas (jitter-resistant)
 - [Research]: Mutual exclusion between swipe and static gestures via wrist velocity threshold
 - [Research]: No new dependencies needed -- all stdlib math and collections.deque
+- [Phase 05]: Swipe detection placed after debouncer fire block -- parallel path sharing landmarks variable
+- [Phase 05]: When swipe disabled, still call update(None) to keep buffer clear
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T15:28:02.000Z
-Stopped at: Completed 05-01-PLAN.md
-Resume file: .planning/phases/05-swipe-detection/05-01-SUMMARY.md
+Last session: 2026-03-21T15:33:28.062Z
+Stopped at: Completed 05-02-PLAN.md
+Resume file: None

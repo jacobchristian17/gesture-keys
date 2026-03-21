@@ -19,7 +19,7 @@
 ### v1.1 Distance Threshold and Swiping Gestures
 
 - [ ] **Phase 4: Distance Gating** - Filter gestures by hand proximity using palm span threshold
-- [ ] **Phase 5: Swipe Detection** - Detect four cardinal swipe directions as new gesture types
+- [x] **Phase 5: Swipe Detection** - Detect four cardinal swipe directions as new gesture types (completed 2026-03-21)
 - [ ] **Phase 6: Integration and Mutual Exclusion** - Wire distance and swipe into pipeline with cross-fire prevention
 - [ ] **Phase 7: Preview Overlays and Calibration** - Visual feedback for distance values and swipe events in preview window
 
@@ -48,7 +48,7 @@ Plans:
   3. Swipes fire once per motion with a cooldown that prevents double-firing on a single swipe movement
   4. Swipe detection works regardless of what hand pose the user holds during the swipe
   5. Casual hand repositioning and MediaPipe landmark jitter do not trigger false swipe detections
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 05-01-PLAN.md -- SwipeDetector class, config integration (TDD)
 - [ ] 05-02-PLAN.md -- Wire SwipeDetector into both detection loops
@@ -84,6 +84,6 @@ Plans:
 | 2. Gesture-to-Keystroke Pipeline | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 3. System Tray and Background Operation | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 4. Distance Gating | v1.1 | 0/2 | Planning | - |
-| 5. Swipe Detection | 1/2 | In Progress|  | - |
+| 5. Swipe Detection | 2/2 | Complete   | 2026-03-21 | - |
 | 6. Integration and Mutual Exclusion | v1.1 | 0/? | Not started | - |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Not started | - |
