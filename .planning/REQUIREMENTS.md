@@ -16,10 +16,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Keyboard Control
 
-- [ ] **KEY-01**: Map each gesture to configurable keyboard commands (single keys and combos) via YAML config
-- [ ] **KEY-02**: Debounce state machine with configurable activation delay (0.4s) and cooldown (0.8s)
-- [ ] **KEY-03**: Fire keyboard commands that work in any foreground application
-- [ ] **KEY-04**: Log detections and key fires with timestamps for debugging
+- [x] **KEY-01**: Map each gesture to configurable keyboard commands (single keys and combos) via YAML config
+- [x] **KEY-02**: Debounce state machine with configurable activation delay (0.4s) and cooldown (0.8s)
+- [x] **KEY-03**: Fire keyboard commands that work in any foreground application
+- [x] **KEY-04**: Log detections and key fires with timestamps for debugging
 - [ ] **KEY-05**: Hot-reload config.yaml without restarting the app
 
 ### System Tray
@@ -78,10 +78,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DET-02 | Phase 1 | Complete |
 | DET-03 | Phase 1 | Complete |
 | DET-04 | Phase 1 | Complete |
-| KEY-01 | Phase 2 | Pending |
-| KEY-02 | Phase 2 | Pending |
-| KEY-03 | Phase 2 | Pending |
-| KEY-04 | Phase 2 | Pending |
+| KEY-01 | Phase 2 | Complete |
+| KEY-02 | Phase 2 | Complete |
+| KEY-03 | Phase 2 | Complete |
+| KEY-04 | Phase 2 | Complete |
 | KEY-05 | Phase 2 | Pending |
 | TRAY-01 | Phase 3 | Pending |
 | TRAY-02 | Phase 3 | Pending |
