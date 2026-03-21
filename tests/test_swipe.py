@@ -353,3 +353,109 @@ class TestSwipeReset:
         assert det._armed_direction is not None, "Setup failed"
         det.reset()
         assert det._armed_direction is None
+
+
+class TestSwipeSettlingGuard:
+    """Tests for post-cooldown settling guard preventing false re-arming."""
+
+    def test_no_rearm_during_settling_period(self):
+        """After COOLDOWN->IDLE, swipe does not re-arm for settling_frames frames
+        even if velocity/displacement thresholds are met."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            cooldown_duration=0.1, settling_frames=5,
+        )
+        # Complete a swipe
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        results = _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
+        assert any(r is not None for r in results), "Setup: swipe should fire"
+        assert det._state == _SwipeState.COOLDOWN
+
+        # Advance past cooldown to trigger COOLDOWN->IDLE
+        det.update(_make_wrist_landmarks(0.3, 0.5), 1.0)
+        assert det._state == _SwipeState.IDLE
+
+        # Now feed a fast swipe during settling period -- should NOT arm
+        fast_positions = _generate_swipe_positions((0.3, 0.5), (0.8, 0.5), steps=5)
+        t = 1.033
+        for x, y in fast_positions:
+            result = det.update(_make_wrist_landmarks(x, y), t)
+            assert result is None, "Should not fire during settling period"
+            t += 0.033
+
+        # Should still be IDLE (not ARMED) due to settling guard
+        assert det._state == _SwipeState.IDLE
+
+    def test_swipe_arms_after_settling_expires(self):
+        """After settling period expires, swipe can arm normally on genuine motion."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            cooldown_duration=0.1, settling_frames=3,
+        )
+        # Complete a swipe
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
+
+        # Advance past cooldown
+        det.update(_make_wrist_landmarks(0.3, 0.5), 1.0)
+        assert det._state == _SwipeState.IDLE
+
+        # Burn through settling frames with stable position
+        t = 1.033
+        for _ in range(3):
+            det.update(_make_wrist_landmarks(0.3, 0.5), t)
+            t += 0.033
+
+        # Now a genuine swipe should be able to fire
+        fast_positions = _generate_swipe_positions((0.3, 0.5), (0.8, 0.5), steps=8)
+        results = []
+        for x, y in fast_positions:
+            results.append(det.update(_make_wrist_landmarks(x, y), t))
+            t += 0.033
+
+        fired = [r for r in results if r is not None]
+        assert len(fired) >= 1, "After settling expires, swipe should fire"
+
+    def test_settling_counter_resets_on_each_cooldown_transition(self):
+        """Each COOLDOWN->IDLE transition resets the settling counter."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            cooldown_duration=0.1, settling_frames=3,
+        )
+        # First swipe cycle
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
+        det.update(_make_wrist_landmarks(0.3, 0.5), 1.0)  # COOLDOWN->IDLE
+        assert det._settling_frames_remaining == 3
+
+        # Burn settling
+        t = 1.033
+        for _ in range(3):
+            det.update(_make_wrist_landmarks(0.3, 0.5), t)
+            t += 0.033
+        assert det._settling_frames_remaining == 0
+
+        # Second swipe cycle
+        positions2 = _generate_swipe_positions((0.3, 0.5), (0.8, 0.5), steps=8)
+        results2 = _swipe_sequence(det, positions2, start_time=t, dt=0.033)
+        assert any(r is not None for r in results2), "Second swipe should fire"
+
+        # Advance past cooldown again
+        det.update(_make_wrist_landmarks(0.6, 0.5), t + 1.0)
+        # Settling counter should be reset to 3 again
+        assert det._settling_frames_remaining == 3
+
+    def test_no_settling_without_recent_cooldown(self):
+        """Settling guard does not affect normal IDLE->ARMED when no recent cooldown."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            cooldown_duration=0.5, settling_frames=10,
+        )
+        # Fresh detector: settling_frames_remaining should be 0
+        assert det._settling_frames_remaining == 0
+
+        # Normal swipe should arm and fire without settling interference
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        results = _swipe_sequence(det, positions, dt=0.033)
+        fired = [r for r in results if r is not None]
+        assert len(fired) >= 1, "Normal swipe should fire without settling guard"
