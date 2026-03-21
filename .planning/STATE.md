@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Distance Threshold and Swiping Gestures
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-21T13:36:00Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-21T13:40:42.149Z"
 last_activity: 2026-03-21 -- Completed 04-01 DistanceFilter and config
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 4 of 7 (Distance Gating)
-Plan: 1 of 2
-Status: Executing
-Last activity: 2026-03-21 -- Completed 04-01 DistanceFilter and config
+Plan: 2 of 2
+Status: Phase Complete
+Last activity: 2026-03-21 -- Completed 04-02 Pipeline Integration
 
-Progress: [█████░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [█████░░░░░] 50%
 - Trend: Improving
 
 *Updated after each plan completion*
+| Phase 04 P02 | 126s | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,7 @@ Recent decisions affecting current work:
 - [Research]: Rolling deque (5-8 frames) for velocity, not frame-to-frame deltas (jitter-resistant)
 - [Research]: Mutual exclusion between swipe and static gestures via wrist velocity threshold
 - [Research]: No new dependencies needed -- all stdlib math and collections.deque
+- [Phase 04]: Reset smoother/debouncer only on in-range-to-out-of-range transition, not every filtered frame
 
 ### Pending Todos
 
@@ -80,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:36:00Z
-Stopped at: Completed 04-01-PLAN.md
-Resume file: .planning/phases/04-distance-gating/04-01-SUMMARY.md
+Last session: 2026-03-21T13:40:42.146Z
+Stopped at: Completed 04-02-PLAN.md
+Resume file: None
