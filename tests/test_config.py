@@ -1,10 +1,11 @@
 """Tests for gesture_keys.config module."""
 
 import os
-import pytest
-import tempfile
+import time
 
-from gesture_keys.config import load_config, AppConfig
+import pytest
+
+from gesture_keys.config import AppConfig, ConfigWatcher, load_config
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -136,3 +137,90 @@ class TestLoadConfigErrors:
         )
         with pytest.raises(ValueError):
             load_config(str(bad))
+
+
+class TestAppConfigTimingFields:
+    """Test activation_delay and cooldown_duration config fields."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "detection:\n  smoothing_window: 3\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    TIMING_YAML = (
+        "camera:\n  index: 0\n"
+        "detection:\n"
+        "  smoothing_window: 3\n"
+        "  activation_delay: 0.6\n"
+        "  cooldown_duration: 1.2\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    def test_activation_delay_from_config(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.TIMING_YAML)
+        config = load_config(str(cfg))
+        assert config.activation_delay == 0.6
+
+    def test_cooldown_duration_from_config(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.TIMING_YAML)
+        config = load_config(str(cfg))
+        assert config.cooldown_duration == 1.2
+
+    def test_activation_delay_default_when_missing(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.activation_delay == 0.4
+
+    def test_cooldown_duration_default_when_missing(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.cooldown_duration == 0.8
+
+    def test_default_config_has_timing_fields(self):
+        config = load_config(DEFAULT_CONFIG)
+        assert config.activation_delay == 0.4
+        assert config.cooldown_duration == 0.8
+
+
+class TestConfigWatcher:
+    """Test ConfigWatcher file change detection."""
+
+    def test_check_returns_false_when_unchanged(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text("camera:\n  index: 0\n")
+        watcher = ConfigWatcher(str(cfg), check_interval=0.0)
+        # First check establishes baseline, second should be False
+        watcher.check(0.0)
+        assert watcher.check(1.0) is False
+
+    def test_check_returns_true_when_file_modified(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text("camera:\n  index: 0\n")
+        watcher = ConfigWatcher(str(cfg), check_interval=0.0)
+        watcher.check(0.0)
+        # Ensure mtime changes (filesystem granularity)
+        time.sleep(0.05)
+        cfg.write_text("camera:\n  index: 1\n")
+        assert watcher.check(1.0) is True
+
+    def test_check_respects_interval(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text("camera:\n  index: 0\n")
+        watcher = ConfigWatcher(str(cfg), check_interval=10.0)
+        watcher.check(0.0)
+        time.sleep(0.05)
+        cfg.write_text("camera:\n  index: 1\n")
+        # Interval not elapsed, should return False
+        assert watcher.check(1.0) is False
+
+    def test_check_handles_missing_file(self, tmp_path):
+        missing = tmp_path / "nonexistent.yaml"
+        watcher = ConfigWatcher(str(missing), check_interval=0.0)
+        assert watcher.check(0.0) is False
