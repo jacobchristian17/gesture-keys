@@ -190,6 +190,47 @@ class TestAppConfigTimingFields:
         assert config.cooldown_duration == 0.8
 
 
+class TestDistanceConfig:
+    """Test distance gating config parsing."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    def test_distance_enabled_true_with_min_hand_size(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "distance:\n  enabled: true\n  min_hand_size: 0.20\n"
+        )
+        config = load_config(str(cfg))
+        assert config.distance_enabled is True
+        assert config.min_hand_size == 0.20
+
+    def test_distance_enabled_false_preserves_min_hand_size(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "distance:\n  enabled: false\n  min_hand_size: 0.20\n"
+        )
+        config = load_config(str(cfg))
+        assert config.distance_enabled is False
+        assert config.min_hand_size == 0.20
+
+    def test_missing_distance_section_defaults_disabled(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.distance_enabled is False
+        assert config.min_hand_size == 0.15
+
+    def test_default_config_yaml_has_distance_disabled(self):
+        config = load_config(DEFAULT_CONFIG)
+        assert config.distance_enabled is False
+
+
 class TestConfigWatcher:
     """Test ConfigWatcher file change detection."""
 

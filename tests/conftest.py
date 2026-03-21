@@ -180,6 +180,32 @@ def mock_landmarks_pinch():
 
 
 @pytest.fixture
+def mock_landmarks_close_hand():
+    """Hand close to camera -- palm span 0.25 (passes default 0.15 threshold).
+
+    WRIST at (0.5, 0.8), MIDDLE_MCP at (0.5, 0.55).
+    Palm span = sqrt((0)^2 + (0.25)^2) = 0.25
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        9: (0.5, 0.55, 0.0),   # MIDDLE_MCP
+    })
+
+
+@pytest.fixture
+def mock_landmarks_far_hand():
+    """Hand far from camera -- palm span 0.08 (fails default 0.15 threshold).
+
+    WRIST at (0.5, 0.8), MIDDLE_MCP at (0.5, 0.72).
+    Palm span = sqrt((0)^2 + (0.08)^2) = 0.08
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        9: (0.5, 0.72, 0.0),   # MIDDLE_MCP
+    })
+
+
+@pytest.fixture
 def mock_landmarks_none():
     """Ambiguous hand pose that should not match any gesture.
 
