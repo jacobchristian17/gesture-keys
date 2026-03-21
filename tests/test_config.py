@@ -226,9 +226,10 @@ class TestDistanceConfig:
         assert config.distance_enabled is False
         assert config.min_hand_size == 0.15
 
-    def test_default_config_yaml_has_distance_disabled(self):
+    def test_default_config_yaml_has_distance_enabled(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.distance_enabled is False
+        assert config.distance_enabled is True
+        assert config.min_hand_size == 0.15
 
 
 class TestConfigWatcher:
