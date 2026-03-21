@@ -45,11 +45,11 @@ Plans:
   3. Brief or flickering gestures (under 0.4 seconds) do not fire any key command
   4. Detection events and key fires are logged with timestamps to the console
   5. Editing config.yaml and triggering a reload applies new gesture-to-key mappings without restarting the app
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Debounce state machine and keystroke sender with TDD tests
+- [ ] 02-02-PLAN.md — Config extension, hot-reload, main loop wiring, and end-to-end verification
 
 ### Phase 3: System Tray and Background Operation
 **Goal**: App runs invisibly in the background as a system tray icon, controllable without a terminal
@@ -72,6 +72,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Detection and Preview | 1/3 | In Progress | - |
-| 2. Gesture-to-Keystroke Pipeline | 0/? | Not started | - |
+| 1. Detection and Preview | 3/3 | Complete | - |
+| 2. Gesture-to-Keystroke Pipeline | 0/2 | Not started | - |
 | 3. System Tray and Background Operation | 0/? | Not started | - |
