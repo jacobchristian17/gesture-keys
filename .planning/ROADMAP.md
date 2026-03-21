@@ -48,7 +48,10 @@ Plans:
   3. Swipes fire once per motion with a cooldown that prevents double-firing on a single swipe movement
   4. Swipe detection works regardless of what hand pose the user holds during the swipe
   5. Casual hand repositioning and MediaPipe landmark jitter do not trigger false swipe detections
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 05-01-PLAN.md -- SwipeDetector class, config integration (TDD)
+- [ ] 05-02-PLAN.md -- Wire SwipeDetector into both detection loops
 
 ### Phase 6: Integration and Mutual Exclusion
 **Goal**: Distance gating and swipe detection work together with static gestures without cross-firing or interference
@@ -81,6 +84,6 @@ Plans:
 | 2. Gesture-to-Keystroke Pipeline | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 3. System Tray and Background Operation | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 4. Distance Gating | v1.1 | 0/2 | Planning | - |
-| 5. Swipe Detection | v1.1 | 0/? | Not started | - |
+| 5. Swipe Detection | v1.1 | 0/2 | Planning | - |
 | 6. Integration and Mutual Exclusion | v1.1 | 0/? | Not started | - |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Not started | - |
