@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Distance Threshold and Swiping Gestures
-status: planning
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-21T13:20:33.844Z"
-last_activity: 2026-03-21 -- Roadmap created for v1.1 (phases 4-7)
+status: executing
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-21T13:36:00Z"
+last_activity: 2026-03-21 -- Completed 04-01 DistanceFilter and config
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 50
 ---
 
 # Project State
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 4 of 7 (Distance Gating)
-Plan: --
-Status: Ready to plan
-Last activity: 2026-03-21 -- Roadmap created for v1.1 (phases 4-7)
+Plan: 1 of 2
+Status: Executing
+Last activity: 2026-03-21 -- Completed 04-01 DistanceFilter and config
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: ~4min
 - Total execution time: ~0.5 hours
 
@@ -48,7 +48,7 @@ Progress: [░░░░░░░░░░] 0%
 | 3 - System Tray | 2 | 5min | 2.5min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (8min), 02-01 (2min), 02-02 (5min), 03-01 (2min), 03-02 (3min)
+- Last 5 plans: 02-01 (2min), 02-02 (5min), 03-01 (2min), 03-02 (3min), 04-01 (2min)
 - Trend: Improving
 
 *Updated after each plan completion*
@@ -60,6 +60,9 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [04-01]: Default min_hand_size=0.15 (mid-range, errs low to avoid false suppression)
+- [04-01]: enabled:false preserves min_hand_size value in config and AppConfig
+- [04-01]: Transition logging fires once per state change via _was_in_range flag
 - [Research]: Use WRIST-to-MIDDLE_MCP Euclidean distance as palm span proxy (pose-invariant, not z-coordinate)
 - [Research]: SwipeDetector must bypass GestureSmoother/GestureDebouncer -- parallel pipeline path with own cooldown
 - [Research]: Rolling deque (5-8 frames) for velocity, not frame-to-frame deltas (jitter-resistant)
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:20:33.841Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-distance-gating/04-CONTEXT.md
+Last session: 2026-03-21T13:36:00Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: .planning/phases/04-distance-gating/04-01-SUMMARY.md

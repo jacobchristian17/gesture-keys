@@ -10,8 +10,8 @@ Requirements for distance gating and swipe gesture detection. Each maps to roadm
 
 ### Distance Gating
 
-- [ ] **DIST-01**: User can configure a minimum hand size threshold in config.yaml to ignore hands too far from the camera
-- [ ] **DIST-02**: Gestures are only detected when the hand's palm span (wrist-to-MCP distance) exceeds the configured threshold
+- [x] **DIST-01**: User can configure a minimum hand size threshold in config.yaml to ignore hands too far from the camera
+- [x] **DIST-02**: Gestures are only detected when the hand's palm span (wrist-to-MCP distance) exceeds the configured threshold
 - [ ] **DIST-03**: Preview window displays the current palm span value so the user can calibrate the distance threshold
 
 ### Swipe Gestures
@@ -51,8 +51,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIST-01 | Phase 4 | Pending |
-| DIST-02 | Phase 4 | Pending |
+| DIST-01 | Phase 4 | Complete |
+| DIST-02 | Phase 4 | Complete |
 | DIST-03 | Phase 7 | Pending |
 | SWIPE-01 | Phase 5 | Pending |
 | SWIPE-02 | Phase 5 | Pending |
