@@ -16,10 +16,10 @@ Requirements for distance gating and swipe gesture detection. Each maps to roadm
 
 ### Swipe Gestures
 
-- [ ] **SWIPE-01**: User can perform swipe left, swipe right, swipe up, and swipe down hand movements that are detected as distinct gesture types
-- [ ] **SWIPE-02**: Each swipe direction can be mapped to a keyboard command in config.yaml, same as static gestures
-- [ ] **SWIPE-03**: Swipe detection uses wrist velocity tracking in a rolling buffer, firing once per swipe with its own cooldown
-- [ ] **SWIPE-04**: Swipe detection works with any hand pose (no pose gating required)
+- [x] **SWIPE-01**: User can perform swipe left, swipe right, swipe up, and swipe down hand movements that are detected as distinct gesture types
+- [x] **SWIPE-02**: Each swipe direction can be mapped to a keyboard command in config.yaml, same as static gestures
+- [x] **SWIPE-03**: Swipe detection uses wrist velocity tracking in a rolling buffer, firing once per swipe with its own cooldown
+- [x] **SWIPE-04**: Swipe detection works with any hand pose (no pose gating required)
 - [ ] **SWIPE-05**: Preview window shows detected swipe direction as visual feedback
 
 ### Integration
@@ -54,10 +54,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIST-01 | Phase 4 | Complete |
 | DIST-02 | Phase 4 | Complete |
 | DIST-03 | Phase 7 | Pending |
-| SWIPE-01 | Phase 5 | Pending |
-| SWIPE-02 | Phase 5 | Pending |
-| SWIPE-03 | Phase 5 | Pending |
-| SWIPE-04 | Phase 5 | Pending |
+| SWIPE-01 | Phase 5 | Complete |
+| SWIPE-02 | Phase 5 | Complete |
+| SWIPE-03 | Phase 5 | Complete |
+| SWIPE-04 | Phase 5 | Complete |
 | SWIPE-05 | Phase 7 | Pending |
 | INT-01 | Phase 6 | Pending |
 | INT-02 | Phase 6 | Pending |
