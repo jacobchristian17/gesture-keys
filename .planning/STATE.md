@@ -1,10 +1,10 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: distance-threshold-and-swiping-gestures
-status: in-progress
-stopped_at: null
-last_updated: "2026-03-21T13:00:00.000Z"
+milestone_name: Distance Threshold and Swiping Gestures
+status: planning
+stopped_at: Phase 4 context gathered
+last_updated: "2026-03-21T13:20:33.844Z"
 last_activity: 2026-03-21 -- Roadmap created for v1.1 (phases 4-7)
 progress:
   total_phases: 4
@@ -77,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21
-Stopped at: Roadmap created for v1.1
-Resume file: None
+Last session: 2026-03-21T13:20:33.841Z
+Stopped at: Phase 4 context gathered
+Resume file: .planning/phases/04-distance-gating/04-CONTEXT.md
