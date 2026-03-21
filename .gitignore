@@ -1,2 +1,4 @@
 .claude.sh
 __pycache__
+build
+_internal

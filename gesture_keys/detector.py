@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 import threading
 import urllib.request
 
@@ -79,6 +80,10 @@ class HandDetector:
     """
 
     def __init__(self, model_path: str = "models/hand_landmarker.task"):
+        # Resolve relative to exe directory when frozen (PyInstaller)
+        if not os.path.isabs(model_path):
+            base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(sys.argv[0])))
+            model_path = os.path.join(base, model_path)
         self._ensure_model(model_path)
 
         options = HandLandmarkerOptions(

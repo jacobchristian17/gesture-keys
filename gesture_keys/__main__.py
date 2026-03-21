@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import sys
 import time
 
@@ -227,6 +228,10 @@ def run_preview_mode(args):
 def main():
     """Run gesture-keys: tray mode by default, preview mode with --preview."""
     args = parse_args()
+    # Resolve config path relative to exe directory when frozen (PyInstaller)
+    if not os.path.isabs(args.config) and getattr(sys, 'frozen', False):
+        base = os.path.dirname(os.path.abspath(sys.argv[0]))
+        args.config = os.path.join(base, args.config)
     if args.preview:
         run_preview_mode(args)
     else:
