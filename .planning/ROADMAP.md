@@ -20,7 +20,7 @@
 
 - [ ] **Phase 4: Distance Gating** - Filter gestures by hand proximity using palm span threshold
 - [x] **Phase 5: Swipe Detection** - Detect four cardinal swipe directions as new gesture types (completed 2026-03-21)
-- [ ] **Phase 6: Integration and Mutual Exclusion** - Wire distance and swipe into pipeline with cross-fire prevention
+- [x] **Phase 6: Integration and Mutual Exclusion** - Wire distance and swipe into pipeline with cross-fire prevention (completed 2026-03-21)
 - [ ] **Phase 7: Preview Overlays and Calibration** - Visual feedback for distance values and swipe events in preview window
 
 ## Phase Details
@@ -62,7 +62,7 @@ Plans:
   2. Holding a static pose does not trigger false swipe events even though the wrist has minor movement
   3. When the hand is beyond the distance threshold, neither static gestures nor swipes fire
   4. Transitioning between swipe motion and held pose resolves cleanly without stuck states or missed gestures
-**Plans:** 4 plans (3 executed + 1 gap closure)
+**Plans:** 4/4 plans complete
 Plans:
 - [x] 06-01-PLAN.md -- SwipeDetector is_swiping property and reset() method (TDD)
 - [x] 06-02-PLAN.md -- Wire mutual exclusion into both detection loops
@@ -90,5 +90,5 @@ Plans:
 | 3. System Tray and Background Operation | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 4. Distance Gating | v1.1 | 0/2 | Planning | - |
 | 5. Swipe Detection | v1.1 | 2/2 | Complete | 2026-03-21 |
-| 6. Integration and Mutual Exclusion | v1.1 | 3/4 | In Progress | - |
+| 6. Integration and Mutual Exclusion | 4/4 | Complete   | 2026-03-21 | - |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Not started | - |

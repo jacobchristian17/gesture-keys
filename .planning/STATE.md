@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Distance Threshold and Swiping Gestures
 status: completed
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-03-21T19:08:26.405Z"
-last_activity: 2026-03-21 -- Completed 06-03 Mutual Exclusion Gap Closure
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-03-21T21:32:04.280Z"
+last_activity: 2026-03-21 -- Completed 06-04 Distance Config Gap Closure
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 8
+  completed_plans: 8
   percent: 100
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 6 of 7 (Integration and Mutual Exclusion)
-Plan: 3 of 3
-Status: Phase 06 Complete
-Last activity: 2026-03-21 -- Completed 06-03 Mutual Exclusion Gap Closure
+Plan: 4 of 4
+Status: Phase 06 Complete (including gap closure)
+Last activity: 2026-03-21 -- Completed 06-04 Distance Config Gap Closure
 
 Progress: [██████████] 100%
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100%
 | Phase 06 P01 | 139s | 2 tasks | 3 files |
 | Phase 06 P02 | 115s | 1 tasks | 2 files |
 | Phase 06 P03 | 216 | 2 tasks | 5 files |
+| Phase 06 P04 | 52s | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,7 @@ Recent decisions affecting current work:
 - [06-02]: is_swiping suppression feeds None to smoother (natural decay) rather than hard reset
 - [Phase 06]: Default 10 settling frames (~330ms) prevents post-cooldown re-arming
 - [Phase 06]: Belt-and-suspenders: debouncer gated during swiping even though smoother feeds None
+- [06-04]: distance: enabled: true by default in config.yaml so distance gating works out of the box
 
 ### Pending Todos
 
@@ -97,5 +99,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-21T19:03:12.803Z
-Stopped at: Completed 06-03-PLAN.md
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None
