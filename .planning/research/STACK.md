@@ -1,246 +1,149 @@
 # Stack Research
 
-**Domain:** Distance threshold and swipe gesture detection for gesture-keys v1.1
-**Researched:** 2026-03-21
+**Domain:** Real-time gesture state machine refactoring (v1.2 -- seamless transitions)
+**Researched:** 2026-03-22
 **Confidence:** HIGH
 
-## Executive Summary
+## Verdict: No New Dependencies
 
-No new dependencies are needed. Both distance-based gesture gating and swipe detection can be implemented entirely with data already available from MediaPipe's HandLandmarkerResult, combined with simple math (stdlib `math` module) and frame-over-frame position tracking using Python's `collections.deque`. The existing stack (mediapipe, opencv-python, pynput, pystray, PyYAML) is sufficient.
+The v1.2 features (gesture-to-gesture firing, faster swipe/static transitions, tuned defaults) are **pure state machine refactors** of existing code. No new libraries are needed. The existing stack is sufficient and adding dependencies would be counter-productive for a ~3K LOC synchronous-loop app running at 30+ FPS.
 
-## Recommended Stack Additions
+## Recommended Stack
 
 ### Core Technologies
 
-| Technology | Version | Purpose | Why Recommended |
+No additions. Existing stack unchanged.
+
+| Technology | Version | Purpose | Status for v1.2 |
 |------------|---------|---------|-----------------|
-| **None** | -- | -- | No new packages needed. All techniques use existing MediaPipe output + stdlib math. |
+| mediapipe | >=0.10.33 | Hand landmark detection | Unchanged -- classification layer not touched |
+| opencv-python | >=4.8.0 | Camera capture, preview | Unchanged |
+| pynput | >=1.7.6 | Keystroke simulation | Unchanged |
+| PyYAML | >=6.0 | Config loading/hot-reload | Schema additions only (settling_frames) |
+| pystray | >=0.19.5 | System tray app | Unchanged |
+| Pillow | >=10.0 | Tray icon rendering | Unchanged |
+| Python stdlib `enum`, `collections.deque`, `time` | stdlib | State machine states, buffers, timestamps | Already used; no changes |
 
-### Techniques (Not Libraries)
+### Supporting Libraries
 
-These are the implementation approaches, not new dependencies.
+No new supporting libraries needed.
 
-| Technique | Purpose | Inputs | Why This Approach |
-|-----------|---------|--------|-------------------|
-| Palm span proxy | Estimate hand distance from camera | `hand_landmarks` (image-space normalized) | Euclidean distance between WRIST(0) and MIDDLE_MCP(9) shrinks as hand moves away. No calibration needed for threshold gating -- just compare against a configurable normalized value. |
-| Wrist position delta tracking | Detect swipe direction | `hand_landmarks[0]` (WRIST) x,y across N frames | WRIST is the most stable landmark (least jitter from finger movement). Track position in a ring buffer, compute displacement vector over a time window. |
-| Velocity thresholding | Distinguish intentional swipes from drift | Wrist displacement / elapsed time | Require minimum velocity to trigger swipe, preventing slow hand repositioning from firing. |
-| Direction classification | Map movement vector to swipe direction | Displacement vector (dx, dy) | Use `atan2(dy, dx)` to get angle, bin into 4 quadrants (left/right/up/down). Require dominant axis magnitude > minor axis to reject diagonal noise. |
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| pytest | >=8.0 | Unit/integration testing | Test the refactored state machines -- new test cases for gesture-to-gesture transitions |
 
-## Distance Threshold: Technical Design
+### Development Tools
 
-### Approach: Palm Span as Distance Proxy
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| `--preview` flag | Visual debugging of transitions | Already exists; useful for verifying gesture-to-gesture flow |
+| DEBUG logging | Trace state machine transitions | Already instrumented in debounce.py and swipe.py |
 
-**What:** Measure the Euclidean distance between WRIST (landmark 0) and MIDDLE_MCP (landmark 9) in normalized image coordinates. This span is a proxy for how close the hand is to the camera -- closer hand = larger span, farther hand = smaller span.
+## What Actually Changes (Code, Not Dependencies)
 
-**Why WRIST-to-MIDDLE_MCP:**
-- These are skeletal joints, not fingertips -- they are stable regardless of which gesture is being made (fist, open palm, pointing all have the same wrist-to-MCP distance in real space)
-- The pair spans the palm length, giving a good signal-to-noise ratio
-- Both are reliably detected with low jitter
+### 1. GestureDebouncer -- Gesture-to-Gesture Transitions
 
-**Why NOT use world_landmarks or z-coordinate:**
-- `world_landmarks` are in meters with origin at the hand's geometric center -- they encode hand-relative 3D pose, not distance from camera. The origin moves with the hand, so absolute camera distance is not available from world_landmarks alone.
-- The `z` coordinate in image-space landmarks represents depth relative to the wrist, not distance from camera. Per MediaPipe docs: "the depth at the wrist being the origin, and the smaller the value the closer the landmark is to the camera." This is inter-landmark depth, not camera distance.
-- Palm span in normalized image coordinates is a direct, reliable proxy that requires zero calibration and works across different cameras and resolutions.
+**Current flow:** `IDLE -> ACTIVATING -> FIRED -> COOLDOWN -> IDLE`. The `_handle_cooldown` method (line 127-134 of debounce.py) requires `gesture is None` before transitioning back to IDLE. This forces users to drop their hand to "none" between every gesture.
 
-**Formula:**
-```python
-import math
+**New flow:** After COOLDOWN expires, if a *different* gesture is being held, transition directly to ACTIVATING for the new gesture. Only require None if the *same* gesture is still held (prevents re-fire of held pose). This requires:
 
-def palm_span(landmarks) -> float:
-    """Euclidean distance between WRIST and MIDDLE_MCP in normalized coords."""
-    wrist = landmarks[0]   # WRIST
-    mcp = landmarks[9]     # MIDDLE_MCP
-    dx = wrist.x - mcp.x
-    dy = wrist.y - mcp.y
-    return math.sqrt(dx * dx + dy * dy)
-```
+1. Add `_last_fired_gesture: Optional[Gesture]` field to track what fired
+2. Set it in `_handle_fired` when transitioning to COOLDOWN
+3. Modify `_handle_cooldown`: when cooldown expires AND gesture is not None AND gesture differs from `_last_fired_gesture`, go to ACTIVATING with the new gesture instead of staying in COOLDOWN
 
-**Config integration:**
-```yaml
-detection:
-  distance_threshold: 0.15  # minimum palm span (normalized) to accept gestures
-```
+**Implementation size:** ~15 lines changed in a 134-line file. No new classes, no new imports.
 
-A palm span below the threshold means the hand is too far away -- skip classification entirely. Typical values: approximately 0.25 at arm's length, approximately 0.10 at 1.5m away, approximately 0.35+ when hand is close to camera. Users tune via config; a default of 0.15 is a sensible starting point (rejects hands roughly >1m away).
+**Pattern:** This is a standard "transition-on-different-input" guard condition. No library needed -- it is a conditional check on a stored value.
 
-**Integration point:** This check goes in the pipeline BEFORE the classifier. If palm span is below threshold, return no gesture (same as no hand detected). This means the smoother, debouncer, and keystroke sender are unaffected.
+### 2. SwipeDetector -- Faster Swipe/Static Transitions
 
-### Alternative Considered: Bounding Box Area
+**Current issue:** `settling_frames=10` (hardcoded default in swipe.py line 61) blocks static gesture detection for ~333ms at 30fps after swipe cooldown ends. The `settling_frames_remaining` counter (line 219) burns frames in IDLE state before allowing re-arm. Combined with 0.5s cooldown, total swipe-to-static dead time is ~833ms.
 
-Could compute the bounding box of all 21 landmarks and use its area as a proxy. Rejected because:
-- Bounding box area changes with gesture (open palm is much larger than fist)
-- Palm span between skeletal joints is gesture-invariant
-- Bounding box requires iterating all 21 landmarks; palm span needs only 2
+**Fix:**
+- Reduce `settling_frames` default from 10 to 4 (~133ms at 30fps)
+- Wire `settling_frames` to YAML config (property setter already exists at line 125, just not connected to config loading)
+- Add to config schema in `config.py` and to hot-reload path in `__main__.py`
 
-## Swipe Detection: Technical Design
+**Static-to-swipe direction:** Currently works well. The `is_swiping` flag (line 129-134) suppresses static detection during swipes, and `smoother.reset()` + `debouncer.reset()` are called on swipe entry (main loop lines 229-231). No changes needed for static-to-swipe.
 
-### Approach: Wrist Velocity in a Sliding Window
+### 3. Tuned Defaults
 
-**What:** Track the WRIST landmark position across frames in a ring buffer. When displacement over a time window exceeds a velocity threshold and has a clear dominant direction, fire the corresponding swipe gesture.
+The user has already tuned values in config.yaml through real-world usage. Code defaults should match proven values so new users get good defaults.
 
-**Why WRIST landmark:**
-- Most stable point on the hand -- fingertip landmarks jitter significantly during finger movement
-- Represents whole-hand translation, not finger articulation
-- Already indexed as landmark 0 in the existing codebase
+| Parameter | Code Default | User config.yaml | New Code Default | Rationale |
+|-----------|-------------|-----------------|-----------------|-----------|
+| `activation_delay` | 0.4s | 0.1s | 0.15s | User proved 0.1s works; 0.15s adds minimal safety margin for new users |
+| `cooldown_duration` | 0.8s | 0.5s | 0.3s | With gesture-to-gesture support, cooldown can be much shorter since same-gesture re-fire is separately guarded |
+| `smoothing_window` | 3 | 1 | 1 | Window=1 effectively disables smoothing; user proved classifier output is stable enough without it |
+| `swipe.cooldown` | 0.5s | 0.5s | 0.3s | Reduce dead time after swipe; user may want to adjust |
+| `swipe.settling_frames` | 10 | (not exposed) | 4 | Reduce post-swipe settling from ~333ms to ~133ms; newly exposed in config |
+| `swipe.min_velocity` | 0.4 | 0.15 | 0.15 | User's real-world tuning is validated |
+| `swipe.min_displacement` | 0.08 | 0.03 | 0.03 | User's real-world tuning is validated |
 
-**Core algorithm:**
-```python
-from collections import deque
-import math
+### Files That Change
 
-class SwipeDetector:
-    def __init__(self, min_velocity=0.8, window_seconds=0.3, cooldown=0.5):
-        self._history = deque(maxlen=30)  # (x, y, timestamp) tuples
-        self._min_velocity = min_velocity       # normalized units/second
-        self._window_seconds = window_seconds   # look-back window
-        self._cooldown = cooldown
-        self._last_swipe_time = 0.0
+| File | Change |
+|------|--------|
+| `debounce.py` | Add `_last_fired_gesture` tracking, modify `_handle_cooldown` for gesture-to-gesture |
+| `swipe.py` | Update default values |
+| `config.py` | Add `settling_frames` to swipe config schema |
+| `__main__.py` | Wire `settling_frames` from config to SwipeDetector, update hot-reload path |
+| `config.yaml` | Update defaults, add `settling_frames` option |
+| `tests/test_debounce.py` | Add gesture-to-gesture transition test cases |
 
-    def update(self, wrist_x, wrist_y, timestamp):
-        """Add wrist position. Returns swipe direction string or None."""
-        self._history.append((wrist_x, wrist_y, timestamp))
+### Files That Do NOT Change
 
-        if timestamp - self._last_swipe_time < self._cooldown:
-            return None
-
-        # Find oldest sample within the time window
-        oldest = None
-        for x, y, t in self._history:
-            if timestamp - t <= self._window_seconds:
-                oldest = (x, y, t)
-                break
-
-        if oldest is None:
-            return None
-
-        dx = wrist_x - oldest[0]
-        dy = wrist_y - oldest[1]
-        dt = timestamp - oldest[2]
-
-        if dt < 0.05:  # need at least ~50ms of data
-            return None
-
-        velocity = math.sqrt(dx*dx + dy*dy) / dt
-
-        if velocity < self._min_velocity:
-            return None
-
-        # Require dominant axis (reject diagonals)
-        if abs(dx) > abs(dy) * 1.5:
-            direction = "swipe_right" if dx > 0 else "swipe_left"
-        elif abs(dy) > abs(dx) * 1.5:
-            direction = "swipe_down" if dy > 0 else "swipe_up"
-        else:
-            return None  # diagonal -- ignore
-
-        self._last_swipe_time = timestamp
-        self._history.clear()  # reset after firing
-        return direction
-```
-
-**Key design decisions:**
-
-1. **Sliding window, not frame-to-frame delta:** Frame-to-frame is too noisy (single dropped frame causes huge velocity spike). A 0.3s window smooths out jitter while still being responsive.
-
-2. **Velocity threshold, not displacement threshold:** A slow hand repositioning over 2 seconds covers the same distance as a quick swipe. Velocity (displacement/time) distinguishes intentional swipes from drift.
-
-3. **Dominant axis requirement (1.5x ratio):** Rejects diagonal motion that does not clearly map to a single direction. The 1.5x multiplier means horizontal displacement must be at least 1.5x vertical to register as left/right. Tunable.
-
-4. **Cooldown + history clear after fire:** Prevents a single swipe from firing multiple times as the hand decelerates. Clearing the history means the next swipe starts fresh.
-
-5. **Swipe gestures bypass the static gesture pipeline:** Swipes are motion events, not poses. They should not go through the smoother/debouncer (which are designed for held poses). Swipes fire immediately when detected, with their own cooldown.
-
-**Config integration:**
-```yaml
-gestures:
-  swipe_left:
-    key: alt+left
-  swipe_right:
-    key: alt+right
-  swipe_up:
-    key: ctrl+up
-  swipe_down:
-    key: ctrl+down
-
-detection:
-  swipe_velocity: 0.8      # normalized units/second
-  swipe_window: 0.3         # seconds to measure velocity over
-  swipe_cooldown: 0.5       # seconds between swipe fires
-```
-
-**Integration point:** The SwipeDetector runs in parallel with the static gesture classifier. Each frame, the wrist position is fed to both the SwipeDetector and the classifier. If SwipeDetector fires, it takes priority (suppress static gesture for that frame). The SwipeDetector outputs a string like "swipe_left" that maps directly to config keys.
-
-## Pipeline Integration Summary
-
-```
-Camera Frame
-    |
-    v
-HandDetector.detect() -- returns landmarks (or empty)
-    |
-    v
-[NEW] Distance gate -- palm_span(landmarks) >= threshold?
-    |                        |
-    | YES                    | NO --> treat as no hand
-    v                        v
-+---+---+              return None
-|       |
-v       v
-SwipeDetector.update(wrist)    GestureClassifier.classify(landmarks)
-    |                               |
-    | swipe detected?               v
-    | YES --> fire swipe key    GestureSmoother.update()
-    | NO  --> continue               |
-    v                               v
-                              GestureDebouncer.update()
-                                    |
-                                    v
-                              KeystrokeSender (if fired)
-```
+| File | Why Unchanged |
+|------|---------------|
+| `detector.py` | MediaPipe pipeline untouched |
+| `classifier.py` | Gesture classification untouched |
+| `smoother.py` | Already effectively disabled at window=1 |
+| `keystroke.py` | Keystroke sending untouched |
+| `distance.py` | Distance gating untouched |
+| `activation.py` | Activation gate untouched |
+| `preview.py` | Preview rendering untouched |
+| `tray.py` | Tray app untouched |
+| `requirements.txt` | No new dependencies |
 
 ## Alternatives Considered
 
-| Recommended | Alternative | Why Not |
-|-------------|-------------|---------|
-| Palm span (WRIST-MIDDLE_MCP) for distance | Z-coordinate depth | Z is relative to wrist, not camera distance |
-| Palm span for distance | World landmarks | Origin is at hand center, not camera; does not encode camera distance |
-| Palm span for distance | Bounding box area | Area changes with gesture shape; palm span is gesture-invariant |
-| Wrist position tracking for swipe | Fingertip tracking | Fingertips jitter during gesture transitions; wrist is stable |
-| Velocity threshold for swipe | Displacement-only threshold | Slow drift covers same distance as fast swipe; velocity discriminates intent |
-| Sliding window velocity | Frame-to-frame delta | Too noisy; dropped frames cause false spikes |
-| Separate swipe pipeline | Swipes through smoother/debouncer | Smoother is designed for held poses (majority vote); swipes are instantaneous events with opposite temporal characteristics |
-| `collections.deque` for history | numpy arrays | Overkill; deque is stdlib, maxlen handles ring buffer natively, no dependency needed |
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Hand-rolled state machines (keep current) | `transitions` library (v0.9.2, [GitHub](https://github.com/pytransitions/transitions)) | Only if state machines grow beyond ~10 states with complex guard conditions and you need visualization/diagrams. Current machines have 3-4 states. |
+| Hand-rolled state machines (keep current) | `python-statemachine` (v3.0.0, [PyPI](https://pypi.org/project/python-statemachine/)) | Only if you need hierarchical states or auto-generated state diagrams. Not applicable here. |
+| Modify existing debouncer | New "ContinuousDebouncer" class | Only if the original debouncer needs to remain available for backward compatibility. Since this is the same app, modifying in place is simpler. |
+| Raw MediaPipe landmarks + custom classifier | MediaPipe Gesture Recognizer Task API | Only if dropping custom gestures (scout, pinch thresholds). Not applicable for v1.2. |
 
-## What NOT to Add
+## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| **numpy** for swipe math | Only need Euclidean distance and atan2 on 2-3 points per frame; stdlib `math` is sufficient and avoids adding a direct dependency | `math.sqrt`, `math.atan2` |
-| **scipy** for signal filtering | Smoothing is already handled by GestureSmoother; swipe detection uses a time window which is inherently smooth | Sliding window approach |
-| **MediaPipe GestureRecognizer** task | Different task than HandLandmarker; would require switching models, losing the existing landmark-based classifier, and adds a heavier model for recognizing only 7 static gestures (no swipe support anyway) | Keep HandLandmarker + custom classifier |
-| **OpenCV optical flow** | Operates on pixel-level motion, not semantic hand position; much heavier compute for worse results when landmarks are already available | Landmark position tracking |
-| **Machine learning for swipe classification** | 4-direction swipe from a velocity vector is trivially solved with atan2 and axis dominance check; ML adds training data requirements and complexity for no benefit | Rule-based direction classification |
-| **Kalman filter for landmark smoothing** | The existing GestureSmoother handles classification noise; wrist position is already stable enough; Kalman filter adds complexity without measurable benefit for this use case | Raw wrist position + time window averaging |
+| `transitions` library | Adds import-time overhead (~50ms) and stack trace complexity through library internals for two 50-line state machines. The DSL learning curve and debugging cost exceeds the 15-line modification needed. | Keep hand-rolled state machines with the surgical modifications described above |
+| `python-statemachine` | Same reasoning. Class decorator DSL is elegant but the abstraction adds complexity without reducing it for 3-4 state machines. | Keep hand-rolled state machines |
+| `asyncio` patterns | Main loop is synchronous `while True` at 30fps with threaded camera capture. Async would require rewriting the entire pipeline for zero benefit. State machine updates are microseconds. | Keep synchronous loop with `time.perf_counter()` |
+| Event bus / pub-sub libraries | The pipeline is a linear chain (camera -> detect -> classify -> smooth -> debounce -> fire). There is no fan-out or dynamic subscription. An event bus adds indirection for no benefit. | Keep direct method calls |
+| RxPY / reactive streams | Same reasoning as event bus. The pipeline processes one frame at a time, synchronously. Reactive streams are for async/concurrent data flows. | Keep synchronous loop |
 
-## Version Compatibility
+## Real-Time Gesture State Machine Patterns (From Research)
 
-No new packages, so no new compatibility concerns. Existing stack is unchanged:
+No specialized libraries exist for "real-time gesture state machines" as a category. The standard approach across MediaPipe gesture projects is exactly what gesture-keys already does: hand-rolled state machines with enum states, timestamp-based transitions, and cooldown guards. The `transitions` library is the most popular general Python state machine library but is designed for application-level state management (workflows, protocols), not per-frame real-time processing.
 
-| Package | Current | Compatible With | Notes |
-|---------|---------|-----------------|-------|
-| mediapipe | >=0.10.x | HandLandmarkerResult includes hand_world_landmarks since 0.10.0 | Not needed for distance proxy, but available if future features need world-space data |
-| opencv-python | >=4.x | mediapipe >=0.10.x | Already in use, no changes |
-| collections.deque | stdlib | All Python 3.x | No version concern; used for swipe history ring buffer |
+**Key pattern for gesture-to-gesture transitions** (used in multiple open-source gesture control projects): Track the "last fired gesture" separately from the "current gesture being held." Allow re-entry to the activation state when the held gesture differs from the last fired one. This is the exact pattern recommended for the debouncer modification above.
+
+## Installation
+
+```bash
+# No changes to installation:
+pip install -r requirements.txt
+```
 
 ## Sources
 
-- [MediaPipe Hand Landmarker docs (Google AI Edge)](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) -- confirmed output includes hand_landmarks, hand_world_landmarks, handedness; z-coordinate semantics verified (HIGH confidence)
-- [MediaPipe Hands legacy docs](https://mediapipe.readthedocs.io/en/latest/solutions/hands.html) -- confirmed z-coordinate is "depth at wrist being origin", x/y normalized to [0.0, 1.0], z magnitude "uses roughly the same scale as x" (HIGH confidence)
-- [MediaPipe Hand Landmarker Python guide](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/python) -- confirmed HandLandmarkerResult structure with hand_landmarks and hand_world_landmarks arrays (HIGH confidence)
-- [Hand-Distance-Measurement repo](https://github.com/MohamedAlaouiMhamdi/Hand-Distance-Measurement) -- uses landmark-pair distances with polynomial regression for cm conversion; validates landmark distance approach but calibration is unnecessary for threshold gating (MEDIUM confidence)
-- Existing codebase (`classifier.py`, `detector.py`, `smoother.py`, `debounce.py`) -- confirmed landmark indices, coordinate access patterns, current pipeline architecture (HIGH confidence)
+- [pytransitions/transitions GitHub](https://github.com/pytransitions/transitions) -- evaluated as state machine library, rejected for real-time per-frame use case (HIGH confidence)
+- [python-statemachine PyPI](https://pypi.org/project/python-statemachine/) -- evaluated as state machine library, rejected (HIGH confidence)
+- [MediaPipe Gesture Recognizer Python guide](https://developers.google.com/mediapipe/solutions/vision/gesture_recognizer/python) -- evaluated built-in gesture API, rejected for lacking custom gesture support (HIGH confidence)
+- Codebase analysis of `debounce.py`, `swipe.py`, `__main__.py`, `config.yaml`, `smoother.py` -- primary source for all recommendations (HIGH confidence)
 
 ---
-*Stack research for: gesture-keys v1.1 distance threshold and swipe gestures*
-*Researched: 2026-03-21*
+*Stack research for: gesture-keys v1.2 seamless gesture transitions*
+*Researched: 2026-03-22*

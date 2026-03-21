@@ -1,262 +1,248 @@
-# Pitfalls Research
+# Domain Pitfalls
 
-**Domain:** Adding distance-based filtering and swipe/motion gestures to an existing static gesture recognition pipeline (MediaPipe 21 hand landmarks, rule-based classifier, majority-vote smoother, debounce state machine)
-**Researched:** 2026-03-21
-**Confidence:** HIGH (domain-specific to this codebase architecture, informed by MediaPipe documentation, gesture recognition literature, and codebase analysis)
+**Domain:** Seamless gesture transitions for real-time gesture-to-keystroke system
+**Researched:** 2026-03-22
+**Focus:** Adding direct gesture-to-gesture firing, faster swipe/static transitions, tuning defaults
+**Confidence:** HIGH -- all findings from direct analysis of the existing codebase state machines
 
 ## Critical Pitfalls
 
-### Pitfall 1: Using MediaPipe Z-coordinate as absolute distance from camera
+Mistakes that cause double-fires, stuck states, or require rearchitecting the state machine.
 
-**What goes wrong:**
-Developers assume `landmark.z` gives camera-to-hand distance in real units. It does not. MediaPipe's z-coordinate is relative depth normalized to the wrist, scaled roughly proportional to x. It tells you which finger is closer to the camera relative to the wrist, not how far the hand is from the lens. Using raw z for "distance gating" produces inconsistent behavior that varies with hand size, hand angle, and position in frame.
+### Pitfall 1: Double-Fire on Transitional Poses
 
-**Why it happens:**
-The MediaPipe docs say z represents "landmark depth" which sounds like camera distance. Developers conflate relative inter-landmark depth with absolute camera proximity. The z values are small floats that seem plausible as distances.
+**What goes wrong:** When removing the "must return to None" requirement from the debouncer, transitioning from gesture A to gesture B passes through ambiguous intermediate hand shapes. The classifier momentarily reports gesture C (a transitional pose) for 1-3 frames, which -- if the activation delay is too short -- fires an unintended keystroke.
 
-**How to avoid:**
-Use **apparent hand size** in normalized image coordinates as a proxy for camera distance. Specifically, compute the Euclidean distance between wrist (landmark 0) and middle finger MCP (landmark 9) in the x,y plane. This is the metacarpal bone length -- it does not change with finger extension and scales inversely with camera distance. A hand closer to the camera produces a larger value. Set a minimum threshold below which gestures are ignored.
+**Why it happens:** The current state machine (IDLE -> ACTIVATING -> FIRED -> COOLDOWN -> IDLE) assumes each gesture cycle starts clean from IDLE. Allowing COOLDOWN to transition directly to ACTIVATING for a *different* gesture means the classifier's transitional noise between poses A and B becomes a firing candidate. For example, transitioning from FIST to PEACE often passes through POINTING (index extends first) for 2-3 frames. With the current config (activation_delay=0.1s, smoothing_window=1), there is essentially zero noise rejection.
 
-**Warning signs:**
-- Distance filter seems to work at one hand position but not another
-- Users at different physical distances from camera get wildly different behavior
-- Threshold values that "work" on your test setup fail for anyone else
-- Filter works for one gesture but not another at the same real-world distance
+**Consequences:** Unintended keystroke fires. In the current config, going from FIST (esc) to PEACE (win+ctrl+left) could momentarily fire POINTING (alt+tab) -- a disruptive false fire that switches windows.
 
-**Phase to address:**
-Phase 1 (Distance Threshold) -- this is the foundational design decision for the feature.
+**Prevention:**
+- Require the *new* gesture (different from the just-fired one) to meet the full activation_delay before firing. The COOLDOWN->ACTIVATING transition must reset the activation timer completely.
+- Add a `_last_fired_gesture` field to the debouncer. When a new gesture appears in COOLDOWN, start ACTIVATING but do NOT carry over any elapsed time.
+- Keep the smoother window as a first line of defense -- transitional frames should be absorbed by majority vote before reaching the debouncer. The current window=1 provides no smoothing at all; consider requiring window >= 3 when direct transitions are enabled.
+- Consider a minimum "transition gap" (e.g., 2-3 frames of the new gesture after the old one disappears) even if you remove the None requirement.
 
----
+**Detection:** Log every FIRED event with the previous gesture. If you see A -> C -> B patterns where C was not intended, transitional pose leakage is occurring.
 
-### Pitfall 2: Distance proxy that varies with hand pose / orientation
-
-**What goes wrong:**
-Using hand bounding box area or wrist-to-fingertip span as a distance proxy breaks when the hand changes pose. A fist at 50cm from the camera has a much smaller bounding box than an open palm at the same distance. A hand viewed edge-on (karate chop orientation) has a tiny span. The distance filter incorrectly gates out gestures depending on which gesture the user is making -- effectively breaking certain gestures at certain distances.
-
-**Why it happens:**
-The proxy is tested with one gesture (usually open palm, the most visually obvious) and seems to work. Other gestures at the same physical distance produce different proxy values because the measured landmarks move with finger articulation.
-
-**How to avoid:**
-Use the distance between landmarks that are structurally stable across all gestures: **wrist (landmark 0) to middle finger MCP (landmark 9)**. This segment is the metacarpal bone and does not change length regardless of finger extension, fist, pinch, or pointing. Alternatively, palm width (index MCP landmark 5 to pinky MCP landmark 17) is also stable. Do NOT use fingertip-based measurements or convex hull area -- both change dramatically with pose.
-
-**Warning signs:**
-- Distance filter works for open palm but rejects fist at the same real-world distance
-- User must move closer to the camera for some gestures than others
-- Threshold must be set very permissive to work across all gestures, defeating the purpose of distance gating
-
-**Phase to address:**
-Phase 1 (Distance Threshold) -- choice of distance metric must be validated across all 7 existing gestures.
+**Phase:** Address in Phase 1 (direct transitions). This is the primary risk of the entire milestone.
 
 ---
 
-### Pitfall 3: Swipe detection that fights the debounce state machine
+### Pitfall 2: Cooldown Removal Causes Repeat-Firing on Held Gestures
 
-**What goes wrong:**
-The existing pipeline is: classifier -> smoother (majority vote) -> debouncer (activation delay + cooldown) -> keystroke sender. The debouncer requires a gesture to be held continuously for `activation_delay` before firing, then enters cooldown. Swipe gestures are inherently transient -- a hand sweeps across in 200-400ms. If swipe events are fed through the same debouncer, they either never fire (the classification only appears for a few frames, fewer than the activation delay requires) or fire too late (the hand has stopped moving, the pose may now resemble a static gesture, causing confusion).
+**What goes wrong:** In pursuit of faster transitions, developers reduce cooldown_duration too aggressively or skip it entirely for same-gesture re-fires. The held gesture re-enters ACTIVATING immediately after FIRED and fires again after another activation_delay, creating rapid-fire keystroke spam.
 
-**Why it happens:**
-It is the path of least resistance to add a new `Gesture.SWIPE_LEFT` enum value and feed it through the same pipeline. The debouncer was designed specifically for static hold-to-activate gestures and its timing model is fundamentally incompatible with transient motion events.
+**Why it happens:** The current design explicitly prevents this -- COOLDOWN requires `gesture is None` before returning to IDLE (debounce.py line 131-132). Modifying COOLDOWN to allow direct transition to ACTIVATING for a *different* gesture can accidentally also allow same-gesture re-activation if the condition check is wrong.
 
-**How to avoid:**
-Swipe detection must use a **parallel path** that bypasses both the `GestureSmoother` and `GestureDebouncer`. Build a dedicated `SwipeDetector` component that tracks wrist position over a rolling window, computes displacement and velocity, and fires directly to the keystroke sender. The swipe detector needs its own independent cooldown to prevent double-fires, but must not share the static gesture debouncer. The architecture becomes:
+**Consequences:** Holding FIST sends repeated `esc` keystrokes. Holding OPEN_PALM sends repeated `win+tab`. This makes the app unusable.
 
-```
-landmarks --> classifier --> smoother --> debouncer --> keystroke (static gestures)
-landmarks --> swipe_detector ---------------------------------> keystroke (swipe gestures)
-```
+**Prevention:**
+- The COOLDOWN->ACTIVATING transition MUST check `gesture != last_fired_gesture`. Same-gesture still requires None first.
+- Add a `_last_fired_gesture` field. In COOLDOWN, only transition to ACTIVATING when: (a) cooldown duration has elapsed AND (b) current gesture is not None AND (c) current gesture differs from `_last_fired_gesture`.
+- Keep the existing behavior as the default. The "return to None" path remains for same-gesture; only *different* gestures get the direct transition.
+- Write explicit test: hold gesture A for 5 seconds, verify exactly 1 fire event.
 
-**Warning signs:**
-- Swipes only register when user moves hand unrealistically slowly
-- Fast, natural swipes never fire
-- Swipe fires but then a static gesture also fires immediately after (or vice versa)
-- Reducing activation_delay to accommodate swipes causes static gesture false-fires
+**Detection:** Count fire events per gesture per second. More than 1 fire per 2 seconds for any single gesture is a bug.
 
-**Phase to address:**
-Phase 2 (Swipe Gestures) -- this is an architectural decision that must be made before writing any swipe code.
+**Phase:** Address in Phase 1 alongside direct transitions. Must be tested simultaneously.
 
 ---
 
-### Pitfall 4: Swipe detection on raw per-frame landmark positions (jitter sensitivity)
+### Pitfall 3: Swipe/Static Mutual Exclusion Race on Transition Back
 
-**What goes wrong:**
-MediaPipe landmarks jitter frame-to-frame even when the hand is completely stationary. The wrist landmark can wobble 1-3% of normalized coordinates between consecutive frames. A naive swipe detector that computes displacement between consecutive frames will see phantom micro-movements everywhere, causing false swipe detections. Or, thresholds are raised so high to avoid false positives that real swipes are missed.
+**What goes wrong:** Reducing settling_frames (currently 10, ~330ms) or swipe cooldown creates a window where the swipe detector has cleared `is_swiping` but the static pipeline's smoother still contains stale gesture data from before the swipe. The stale smoother output causes a false static fire immediately after a swipe.
 
-**Why it happens:**
-Developers test with deliberate, exaggerated swipes and set thresholds to match. In real use, the user's hand at rest produces enough jitter to cross low thresholds, and the user's natural swipes are smaller than the developer's testing swipes.
+**Why it happens:** The current code resets smoother and debouncer when `is_swiping` transitions from False to True (__main__.py lines 229-231). But when is_swiping transitions back to False, there is NO corresponding reset -- it lets the smoother and debouncer naturally refill. With 10 settling frames, the smoother has plenty of time to flush stale data. With fewer settling frames, stale data may survive.
 
-**How to avoid:**
-Track wrist position in a small rolling deque (5-8 frames). Compute displacement as the vector from the oldest buffered position to the newest -- NOT frame-to-frame deltas. This naturally smooths jitter because noise averages out over the window. Additionally, require both: (a) total displacement above a minimum threshold, AND (b) displacement in the primary axis is at least 2-3x the displacement in the perpendicular axis, to distinguish deliberate directional swipes from general hand movement or wobble. Use velocity (displacement / elapsed time) rather than raw displacement so detection is frame-rate independent.
+**Consequences:** Completing a swipe_left (fires `right` key) immediately followed by a false OPEN_PALM fire (fires `win+tab`). Extremely disruptive.
 
-**Warning signs:**
-- Swipe events fire when user is holding a static gesture (hand at rest)
-- "Ghost swipes" when hand enters or leaves the frame
-- Swipe detection works at 30fps but breaks at 15fps (under CPU load) or 60fps (faster camera)
-- Swipes fire in random directions when user repositions hand
+**Prevention:**
+- When `was_swiping` transitions from True to False, reset the smoother AND debouncer. Add this as a mirror of the existing swipe-start reset:
+  ```python
+  if not swiping and was_swiping:
+      smoother.reset()
+      debouncer.reset()
+  ```
+- This is **missing from the current code** and should be added regardless of settling_frames changes. It is a latent bug that only does not manifest because settling_frames=10 provides enough time.
+- Settling frames can then be reduced safely because the smoother starts clean.
+- Test: complete swipe, immediately present a static gesture, verify no fire until full activation_delay elapses.
 
-**Phase to address:**
-Phase 2 (Swipe Gestures) -- core detection algorithm design.
+**Detection:** Log both swipe fires and static fires with timestamps. Any static fire within 200ms of a swipe fire is suspicious.
 
----
-
-### Pitfall 5: Swipe and static gesture mutual interference (cross-firing)
-
-**What goes wrong:**
-During a swipe, the hand passes through multiple static gesture poses. A leftward swipe might briefly resemble "pointing" as fingers trail, or "open palm" mid-sweep. The static gesture pipeline fires an unintended keystroke mid-swipe. Conversely, transitioning between static gestures (e.g., going from fist to open palm) involves hand movement that the swipe detector interprets as a directional swipe.
-
-**Why it happens:**
-Two independent detectors looking at the same landmark stream without coordination will both claim the input. There is no concept of "the hand is currently in motion, ignore static classifications" or "the hand is holding a static pose, ignore displacement."
-
-**How to avoid:**
-Implement a **mutual exclusion gate** based on wrist velocity:
-1. Compute wrist velocity over the last N frames continuously.
-2. When velocity exceeds a "hand is moving" threshold, suppress the static gesture pipeline (classifier output is treated as None, smoother buffer stays frozen or is cleared).
-3. When velocity drops below a "hand is still" threshold for M consecutive frames, resume static detection.
-4. While the static pipeline has a gesture in ACTIVATING or FIRED state, suppress swipe detection (the hand is intentionally holding a pose, not swiping).
-
-**Warning signs:**
-- Random keystrokes fire during swipe motions
-- Slow swipes trigger static gesture key mappings
-- Quick gesture transitions (fist -> open palm) register as accidental swipes
-- The system feels "confused" -- doing one thing triggers two actions
-
-**Phase to address:**
-Phase 3 (Integration / Polish) -- after both features work independently, their interaction must be tested and gated.
+**Phase:** Address in Phase 2 (swipe/static transitions). This is the highest-risk item for that phase.
 
 ---
 
-### Pitfall 6: Hardcoded thresholds that break across cameras and users
+### Pitfall 4: Smoother Window and Activation Delay Fight Each Other
 
-**What goes wrong:**
-Distance thresholds and swipe displacement thresholds tuned on one webcam (e.g., 720p, 70-degree FOV) fail on another webcam (1080p, 90-degree FOV, or a laptop's narrow-angle camera). MediaPipe normalizes landmarks to [0, 1] relative to the image frame. A wider FOV camera means the hand occupies a smaller fraction of normalized coordinate space at the same physical distance. Users with smaller hands also produce smaller landmark spans.
+**What goes wrong:** The smoother (majority-vote, window_size=1 currently) and activation_delay (0.1s currently) are tuned together as a system. Changing one without adjusting the other creates either: (a) too-slow response (large window + long delay stack additively) or (b) too-sensitive response (small window + short delay = no noise rejection).
 
-**Why it happens:**
-Developers tune thresholds on their own hardware setup and hand, then ship those values as defaults. There is no calibration step.
+**Why it happens:** Total latency from gesture start to fire = smoother fill time + activation delay. With window=3 at 30fps, smoother adds ~100ms. With the current config (window=1, delay=0.1s), total latency is ~130ms -- extremely fast but relies on the classifier being clean on every single frame. When direct transitions are enabled, the classifier WILL produce transitional noise that window=1 cannot absorb.
 
-**How to avoid:**
-1. Make ALL thresholds user-configurable in `config.yaml` with documented defaults: `distance_threshold`, `swipe_min_displacement`, `swipe_cooldown`, `swipe_direction_ratio`.
-2. In `--preview` mode, overlay the live distance proxy value and wrist velocity on the video frame so users can see what values to set.
-3. Document in config comments: "Adjust distance_threshold by running with --preview and noting the value displayed when your hand is at your preferred maximum distance."
-4. Consider auto-calibration in a future version: on first detection, record the hand size reference and normalize subsequent readings.
+**Consequences:** Users (or developers tuning defaults) change one parameter and get unexpected behavior changes. Increasing smoother window for "better reliability" makes the system feel sluggish. Decreasing activation delay for "faster response" causes false fires because the smoother was the only noise barrier.
 
-**Warning signs:**
-- Feature works on developer's machine, fails on user's laptop webcam
-- Bug reports about "gestures not detected" that are actually threshold mismatches
-- Thresholds need unintuitive decimal-precision tuning (is 0.08 or 0.12 right?)
+**Prevention:**
+- Document the relationship: `perceived_latency = (window_size / fps) + activation_delay`.
+- When recommending defaults, specify smoother AND delay together as a pair.
+- Consider exposing a single "responsiveness" parameter that adjusts both proportionally, rather than two independent knobs.
+- Test default combinations against the full gesture transition matrix (all 7 gestures to all 7 others) to find false-fire rates.
+- For direct transitions, a minimum of window=3 + delay=0.15s is likely needed (total ~250ms) to absorb transitional poses.
 
-**Phase to address:**
-Phase 1 for distance config, Phase 2 for swipe config, Phase 3 for preview overlay calibration aids.
+**Detection:** Measure actual fire latency from gesture start. If it deviates significantly from the formula, something is wrong.
 
----
+**Phase:** Address in Phase 3 (tuning defaults). Requires the direct transition changes to be stable first.
 
-### Pitfall 7: Hand entry/exit triggering false swipe detections
+## Moderate Pitfalls
 
-**What goes wrong:**
-When a hand enters the camera frame from the side, the first detected position is at the frame edge. The next frame detects the hand slightly more centered. The swipe detector sees a large positional jump and fires a swipe event. Similarly, when the hand leaves the frame, the last few detections produce erratic landmark positions as MediaPipe loses tracking, which look like rapid movement.
+### Pitfall 5: Classifier Ambiguity Zones Between Adjacent Gestures
 
-**Why it happens:**
-The swipe detector has no concept of "hand just appeared" vs "hand has been continuously tracked." The first frame after hand detection has no prior position to compare against, but developers initialize the position buffer with zeros or the first detection, creating an artificial displacement.
+**What goes wrong:** Some gesture pairs share transitional hand shapes that the rule-based classifier cannot distinguish cleanly. The worst confusable pairs based on the priority-ordered classifier (classifier.py):
+- **PEACE <-> SCOUT**: 2 vs 3 extended fingers. Ring finger partially extended oscillates classification.
+- **POINTING <-> PEACE**: 1 vs 2 fingers. Middle finger partially extended oscillates.
+- **FIST <-> THUMBS_UP**: Thumb state is the only differentiator. Thumb angle near the threshold oscillates.
+- **OPEN_PALM <-> SCOUT**: Pinky state is the only differentiator. Pinky near threshold oscillates.
 
-**How to avoid:**
-Add a **settling period** after hand detection begins: require N consecutive frames of hand presence (e.g., 5-8 frames, ~200ms at 30fps) before the swipe detector begins tracking. When hand detection is lost (landmarks become empty), clear the swipe position buffer entirely. On re-detection, the settling period restarts.
+With direct transitions enabled, these oscillations become firing candidates rather than being absorbed by the "return to None" gate.
 
-**Warning signs:**
-- Moving hand into camera frame triggers a swipe every time
-- Removing hand from frame triggers a swipe in the opposite direction
-- Intermittent hand tracking loss (e.g., from poor lighting) causes swipe spam
+**Prevention:**
+- Map the confusable pairs and ensure activation_delay absorbs their oscillation period. At 30fps, a 3-frame oscillation is 100ms -- activation_delay must exceed this for gesture-to-gesture transitions.
+- Consider adding "transition hysteresis" for known confusable pairs: once gesture A is in ACTIVATING, only allow transition to a *non-adjacent* gesture (not its confusable neighbor) without an extended delay.
+- The priority order helps but does not eliminate the problem when the classifier genuinely alternates between two gestures frame-to-frame.
 
-**Phase to address:**
-Phase 2 (Swipe Gestures) -- build the settling period into the SwipeDetector from the start.
+**Phase:** Phase 1 (direct transitions). Test specifically with confusable pairs.
 
----
+### Pitfall 6: Settling Frames Are Frame-Count Based, Not Time-Based
 
-## Technical Debt Patterns
+**What goes wrong:** The swipe detector's `settling_frames` (currently 10) is a frame count, not a time duration. At 30fps this is ~330ms, but if the system drops to 15fps (CPU load, background tasks), it becomes ~660ms. If the system runs at 60fps (faster hardware), it shrinks to ~166ms.
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Feeding swipes through existing debouncer | No new components needed | Swipes never fire reliably; leads to compromised timing that breaks static gestures too | Never |
-| Using landmark z for distance | One-line implementation | Unreliable gating that varies per session, hand size, and angle | Never |
-| Single hardcoded swipe threshold | Quick to implement | Different users/cameras cannot use the feature | MVP only -- must be configurable before any release |
-| Computing swipe from frame-to-frame deltas | Simpler math, no buffer needed | Jitter-sensitive, frame-rate dependent, false positives | Never -- rolling buffer is nearly as simple and correct |
-| No mutual exclusion between swipe and static | Ship both features faster | Constant cross-firing in real use; top user-facing bug | Never |
-| No settling period for swipe detector | Simpler state management | Hand entry/exit constantly triggers false swipes | Never -- trivially cheap to implement, expensive to debug without |
+**Prevention:**
+- Convert settling_frames to a time-based `settling_duration` (in seconds). Replace the frame counter with a timestamp comparison, matching how cooldown_duration already works in the same class.
+- This also makes the config more intuitive: "settling: 0.15" (seconds) is clearer than "settling_frames: 10".
+- If keeping frame count for simplicity, document the FPS dependency and note the effective duration range.
 
-## Integration Gotchas
+**Phase:** Phase 2 (swipe transitions). Natural time to refactor this.
 
-| Integration Point | Common Mistake | Correct Approach |
-|-------------------|----------------|------------------|
-| SwipeDetector + existing pipeline | Adding swipe as a new `Gesture` enum value processed by same smoother/debouncer | SwipeDetector is a parallel component receiving raw landmarks with its own output path to keystroke sender |
-| Distance filter placement | Applying distance filter after classification (rejecting already-classified gestures) | Apply distance filter before classification -- if hand is too far, skip classification entirely; avoids polluting smoother buffer with spurious None values |
-| Swipe cooldown + debounce cooldown | Sharing a single cooldown timer between swipe and static paths | Independent cooldowns -- swipe cooldown prevents double-swipe, debounce cooldown prevents static repeat-fire; they must not block each other |
-| Config schema for new gesture types | Adding swipe entries alongside static gestures in the same `gestures:` block | Use a separate `swipes:` config section with its own parameters (min_displacement, cooldown, direction_ratio) |
-| Preview overlay for new metrics | Not displaying distance proxy or swipe state in preview mode | Show distance proxy value, wrist velocity, and swipe detection indicators on preview frame for calibration |
-| Distance filter + swipe detector | Distance filter suppresses landmarks before swipe detector sees them, so hand moving away cancels mid-swipe | Once a swipe is being tracked (motion started), do not apply distance gating until swipe completes or times out |
+### Pitfall 7: Hot-Reload Desynchronizes State Machines
 
-## Performance Traps
+**What goes wrong:** Config hot-reload (__main__.py lines 258-284) resets the debouncer but NOT the smoother when parameters change. It also does not reset the swipe detector's settling state. If a user changes activation_delay mid-gesture, the debouncer resets to IDLE but the smoother still contains the old gesture data, potentially causing an immediate re-activation with the new (possibly shorter) delay.
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| Storing unbounded landmark history for swipe detection | Memory grows linearly with session time; GC pauses | Use a fixed-size `deque(maxlen=8)` for position buffer; discard old data automatically | After hours of continuous use |
-| Computing convex hull every frame for distance bounding box | 1-2ms extra per frame, drops FPS on slow machines | Use simple wrist-to-MCP two-point Euclidean distance (microseconds) | On low-end CPUs already near 30fps limit |
-| Running swipe velocity computation when no hand is detected | Wasted cycles, potential errors on empty buffers | Guard swipe computation behind `if landmarks:` check; clear buffer on hand loss | Immediately if hand frequently enters/leaves frame |
-| Recomputing distance proxy for both distance filter and swipe detector | Redundant computation of the same landmark distances | Compute distance proxy once per frame, share the value between distance filter and swipe detector | Minor but compounds with other per-frame overhead |
+**Prevention:**
+- On config reload, reset ALL stateful components: smoother, debouncer, swipe detector, and any new transition state.
+- Add `smoother.reset()` to the hot-reload block.
+- This is already a latent bug in the current code; it becomes more dangerous with direct transitions because the state machine has more paths and a stale smoother can immediately push a gesture into the new COOLDOWN->ACTIVATING path.
 
-## UX Pitfalls
+**Phase:** Phase 1 or 2. Fix during whichever phase touches the reload logic first.
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| No feedback when hand is "too far" (distance gating silently rejects) | User makes gestures, nothing happens, thinks app is broken | In preview mode, show "TOO FAR" text overlay when hand is detected but below distance threshold |
-| Swipe sensitivity too high by default | Casual hand repositioning triggers constant accidental swipes | Default to conservative thresholds (require deliberate motion); let users lower sensitivity in config |
-| No visual indicator of swipe detection in preview | User has no idea if swipe was detected or which direction was recognized | In preview mode, draw a directional arrow overlay briefly when a swipe fires |
-| Distance gating interrupts mid-swipe | Hand moves further from camera during swipe, distance proxy dips below threshold, swipe is cancelled partway through | Once swipe tracking begins, exempt from distance gating until swipe completes or times out |
-| Ambiguous diagonal swipes guess wrong direction | User swipes diagonally, system picks a random axis, wrong keystroke fires | Require dominant axis displacement to be 2-3x the minor axis; reject ambiguous diagonals silently rather than guessing |
-| Swipe works but there is no "undo" if wrong direction | User accidentally swipes left instead of right, triggers wrong action | This is inherent to gesture input; keep swipe cooldown long enough to prevent rapid accidental follow-up actions |
+### Pitfall 8: Insufficient Test Coverage for New State Transitions
+
+**What goes wrong:** The current test suite (test_debounce.py) thoroughly tests IDLE->ACTIVATING->FIRED->COOLDOWN->IDLE but has zero tests for the new COOLDOWN->ACTIVATING path. Developers add the new transition, manually test it "works," ship it, and discover edge cases later.
+
+**Prevention:** Before implementing, write tests for these specific scenarios:
+1. COOLDOWN + different gesture -> ACTIVATING -> FIRED (happy path)
+2. COOLDOWN + same gesture -> stays in COOLDOWN (no re-fire)
+3. COOLDOWN + different gesture + flicker back to original -> no fire
+4. Rapid A -> B -> A -> B cycling (stress test: 4 transitions in 3 seconds)
+5. A -> None -> B vs A -> B (both should fire B, timing should be comparable)
+6. A fires, immediately switch to B, B fires, immediately switch to A (round trip)
+7. A fires, switch to confusable neighbor of A (e.g., PEACE -> SCOUT) -> must wait full delay
+
+The test_integration_mutual_exclusion.py pattern is a good template to replicate for debouncer transitions.
+
+**Phase:** Phase 1. Write tests before implementation (TDD).
+
+### Pitfall 9: Swipe Detector Re-Arms from Residual Hand Motion After Cooldown
+
+**What goes wrong:** After a swipe fires and cooldown expires, the hand is still decelerating. If settling_frames is reduced, the residual velocity from the tail end of the swipe immediately re-arms the detector, causing a phantom second swipe.
+
+**Why it happens:** The current code clears the buffer on COOLDOWN->IDLE transition (swipe.py line 187) and sets settling_frames_remaining. But if settling_frames is reduced to, say, 3, only ~100ms of settling occurs -- the hand may still be moving at detectable velocity.
+
+**Prevention:**
+- Convert to time-based settling (see Pitfall 6) and set the minimum to at least 150ms regardless of user config.
+- On COOLDOWN->IDLE, clear the buffer AND reset `_prev_speed` to 0 (already done, line 188). The settling guard is the last defense -- do not reduce it below the physical hand deceleration time.
+- Test: perform a swipe, verify exactly 1 fire event even with settling_frames=3.
+
+**Phase:** Phase 2 (swipe transitions).
+
+## Minor Pitfalls
+
+### Pitfall 10: Activation Delay Too Short for Direct Transitions
+
+**What goes wrong:** The current config has activation_delay=0.1s. This is safe when "return to None" acts as an implicit debounce gate between gestures. Without that gate, 0.1s is dangerously short for direct transitions -- a transitional hand pose lasting 3 frames at 30fps (100ms) will fire.
+
+**Prevention:**
+- Consider separate delays: `activation_delay` for first gesture (from None), `transition_delay` for gesture-to-gesture. The transition delay should be slightly longer (e.g., 0.2s) to absorb transitional poses.
+- Alternatively, keep a single delay but recommend a minimum of 0.15-0.2s when direct transitions are enabled.
+- The architecture decision (one delay vs two) should be made in Phase 1 even if the final values are tuned in Phase 3.
+
+**Phase:** Architecture in Phase 1, final values in Phase 3.
+
+### Pitfall 11: Swipe During Gesture Transition Creates Phantom Swipe
+
+**What goes wrong:** Transitioning from one static gesture to another involves moving the hand. If the movement is fast enough, the swipe detector may interpret it as a swipe, especially with lowered min_velocity/min_displacement thresholds. The current config has low thresholds (min_velocity=0.15, min_displacement=0.03) which are aggressive.
+
+**Prevention:**
+- The existing axis_ratio filter (1.5) helps (gesture transitions are rarely perfectly cardinal).
+- Consider suppressing swipe detection during the ACTIVATING state of the static debouncer -- if the user is clearly in the process of changing static gestures, they are not swiping.
+- Monitor: if swipe false-fires increase after reducing thresholds, this is the likely cause.
+
+**Phase:** Phase 2 (swipe transitions).
+
+### Pitfall 12: Preview Overlay Hides State Machine Bugs
+
+**What goes wrong:** The preview window shows the smoother's output gesture but not the debouncer's state, fire events, or transition type. Developers think a gesture is "detected" because the preview shows it, but the debouncer has not fired. Or the debouncer fires from stale state that the preview does not surface.
+
+**Prevention:**
+- Add debouncer state to the preview overlay (e.g., "FIST [ACTIVATING 0.3s]" or "FIRED!" flash).
+- Show whether the current transition is "from None" vs "from [previous gesture]" to debug direct transition logic.
+- Log every state transition at INFO level during development (currently DEBUG).
+
+**Phase:** Phase 1. Add before implementing transitions so you can see what the state machine is doing.
+
+## Phase-Specific Warnings
+
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| Direct gesture-to-gesture transitions | Double-fire on transitional poses (Pitfall 1) | Full activation_delay for new gesture after COOLDOWN; test confusable pairs |
+| Direct gesture-to-gesture transitions | Same-gesture repeat-fire (Pitfall 2) | COOLDOWN->ACTIVATING ONLY for different gesture; same-gesture still requires None |
+| Direct gesture-to-gesture transitions | Insufficient test coverage (Pitfall 8) | Write tests for all new transition paths before implementation |
+| Direct gesture-to-gesture transitions | Preview does not show new states (Pitfall 12) | Add debouncer state to preview before implementing |
+| Swipe/static transition speed | Stale smoother data after swipe ends (Pitfall 3) | Reset smoother AND debouncer on swipe->static transition (currently missing!) |
+| Swipe/static transition speed | Frame-count settling is FPS-dependent (Pitfall 6) | Convert to time-based settling_duration |
+| Swipe/static transition speed | Residual velocity re-arms swipe (Pitfall 9) | Minimum settling time floor; test with reduced settling values |
+| Swipe/static transition speed | Phantom swipe from gesture change (Pitfall 11) | Monitor swipe false-fire rate; axis_ratio is first defense |
+| Tuning defaults | Smoother/delay parameter coupling (Pitfall 4) | Document and test as a pair; test with transition matrix |
+| Tuning defaults | Activation delay too short for transitions (Pitfall 10) | Consider separate transition_delay or raise minimum |
+| All phases | Hot-reload desync (Pitfall 7) | Reset all stateful components on config reload |
+
+## Integration Risk Map
+
+The highest-risk integration point is where all three changes intersect: **a user performs gesture A, quickly transitions to gesture B, then swipes**. This exercises:
+- Direct transition logic (A -> B without None)
+- Swipe/static mutual exclusion (B suppressed during swipe)
+- Swipe-to-static return (smoother reset on swipe end)
+- All timing parameters simultaneously
+
+This compound scenario must be an explicit integration test case. The individual features are moderate risk; the combination is high risk.
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Distance threshold:** Works for open palm, but also test with fist, pointing, pinch, and scout at same physical distance -- verify the proxy metric produces consistent values (+/- 20%) across all poses
-- [ ] **Swipe detection at varying FPS:** Works at 30fps, but test at 15fps (simulate CPU load) -- verify velocity calculation is time-based, not frame-count-based
-- [ ] **Swipe + static mutual exclusion:** Perform a swipe gesture, verify no static keystroke fires during the motion. Perform a quick gesture transition (fist to palm), verify no swipe fires
-- [ ] **Hand entry/exit:** Move hand into frame from off-screen -- verify no swipe fires for the first ~200ms after detection begins
-- [ ] **Config reload:** Change distance_threshold and swipe settings in config.yaml, verify hot-reload applies new values to both distance filter and swipe detector without restart
-- [ ] **Both hands visible:** Verify swipe tracking follows the right hand and does not jump between hands when both are in frame (detector already filters for right hand only)
-- [ ] **Swipe during cooldown:** Fire a swipe, immediately swipe again -- verify cooldown prevents double-fire but does not permanently block subsequent swipes
-- [ ] **Distance filter + activation gate:** If using the existing ActivationGate, verify distance filter and activation gate work together correctly (distance gating should apply before the gate, not after)
-
-## Recovery Strategies
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Used z-coordinate for distance | LOW | Replace distance metric function only; if properly abstracted behind a `compute_distance_proxy(landmarks)` function, swap implementation with no interface change |
-| Fed swipes through debouncer | MEDIUM | Extract swipe detection into parallel component, add new output path to keystroke sender, adjust main loop to call both paths |
-| No mutual exclusion gate | MEDIUM | Add wrist velocity tracking, insert gating logic between both detection paths; requires touching the main detection loop |
-| Hardcoded thresholds | LOW | Extract to config.yaml, add config loading; mechanical refactor |
-| Frame-to-frame swipe deltas | LOW | Replace delta computation with rolling buffer approach; localized change within SwipeDetector |
-| No settling period on hand entry | LOW | Add frame counter to SwipeDetector, suppress output until counter exceeds threshold; ~10 lines of code |
-| Cross-firing between swipe and static | MEDIUM | Requires adding velocity-based gating and testing all combinations; most time is in testing, not coding |
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Z-coordinate as distance proxy | Phase 1 (Distance Threshold) | Unit test: `compute_distance_proxy()` uses only x,y of wrist and MCP landmarks, never z |
-| Pose-varying distance proxy | Phase 1 (Distance Threshold) | Test distance metric with fist, palm, pointing landmarks at same simulated distance; values within 20% |
-| Swipe through debouncer architecture | Phase 2 (Swipe Gestures) | Architecture review: SwipeDetector has independent output path, does not pass through GestureSmoother or GestureDebouncer |
-| Jitter-based false swipes | Phase 2 (Swipe Gestures) | Test: feed 60 frames of stationary hand landmarks with realistic jitter, zero swipe events fire |
-| Hand entry false swipes | Phase 2 (Swipe Gestures) | Test: simulate hand appearing at frame edge then centering over 10 frames, no swipe fires |
-| Swipe/static cross-firing | Phase 3 (Integration) | Integration test: perform swipe, verify no static keystroke during motion; perform quick pose change, verify no swipe fires |
-| Hardcoded thresholds | Phase 1 + Phase 2 | Config.yaml has `distance_threshold`, `swipe_min_displacement`, `swipe_cooldown`, `swipe_direction_ratio` keys |
-| Camera/FOV variation | Phase 3 (Integration) | Preview mode shows live distance proxy value and swipe velocity/direction indicators |
+- [ ] Hold gesture A for 10 seconds with direct transitions enabled -- verify exactly 1 fire
+- [ ] Transition A -> B for all 7x6=42 gesture pairs -- verify no unintended C fires
+- [ ] Specifically test confusable pairs: PEACE<->SCOUT, POINTING<->PEACE, FIST<->THUMBS_UP
+- [ ] Complete swipe, immediately hold static gesture -- verify no false static fire
+- [ ] Rapid swipe -> static -> swipe -> static (4 transitions in 3 seconds) -- verify correct fires only
+- [ ] Change activation_delay via hot-reload mid-gesture -- verify no crash or false fire
+- [ ] Test with window=1 (current) AND window=3 -- verify both work with direct transitions
+- [ ] Measure total perceived latency for gesture-to-gesture transition -- should be < 500ms
 
 ## Sources
 
-- [MediaPipe Hand Landmark Z-coordinate discussion (Issue #742)](https://github.com/google/mediapipe/issues/742) -- confirms z is relative to wrist, not absolute camera distance
-- [MediaPipe distance from camera discussion (Issue #1153)](https://github.com/google/mediapipe/issues/1153) -- confirms bounding box size is the recommended proxy for camera distance
-- [MediaPipe Hand Landmarker official guide](https://developers.google.com/mediapipe/solutions/vision/hand_landmarker) -- landmark coordinate specification
-- [5 Things I Wish I Knew Before Using MediaPipe for Hand Gesture Recognition](https://dev.to/trojanmocx/5-things-i-wish-i-knew-before-using-mediapipe-for-hand-gesture-recognition-41gb) -- jitter, confidence tuning, lighting sensitivity
-- [MediaPipe Hands paper (arXiv:2006.10214)](https://ar5iv.labs.arxiv.org/html/2006.10214) -- landmark model architecture and coordinate normalization
-- [Dynamic Hand Gesture Recognition Using MediaPipe and Transformer](https://www.mdpi.com/2673-4591/108/1/22) -- swipe detection accuracy with temporal models
-- Codebase analysis: `gesture_keys/classifier.py` (7 static gestures, priority-ordered), `gesture_keys/smoother.py` (majority-vote deque), `gesture_keys/debounce.py` (4-state machine with activation delay + cooldown), `gesture_keys/detector.py` (right-hand only, VIDEO mode)
+- Direct analysis of gesture-keys source code: debounce.py (4-state machine, lines 76-134), swipe.py (3-state machine with settling, lines 148-265), smoother.py (majority-vote deque), __main__.py (main loop integration, lines 183-309), classifier.py (7 gestures, priority-ordered)
+- State machine transition analysis from test_debounce.py (14 tests covering current paths) and test_integration_mutual_exclusion.py (5 tests for swipe/static exclusion)
+- Config analysis: config.yaml production values (activation_delay=0.1s, cooldown=0.5s, smoothing_window=1, settling_frames=10, swipe min_velocity=0.15, min_displacement=0.03)
+- Latent bug identified: missing smoother/debouncer reset on swipe->static transition (__main__.py lacks the mirror of lines 229-231)
 
 ---
-*Pitfalls research for: Adding distance threshold and swipe gestures to gesture-keys v1.1*
-*Researched: 2026-03-21*
+*Pitfalls research for: gesture-keys v1.2 seamless gesture transitions*
+*Researched: 2026-03-22*

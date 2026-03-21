@@ -1,414 +1,360 @@
-# Architecture: Distance Threshold and Swipe Gestures
+# Architecture Research: Seamless Gesture Transitions (v1.2)
 
-**Domain:** Extending gesture-keys pipeline with distance gating and swipe detection
-**Researched:** 2026-03-21
-**Confidence:** HIGH
+**Domain:** Real-time gesture-to-keystroke pipeline -- seamless transition support
+**Researched:** 2026-03-22
+**Confidence:** HIGH (analysis based on full codebase read, no external dependencies)
 
-## Existing Pipeline (Current v1.0)
-
-```
-CameraCapture (thread) -> HandDetector (MediaPipe) -> GestureClassifier -> GestureSmoother -> GestureDebouncer -> KeystrokeSender
-```
-
-Each frame flows: `frame -> landmarks -> Gesture enum -> smoothed Gesture -> fire-or-None -> keystroke`. The pipeline lives in both `__main__.py` (preview mode) and `tray.py` (tray mode) as duplicated loop code.
-
-## Integration Architecture for v1.1
-
-### New Components
-
-Two new modules, one modified enum, config changes. No existing components need architectural changes -- the new components slot into the existing linear pipeline.
+## Current Pipeline (v1.1)
 
 ```
-CameraCapture -> HandDetector -> [DistanceFilter] -> GestureClassifier -> [SwipeDetector] -> GestureSmoother -> GestureDebouncer -> KeystrokeSender
-                                  ^^ NEW                                    ^^ NEW
-```
-
-### Component: DistanceFilter (`distance.py`)
-
-**Position in pipeline:** Between HandDetector output and GestureClassifier input.
-
-**Purpose:** Gate out hands that are too far from the camera. When the hand is far away, landmarks are noisy and gestures are unreliable. The filter passes landmarks through when the hand is "close enough" and returns empty list (no hand) when too far.
-
-**Design decision -- hand size as distance proxy:**
-
-MediaPipe's z-coordinate is relative to the wrist, NOT absolute distance from camera. It cannot be used for distance gating. Instead, use the **bounding box diagonal of the 21 landmarks in normalized coordinates** as a proxy for hand proximity. A hand close to the camera occupies a larger fraction of the frame; a distant hand is small.
-
-This is the correct approach because:
-- Normalized x,y coordinates are always available (no extra computation)
-- Bounding box size correlates directly with distance (bigger = closer)
-- No camera calibration required
-- Works across different camera resolutions and FOVs
-
-**Interface:**
-
-```python
-class DistanceFilter:
-    """Filters out hands that are too far from the camera.
-
-    Uses bounding box diagonal of the 21 landmarks as a distance proxy.
-    Larger diagonal = closer hand = passes filter.
-    """
-
-    def __init__(self, min_size: float = 0.15):
-        """
-        Args:
-            min_size: Minimum bounding box diagonal (normalized 0-1).
-                      Default 0.15 means hand must span at least 15%
-                      of the frame diagonal. Typical values:
-                      - 0.10: permissive (arm's length)
-                      - 0.15: moderate (forearm distance)
-                      - 0.25: strict (close to camera)
-        """
-
-    def check(self, landmarks: list) -> bool:
-        """Return True if hand is close enough, False if too far."""
-
-    @property
-    def last_size(self) -> float:
-        """Last computed hand size, for preview overlay display."""
-```
-
-**Implementation detail:** Compute bounding box as `max(x) - min(x)` and `max(y) - min(y)` across all 21 landmarks, then diagonal = `sqrt(dx^2 + dy^2)`. Compare against threshold. This is O(21) per frame -- negligible.
-
-**Config integration:**
-
-```yaml
-detection:
-  smoothing_window: 1
-  activation_delay: 0.05
-  cooldown_duration: 0.5
-  min_hand_size: 0.15  # NEW -- minimum bounding box diagonal (0.0 to disable)
-```
-
-Setting `min_hand_size: 0.0` disables distance filtering entirely (backwards compatible).
-
-### Component: SwipeDetector (`swipe.py`)
-
-**Position in pipeline:** Between GestureClassifier output and GestureSmoother input (parallel path).
-
-**Purpose:** Detect directional hand movement (left/right/up/down) and emit swipe gestures. Swipes are fundamentally different from static gestures -- they are temporal events detected across multiple frames, not single-frame poses.
-
-**Design decision -- wrist trajectory tracking:**
-
-Track the wrist landmark (index 0) position across frames. When wrist moves a sufficient distance in a consistent direction within a time window, emit a swipe gesture. Use wrist because:
-- Most stable landmark (not affected by finger pose changes)
-- Available whenever any hand is detected
-- Movement of wrist = movement of entire hand
-
-**Interface:**
-
-```python
-class SwipeDetector:
-    """Detects directional swipe gestures from wrist movement over time.
-
-    Tracks wrist position across frames. When wrist moves beyond
-    a distance threshold in a consistent direction within a time window,
-    emits a swipe gesture.
-    """
-
-    def __init__(
-        self,
-        min_distance: float = 0.15,
-        max_duration: float = 0.5,
-        min_speed: float = 0.3,
-    ):
-        """
-        Args:
-            min_distance: Minimum wrist displacement (normalized coords)
-                          to qualify as a swipe.
-            max_duration: Maximum seconds for the swipe motion.
-                          Prevents slow drifts from triggering.
-            min_speed: Minimum speed (distance/second) to qualify.
-                       Prevents accidental slow movements.
-        """
-
-    def update(self, landmarks: list | None, timestamp: float) -> Gesture | None:
-        """Process landmarks for current frame.
-
-        Args:
-            landmarks: 21 landmarks or None/empty if no hand detected.
-            timestamp: Current time from time.perf_counter().
-
-        Returns:
-            Gesture.SWIPE_LEFT/RIGHT/UP/DOWN if swipe detected, else None.
-        """
-
-    def reset(self) -> None:
-        """Clear tracking state (e.g., on config reload)."""
-```
-
-**Swipe detection algorithm:**
-
-1. Each frame: record `(wrist.x, wrist.y, timestamp)` in a small ring buffer (last ~0.5s of frames)
-2. Compare current wrist position to position at buffer start
-3. Compute displacement vector `(dx, dy)` and elapsed time
-4. If `distance >= min_distance` AND `elapsed <= max_duration` AND `speed >= min_speed`:
-   - Determine dominant direction: if `|dx| > |dy|` then horizontal (left/right based on sign), else vertical (up/down based on sign)
-   - Emit the corresponding swipe gesture
-   - Enter cooldown: clear buffer, suppress for ~0.5s to prevent multi-fire
-5. If hand disappears (no landmarks): clear buffer
-
-**Critical: camera mirror effect.** Webcam images are typically not mirrored in the raw feed. When the user swipes their hand to the right (from their perspective), the wrist moves LEFT in camera coordinates. The SwipeDetector should work in raw camera coordinates, and the Gesture enum names should match the user's perspective (i.e., `SWIPE_RIGHT` = user moves hand right = wrist.x decreases in normalized coords). This mapping should be documented and potentially configurable.
-
-**Config integration:**
-
-```yaml
-detection:
-  swipe_min_distance: 0.15  # NEW
-  swipe_max_duration: 0.5   # NEW
-  swipe_min_speed: 0.3      # NEW
-
-gestures:
-  # Static gestures (existing)
-  open_palm:
-    key: win+tab
-    threshold: 0.7
-  # Swipe gestures (NEW)
-  swipe_left:
-    key: alt+left
-  swipe_right:
-    key: alt+right
-  swipe_up:
-    key: page_up
-  swipe_down:
-    key: page_down
-```
-
-### Modified: Gesture Enum (`classifier.py`)
-
-Add four new members:
-
-```python
-class Gesture(Enum):
-    # Existing static gestures
-    OPEN_PALM = "open_palm"
-    FIST = "fist"
-    THUMBS_UP = "thumbs_up"
-    PEACE = "peace"
-    POINTING = "pointing"
-    PINCH = "pinch"
-    SCOUT = "scout"
-    # New swipe gestures
-    SWIPE_LEFT = "swipe_left"
-    SWIPE_RIGHT = "swipe_right"
-    SWIPE_UP = "swipe_up"
-    SWIPE_DOWN = "swipe_down"
-```
-
-The Gesture enum is the shared vocabulary between classifier, swipe detector, smoother, debouncer, and keystroke sender. Adding members here is safe -- downstream components already handle `Optional[Gesture]` and look up by `.value` string.
-
-### Modified: AppConfig (`config.py`)
-
-Add new fields with backwards-compatible defaults:
-
-```python
-@dataclass
-class AppConfig:
-    camera_index: int = 0
-    smoothing_window: int = 3
-    activation_delay: float = 0.4
-    cooldown_duration: float = 0.8
-    min_hand_size: float = 0.0       # NEW -- 0.0 = disabled
-    swipe_min_distance: float = 0.15  # NEW
-    swipe_max_duration: float = 0.5   # NEW
-    swipe_min_speed: float = 0.3      # NEW
-    gestures: dict[str, dict[str, Any]] = field(default_factory=dict)
-```
-
-### Modified: Pipeline Loop (`__main__.py` and `tray.py`)
-
-The detection loop gains two new steps. Here is the modified flow:
-
-```python
-# Detect landmarks
-landmarks = detector.detect(frame, timestamp_ms)
-
-# NEW: Distance filter
-if landmarks and not distance_filter.check(landmarks):
-    landmarks = []  # Treat as "no hand" if too far
-
-# Classify static gesture
-if landmarks:
-    raw_gesture = classifier.classify(landmarks)
-else:
-    raw_gesture = None
-
-# NEW: Check for swipe (runs in parallel with static classification)
-swipe = swipe_detector.update(landmarks if landmarks else None, current_time)
-
-# Swipe takes priority over static gesture when detected
-if swipe is not None:
-    gesture = swipe  # Bypass smoother -- swipes are already temporally validated
-else:
-    gesture = smoother.update(raw_gesture)
-
-# Debounce and fire (unchanged)
-fire_gesture = debouncer.update(gesture, current_time)
-```
-
-**Key design decision: swipes bypass the smoother.** The smoother exists to prevent single-frame flicker in static gesture classification. Swipes are inherently multi-frame events -- the SwipeDetector already accumulates evidence across frames before emitting. Passing swipes through the majority-vote smoother would add unnecessary latency and could suppress them (a single swipe event surrounded by None frames would be voted out).
-
-**Key design decision: swipes go through the debouncer.** The debouncer prevents duplicate fires and enforces cooldown. Swipes should still respect cooldown to prevent rapid-fire. However, the activation delay should be minimal for swipes since the SwipeDetector already validates duration. Consider: swipes could bypass the debouncer too and handle their own cooldown internally. Recommendation: let swipes go through debouncer for consistency, but the debouncer's activation delay is already configured low (0.05s) so this adds negligible latency.
-
-## Data Flow Diagram (v1.1)
-
-```
-[CameraCapture]
-    | BGR frame
-    v
-[HandDetector]
-    | 21 landmarks (or empty)
-    v
-[DistanceFilter] ---------> too far? -> treat as no hand
-    | landmarks (or empty)
+CameraCapture (thread)
     |
-    +----> [GestureClassifier]     [SwipeDetector]
-    |          | Gesture|None          | Gesture|None
-    |          v                       v
-    |      [GestureSmoother]      (swipe takes priority)
-    |          | Gesture|None          |
-    |          v                       |
-    |      <--- merge: swipe wins --->
-    |          |
-    |          v
-    |      [GestureDebouncer]
-    |          | fire Gesture|None
-    |          v
-    |      [KeystrokeSender]
-    v
-[Preview overlay] (optional --preview mode)
-    - Hand landmarks skeleton
-    - Gesture label
-    - Hand size indicator (NEW)
-    - FPS counter
+HandDetector (MediaPipe, 21 landmarks)
+    |
+DistanceFilter (gate by palm span)
+    |
+    +-------> SwipeDetector (wrist velocity, own state machine)
+    |              | SwipeDirection | None
+    |              v
+    |         [fire swipe keystroke immediately]
+    |
+    +-------> GestureClassifier (rule-based, per-frame)
+                   | Gesture | None
+                   v
+              GestureSmoother (majority vote, window=3)
+                   | Gesture | None
+                   v
+              GestureDebouncer (IDLE->ACTIVATING->FIRED->COOLDOWN)
+                   | fire Gesture | None
+                   v
+              KeystrokeSender
 ```
 
-## Component Boundaries
+### Key Observations About Current Behavior
 
-| Component | Responsibility | Inputs | Outputs | Communicates With |
-|-----------|---------------|--------|---------|-------------------|
-| **DistanceFilter** | Gate hands by proximity | landmarks list | bool (pass/fail) | Called by pipeline loop |
-| **SwipeDetector** | Detect directional movement | landmarks + timestamp | Gesture or None | Called by pipeline loop |
-| **GestureClassifier** (existing) | Classify static poses | landmarks | Gesture or None | Called by pipeline loop |
-| **GestureSmoother** (existing) | Majority-vote filter | Gesture or None | Gesture or None | Receives static gestures only |
-| **GestureDebouncer** (existing) | Gate firing + cooldown | Gesture or None + timestamp | Gesture or None | Receives merged gesture stream |
-| **Gesture enum** (modified) | Shared vocabulary | N/A | N/A | Used by all gesture-aware components |
-| **AppConfig** (modified) | Configuration values | YAML file | Dataclass fields | Read by pipeline setup |
+1. **Debouncer requires None before re-arming.** After COOLDOWN expires, `_handle_cooldown` only transitions to IDLE when `gesture is None` (line 131-132 of debounce.py). If the user holds Gesture A, fires it, then switches to Gesture B without releasing, the debouncer stays stuck in COOLDOWN until the hand is removed entirely.
 
-## Patterns to Follow
+2. **Swipe-to-static transition has 10 settling frames (~330ms at 30fps).** After swipe COOLDOWN expires, `settling_frames_remaining` blocks the swipe detector from re-arming for 10 frames. Meanwhile, the main loop resets `smoother` and `debouncer` when `swiping` transitions from True to False. The smoother then needs `window_size` frames to refill. Combined latency: ~330ms settling + ~100ms smoother refill + activation_delay.
 
-### Pattern: Filter-in-Pipeline
+3. **Static-to-swipe transition resets smoother and debouncer.** When `is_swiping` flips True, the main loop calls `smoother.reset()` and `debouncer.reset()` (tray.py lines 229-232). This is clean but any accumulated ACTIVATING progress is discarded.
 
-**What:** DistanceFilter is a pass-through filter. It does not transform data -- it either passes landmarks through unchanged or replaces them with "no hand." This keeps the downstream pipeline unaware of distance filtering.
+4. **Swipe and static paths are mutually exclusive via `is_swiping`.** The main loop feeds `None` to the smoother when swiping (line 237), and skips the debouncer entirely (line 241-242).
 
-**Why:** The classifier, smoother, and debouncer already handle "no hand" (empty landmarks / None gesture). By converting "too far" into "no hand" at the filter level, no downstream code needs to change.
+## Problem Analysis
+
+### Problem 1: No Direct Gesture-to-Gesture Transition
+
+**Root cause:** `_handle_cooldown` at line 130-133:
 
 ```python
-# The filter is invisible to downstream components
-if landmarks and not distance_filter.check(landmarks):
-    landmarks = []  # Downstream sees "no hand detected"
+def _handle_cooldown(self, gesture, timestamp):
+    if timestamp - self._cooldown_start >= self._cooldown_duration:
+        if gesture is None:          # <-- BLOCKS transition when gesture held
+            self._state = DebounceState.IDLE
+    return None
 ```
 
-### Pattern: Temporal Event Detector (Swipe)
+The `if gesture is None` guard was intentional -- it prevents re-firing the SAME gesture when held. But it also blocks transitioning to a DIFFERENT gesture. The user must release their hand to "none" before any new gesture can begin activating.
 
-**What:** SwipeDetector maintains internal state (wrist position history) and emits discrete events. Unlike the classifier which is stateless per-frame, the swipe detector is stateful across frames.
+**Impact:** To go from Fist -> Peace, the user must: Fist -> release (None) -> Peace. This adds ~cooldown_duration + activation_delay latency for sequential commands.
 
-**Why:** Swipes are inherently temporal. A single frame cannot tell you if the hand is swiping or stationary. The detector must accumulate evidence over time.
+### Problem 2: Swipe-to-Static Latency
 
-**Important:** The SwipeDetector must handle:
-- Hand disappearing mid-swipe (clear buffer)
-- Hand reappearing (start fresh, do not connect to old trajectory)
-- Very slow movement (reject via min_speed threshold)
-- Diagonal movement (pick dominant axis)
+**Root cause:** Three sequential delays stack up:
+1. Swipe cooldown (0.5s default) -- protects against multi-fire
+2. Settling frames (10 frames = ~330ms) -- prevents swipe re-arming from hand deceleration
+3. Smoother refill (window_size frames = ~100ms at window=3) -- majority vote needs data
+4. Activation delay (0.1s current config) -- debouncer hold time
 
-### Pattern: Merge with Priority
+Total: ~1.03s from swipe fire to next static gesture fire. This is perceptible and frustrating.
 
-**What:** When both the static classifier and swipe detector produce results in the same frame, swipe wins.
+### Problem 3: Static-to-Swipe Transition
 
-**Why:** Swipes are rarer and more intentional. A user physically moving their hand across the frame is clearly swiping, even if mid-swipe the hand briefly resembles "open_palm." Static gestures fire constantly when the hand is visible; swipes fire once per motion. Giving swipe priority prevents static gestures from "stealing" the swipe event.
+**Root cause:** When the main loop detects `is_swiping` flipping True, it resets smoother and debouncer. But the swipe detector can only arm after its buffer fills (3+ samples). The transition itself is relatively fast (~100ms), but any ACTIVATING progress on a static gesture is lost, which feels like input was "eaten."
+
+## Recommended Architecture Changes
+
+### Change 1: Direct Gesture-to-Gesture Transition in Debouncer
+
+**What:** Modify `_handle_cooldown` to allow transition to a DIFFERENT gesture without requiring None release.
+
+**New state machine:**
+
+```
+IDLE --[gesture]--> ACTIVATING --[held >= delay]--> FIRED --[next frame]--> COOLDOWN
+  ^                    |                                                      |
+  |                    |--[None]--> IDLE                                      |
+  |                    |--[different gesture]--> ACTIVATING (restart timer)   |
+  |                                                                           |
+  +--[None, cooldown expired]--<----------------------------------------------+
+  |                                                                           |
+  +--[different gesture, cooldown expired]--<-- ACTIVATING (new gesture) <----+
+```
+
+**Modified `_handle_cooldown`:**
+
+```python
+def _handle_cooldown(self, gesture, timestamp):
+    if timestamp - self._cooldown_start >= self._cooldown_duration:
+        if gesture is None:
+            self._state = DebounceState.IDLE
+            logger.debug("COOLDOWN -> IDLE: released")
+        elif gesture != self._fired_gesture:
+            # Direct transition to new gesture without requiring None
+            self._state = DebounceState.ACTIVATING
+            self._activating_gesture = gesture
+            self._activation_start = timestamp
+            logger.debug("COOLDOWN -> ACTIVATING: direct transition to %s", gesture.value)
+    return None
+```
+
+**New field needed:** `_fired_gesture` -- tracks which gesture was last fired, so cooldown can distinguish "same gesture held" (stay in COOLDOWN) from "different gesture" (allow transition).
+
+**Why track `_fired_gesture`:** Without it, holding Fist after firing Fist would re-enter ACTIVATING and fire again. The current `if gesture is None` guard prevents this but is too aggressive. By comparing against the fired gesture, we block re-fire of the same gesture while allowing new gestures.
+
+**Edge case -- same gesture re-fire:** If user does Fist -> release -> Fist, the existing flow handles this: release causes COOLDOWN -> IDLE, then Fist starts fresh in IDLE -> ACTIVATING. No change needed here.
+
+**Edge case -- rapid gesture switching:** If user does Fist -> Peace -> Fist quickly, each switch resets the activation timer in ACTIVATING (existing behavior at line 105-108). This is correct -- prevents accidental fires during transitional poses.
+
+### Change 2: Reduce Swipe-to-Static Settling Frames
+
+**What:** Reduce `settling_frames` from 10 to 3-4, and compensate with a velocity check.
+
+**Why 10 was chosen originally:** After a swipe fires on deceleration, the hand is still moving slightly. The wrist buffer can contain residual motion that re-arms immediately, causing double-fire. 10 frames gives the hand ~330ms to come to rest.
+
+**Better approach -- velocity gate instead of frame count:**
+
+```python
+# In SwipeDetector, after cooldown expires:
+if self._settling_frames_remaining > 0:
+    self._settling_frames_remaining -= 1
+    return None
+
+# NEW: velocity gate -- only re-arm when hand is actually still
+if frame_speed > self._min_velocity * 0.3:  # hand still moving
+    return None
+```
+
+This allows reducing `settling_frames` to 3 (just enough to rebuild a minimal buffer) because the velocity check prevents false re-arming on residual motion. Net improvement: ~230ms saved.
+
+**Alternative considered -- zero settling frames:** Risky. Even with a velocity gate, the first 1-2 frames after cooldown have stale buffer data that could create artifacts. Keep a small settling count (3 frames = ~100ms) as a safety floor.
+
+### Change 3: Reduce Smoother Refill Latency After Swipe
+
+**What:** Reduce `smoothing_window` to 1 for the first N frames after a swipe, then ramp back up.
+
+**Better approach -- use window=1 globally:** The current config already has `smoothing_window: 1`. At window=1, the smoother is a pass-through (returns whatever it receives). This means the smoother refill delay is already zero in the user's current config. The 3-frame default only matters for users who explicitly increase it.
+
+**Recommendation:** Keep smoother as-is. The user's config of `smoothing_window: 1` already eliminates this bottleneck. Document that lower smoothing_window = faster transitions at the cost of more flicker.
+
+### Change 4: Reduce Swipe Cooldown
+
+**What:** Allow configuring swipe cooldown independently from settling behavior.
+
+The current swipe cooldown (0.5s) is reasonable for preventing double-fire but contributes to the total swipe-to-static latency. Since we are adding a velocity gate (Change 2), the settling period is more intelligent. We can safely reduce the default swipe cooldown to 0.3s.
+
+**Config change:**
+
+```yaml
+swipe:
+  cooldown: 0.3       # reduced from 0.5
+  settling_frames: 3   # reduced from 10, velocity gate compensates
+```
+
+### Change 5: Preserve ACTIVATING Progress on Swipe Interruption (Optional)
+
+**What:** When a swipe starts (`is_swiping` flips True), instead of resetting the debouncer, snapshot its state. If the swipe detector returns to IDLE without firing (false arm), restore the debouncer state.
+
+**Assessment: Not recommended.** This adds complexity for a rare edge case (static gesture partially activated, then swipe starts but does not fire). The simpler approach of resetting is fine -- the latency cost is one activation_delay period (0.1s in current config), which is not perceptible.
+
+## Integration Points
+
+### Modified Components
+
+| Component | File | Change | Impact |
+|-----------|------|--------|--------|
+| **GestureDebouncer** | `debounce.py` | Add `_fired_gesture` field, modify `_handle_cooldown` for direct transitions | Core change -- enables gesture-to-gesture |
+| **SwipeDetector** | `swipe.py` | Add velocity gate after cooldown, reduce default settling_frames | Reduces swipe-to-static latency |
+| **AppConfig** | `config.py` | Add `settling_frames` to swipe config, update defaults | Config surface for tuning |
+| **config.yaml** | root | Update defaults for cooldown, settling_frames | User-facing defaults |
+
+### Unchanged Components
+
+| Component | File | Why No Change |
+|-----------|------|---------------|
+| **GestureSmoother** | `smoother.py` | Works correctly, user config already at window=1 |
+| **GestureClassifier** | `classifier.py` | Per-frame classification, no transition logic |
+| **DistanceFilter** | `distance.py` | Orthogonal to transition timing |
+| **KeystrokeSender** | `keystroke.py` | Fires what it is told, no state |
+| **CameraCapture** | `detector.py` | Frame source, unrelated |
+| **HandDetector** | `detector.py` | Landmark extraction, unrelated |
+| **Pipeline loop** | `tray.py` | No structural changes needed -- debouncer change is internal |
+
+### Internal Boundaries
+
+| Boundary | Communication | Change Required |
+|----------|---------------|-----------------|
+| Smoother -> Debouncer | `Gesture or None` per frame | None -- same interface |
+| Debouncer -> KeystrokeSender | `Gesture or None` (fire signal) | None -- same interface |
+| SwipeDetector -> Main loop | `SwipeDirection or None` + `is_swiping` property | None -- same interface |
+| Main loop -> Smoother/Debouncer | `reset()` calls on swipe transition | None -- same reset protocol |
+
+## Data Flow: v1.2 Changes Highlighted
+
+```
+CameraCapture (thread)
+    |
+HandDetector (MediaPipe)
+    |
+DistanceFilter
+    |
+    +-------> SwipeDetector
+    |              | SwipeDirection | None
+    |              | is_swiping property
+    |              |
+    |              | CHANGED: settling_frames reduced 10->3
+    |              | NEW: velocity gate after cooldown
+    |              v
+    |         [fire swipe keystroke]
+    |
+    +-------> GestureClassifier
+                   |
+              GestureSmoother (unchanged)
+                   |
+              GestureDebouncer
+                   | CHANGED: _handle_cooldown allows
+                   |   different gesture to bypass None requirement
+                   | NEW: _fired_gesture tracks last fired gesture
+                   v
+              KeystrokeSender
+```
+
+## Architectural Patterns
+
+### Pattern: State Machine with Transition Guards
+
+**What:** The debouncer state machine uses guards (conditions) on transitions rather than blind state changes. The COOLDOWN -> ACTIVATING transition is guarded by `gesture != self._fired_gesture`.
+
+**When to use:** When a state machine needs to distinguish between "same input repeated" and "new input arrived" to prevent re-triggering.
+
+**Trade-offs:** Adds one field (`_fired_gesture`) and one comparison per frame. Trivial overhead. Makes the state machine slightly more complex to reason about but the behavior is more correct.
+
+```python
+# Guard pattern in _handle_cooldown
+if cooldown_expired:
+    if gesture is None:
+        transition_to(IDLE)           # hand removed
+    elif gesture != self._fired_gesture:
+        transition_to(ACTIVATING)     # new gesture, allow it
+    # else: same gesture still held, stay in COOLDOWN
+```
+
+### Pattern: Velocity Gate as Anti-Bounce
+
+**What:** After a temporal event (swipe), use instantaneous velocity to gate re-entry into the detection state, rather than a fixed frame count.
+
+**When to use:** When a fixed delay is too conservative for fast interactions but too aggressive for slow recoveries. Velocity adapts to actual hand behavior.
+
+**Trade-offs:** Slightly more complex than frame counting. Requires tuning the velocity threshold fraction (0.3x of min_velocity recommended). But eliminates the one-size-fits-all problem of fixed settling frames.
+
+```python
+# Instead of: if self._settling_frames_remaining > 0: return None
+# Use: if frame_speed > self._min_velocity * 0.3: return None
+```
+
+### Pattern: Track-Last-Fired for Re-fire Prevention
+
+**What:** Store the identity of the last fired gesture to distinguish "same gesture held" from "different gesture arrived" during cooldown.
+
+**When to use:** When a cooldown period should block re-fire of the same action but allow a different action.
+
+**Trade-offs:** One extra field to maintain and clear on reset. Simple and effective.
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern: Using MediaPipe Z-Coordinate for Distance
+### Anti-Pattern: Skipping Cooldown for Direct Transitions
 
-**What:** Using `landmark.z` to estimate how far the hand is from the camera.
-**Why bad:** MediaPipe z-coordinates are relative to the wrist landmark, not the camera. The wrist itself has z approximately 0. The z values represent depth of fingertips relative to the wrist palm plane, not absolute camera distance. Using z for distance gating would not work.
-**Instead:** Use bounding box size of the 21 landmarks in normalized x,y coordinates as the distance proxy.
+**What people do:** Remove the cooldown entirely and let any new gesture immediately begin activating after a fire.
+**Why it is wrong:** The activation_delay alone does not prevent double-fire from brief flicker between gestures. A user transitioning from Fist to Peace may briefly show an intermediate pose (half-open hand) that could match Open Palm. Without cooldown, that flicker could fire Open Palm before Peace starts activating.
+**Do this instead:** Keep cooldown, but allow COOLDOWN -> ACTIVATING for a *different* gesture after cooldown expires. The cooldown duration still provides a guard period.
 
-### Anti-Pattern: Smoothing Swipe Gestures
+### Anti-Pattern: Reducing Activation Delay to Zero
 
-**What:** Running swipe detector output through the majority-vote GestureSmoother.
-**Why bad:** The smoother requires a gesture to be the majority in a window of N frames. A swipe is a single-frame event emission after multi-frame accumulation. The smoother would see `[None, None, SWIPE_LEFT, None, None]` and vote it out.
-**Instead:** Swipe gestures bypass the smoother and go directly to the debouncer (or handle their own cooldown).
+**What people do:** Set `activation_delay: 0` to make static gestures "instant."
+**Why it is wrong:** Even with smoothing, single-frame classification noise can produce a false gesture for 1-2 frames. Zero delay means any noise fires immediately.
+**Do this instead:** Keep activation_delay at minimum 0.05-0.1s. This is 1-3 frames at 30fps and unperceptible to users, but catches single-frame noise.
 
-### Anti-Pattern: Tracking All 21 Landmarks for Swipe
+### Anti-Pattern: Coupling Swipe and Static State Machines
 
-**What:** Computing average position or centroid of all landmarks to track hand movement.
-**Why bad:** Finger positions change during a swipe (hand may open/close). Averaging all landmarks introduces noise from finger motion unrelated to the swipe direction.
-**Instead:** Track only the wrist landmark (index 0), which is the most stable point during hand translation.
+**What people do:** Make the debouncer aware of swipe state, or make the swipe detector aware of debouncer state.
+**Why it is wrong:** The two detectors operate on fundamentally different signal types (pose vs motion). Coupling them makes both harder to test and reason about. The mutual exclusion via `is_swiping` in the main loop is the correct boundary.
+**Do this instead:** Keep the main loop as the coordinator. The loop checks `is_swiping` and routes signals appropriately. Each detector remains self-contained.
 
-### Anti-Pattern: Duplicate Pipeline Code
+### Anti-Pattern: Per-Gesture Cooldown Durations
 
-**What:** The current codebase has the pipeline loop duplicated in `__main__.py` (preview mode) and `tray.py` (tray mode). Adding distance filter and swipe detector means modifying both.
-**Why bad:** Two copies of the pipeline that must stay in sync. Adding v1.1 features to both increases the risk of divergence.
-**Mitigation for v1.1:** Accept the duplication for now. Refactoring the pipeline into a shared function/class is a separate concern. For this milestone, modify both loops identically. Flag for future cleanup.
+**What people do:** Allow different cooldown times for different gestures in config.
+**Why it is wrong for this codebase:** The debouncer is a single state machine with one cooldown timer. Per-gesture cooldowns would require tracking which gesture is in cooldown and applying different timers, significantly complicating the state machine. The benefit is marginal -- most users want uniform behavior.
+**Do this instead:** Use a single global cooldown. If a specific gesture needs different timing, that is a sign the gesture threshold or activation delay needs tuning, not the cooldown.
 
-## Build Order (Dependency Chain)
+## Build Order
 
-Build order is driven by dependencies between new components:
+Dependencies drive the order. Changes 1 and 2 are independent of each other.
 
 ```
-Phase 1: Gesture enum expansion (classifier.py)
-    |   Add SWIPE_LEFT/RIGHT/UP/DOWN to Gesture enum
-    |   Zero risk -- additive change, nothing breaks
+Phase A: Debouncer Direct Transitions (debounce.py)
+    |   Add _fired_gesture field
+    |   Modify _handle_cooldown to allow different-gesture transition
+    |   Modify _handle_fired to store fired gesture (trivial -- one line)
+    |   Update tests: new test cases for direct transition scenarios
+    |   RISK: Low -- isolated state machine change, thorough unit tests
     |
-Phase 2: Config expansion (config.py + config.yaml)
-    |   Add min_hand_size, swipe_* fields to AppConfig
-    |   Add load_config parsing for new fields
-    |   Backwards compatible -- new fields have defaults
+Phase B: Swipe Settling Reduction (swipe.py)  [independent of Phase A]
+    |   Add velocity gate after cooldown expiry
+    |   Reduce default settling_frames from 10 to 3
+    |   Update tests: verify no double-fire with reduced settling
+    |   RISK: Medium -- needs manual testing to confirm no swipe double-fire
     |
-Phase 3: DistanceFilter (distance.py) -- NEW module
-    |   Depends on: landmarks list format (already stable)
-    |   Pure logic, easily unit tested
-    |   No interaction with other new components
+Phase C: Config and Defaults Update (config.py, config.yaml)
+    |   Depends on: Phase A and B (need to know final parameter names)
+    |   Add settling_frames to swipe config parsing
+    |   Update default values: cooldown 0.5->0.3, settling 10->3
+    |   Update debouncer defaults if needed
+    |   RISK: Low -- additive config changes with backwards-compatible defaults
     |
-Phase 4: SwipeDetector (swipe.py) -- NEW module
-    |   Depends on: Gesture enum (Phase 1), landmarks format
-    |   Stateful but self-contained
-    |   Unit testable with synthetic landmark sequences
+Phase D: Integration Testing
+    |   Depends on: Phase A, B, C
+    |   Manual test: gesture-to-gesture transition latency
+    |   Manual test: swipe-to-static transition latency
+    |   Manual test: no regressions in false-fire prevention
+    |   Automated: update test_debounce.py, test_swipe.py, test_integration_mutual_exclusion.py
     |
-Phase 5: Pipeline integration (__main__.py + tray.py)
-    |   Wire DistanceFilter and SwipeDetector into both loops
-    |   Depends on: Phases 1-4 complete
-    |   Integration testing with camera
-    |
-Phase 6: Preview overlay updates (preview.py)
-    |   Show hand size indicator, swipe direction feedback
-    |   Depends on: Phase 5 (needs DistanceFilter.last_size)
-    |   Visual polish, not blocking for functionality
+Phase E: Default Tuning
+    |   Depends on: Phase D (need test results)
+    |   Adjust activation_delay, cooldown_duration, settling_frames based on testing
+    |   This is empirical -- cannot be determined from code analysis alone
 ```
 
-**Phase 3 and 4 are independent** and can be built in parallel or either order. Phase 5 depends on both. Phase 6 is optional polish.
+**Phase A and B are independent** -- build in either order or parallel. Phase C is a thin layer on top. Phase D validates everything. Phase E is iterative tuning.
 
-**Recommended order: 1 -> 2 -> 3 -> 4 -> 5 -> 6** because each phase builds cleanly on the prior one and can be tested before moving forward.
+**Recommended sequence: A -> B -> C -> D -> E** because A is the highest-impact change (enables the core feature) and B is moderate impact (latency reduction).
 
-## Scalability Considerations
+## Latency Budget (Expected After Changes)
 
-| Concern | Current (v1.0) | With v1.1 | Notes |
-|---------|-----------------|-----------|-------|
-| Per-frame computation | ~0.1ms (classify) | ~0.2ms (classify + distance check + swipe tracking) | Negligible -- all pure math on 21 landmarks |
-| Memory | Smoother buffer (3 frames) | + swipe wrist buffer (~15 frames at 30fps) | Trivially small |
-| Config complexity | 7 gestures | 11 gestures (7 static + 4 swipe) + 4 new detection params | Still manageable in flat YAML |
-| Pipeline stages | 4 | 6 | Linear pipeline, no branching complexity at runtime |
+| Scenario | Current | After v1.2 | Improvement |
+|----------|---------|------------|-------------|
+| Gesture A -> Gesture B (direct) | cooldown(0.5) + release + activation(0.1) = ~0.8s+ | cooldown(0.5) + activation(0.1) = 0.6s | ~0.2s+ (no release needed) |
+| Swipe -> Static gesture | cooldown(0.5) + settling(0.33) + smoother(0) + activation(0.1) = ~0.93s | cooldown(0.3) + settling(0.1) + activation(0.1) = ~0.5s | ~0.43s |
+| Static -> Swipe | smoother_reset + buffer_fill(0.1) = ~0.1s | unchanged ~0.1s | 0 (already fast) |
+
+Note: `smoother(0)` in current because `smoothing_window: 1` in user config. Users with higher window values would see more improvement.
 
 ## Sources
 
-- [MediaPipe Hand Landmarks Z-value discussion](https://github.com/google/mediapipe/issues/742) -- confirms z is relative to wrist, not camera distance
-- [MediaPipe distance from camera discussion](https://github.com/google/mediapipe/issues/1153) -- confirms bounding box size is the practical proxy
-- [MediaPipe Hand Landmarker Python guide](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/python) -- landmark coordinate system documentation
-- [On-Device, Real-Time Hand Tracking with MediaPipe](https://research.google/blog/on-device-real-time-hand-tracking-with-mediapipe/) -- architecture of palm detection + landmark regression pipeline
-- [Dynamic Hand Gesture Recognition Using MediaPipe and Transformer](https://www.mdpi.com/2673-4591/108/1/22) -- frame-to-frame landmark tracking for temporal gestures
+- Direct codebase analysis of `debounce.py`, `swipe.py`, `smoother.py`, `tray.py`, `config.py`
+- Existing test suites: `test_debounce.py`, `test_integration_mutual_exclusion.py`
+- Current `config.yaml` for real-world parameter values
+- v1.1 architecture document (`.planning/research/ARCHITECTURE.md` prior version)
 
 ---
-*Architecture research for: gesture-keys v1.1 distance threshold and swipe gestures*
-*Researched: 2026-03-21*
+*Architecture research for: gesture-keys v1.2 seamless gesture transitions*
+*Researched: 2026-03-22*
