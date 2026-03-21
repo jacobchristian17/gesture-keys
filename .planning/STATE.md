@@ -1,36 +1,36 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Distance Threshold and Swiping Gestures
-status: completed
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-03-21T21:35:42.477Z"
-last_activity: 2026-03-21 -- Completed 06-04 Distance Config Gap Closure
+milestone: v1.2
+milestone_name: Continuous and Seamless Commands
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-22"
+last_activity: 2026-03-22 -- Milestone v1.2 started
 progress:
-  total_phases: 4
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-21)
+See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** v1.1 Phase 6 -- Integration and Mutual Exclusion
+**Current focus:** Defining requirements for v1.2
 
 ## Current Position
 
-Phase: 6 of 7 (Integration and Mutual Exclusion)
-Plan: 4 of 4
-Status: Phase 06 Complete (including gap closure)
-Last activity: 2026-03-21 -- Completed 06-04 Distance Config Gap Closure
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-22 — Milestone v1.2 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 

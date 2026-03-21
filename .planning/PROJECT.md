@@ -18,20 +18,24 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Run as Windows system tray app with Active toggle, Edit Config, and Quit menu items — v1.0
 - ✓ Support optional `--preview` flag for camera preview window during development/testing — v1.0
 - ✓ Fire keyboard commands that work in any foreground application — v1.0
+- ✓ Distance-based gesture gating — only detect gestures when hand is within configurable distance from camera — v1.1
+- ✓ Swipe gestures (left, right, up, down) — detect directional hand movement and fire mapped keyboard commands — v1.1
+- ✓ Preview overlays for distance value and swipe direction — v1.1
 
 ### Active
 
-- [ ] Distance-based gesture gating — only detect gestures when hand is within configurable distance from camera
-- [ ] Swipe gestures (left, right, up, down) — detect directional hand movement and fire mapped keyboard commands
+- [ ] Direct gesture-to-gesture firing without returning to "none" state
+- [ ] Faster swipe↔static transitions (reduced settling/cooldown lag)
+- [ ] Tuned debounce/cooldown/threshold defaults based on real usage
 
-## Current Milestone: v1.1 Distance Threshold and Swiping Gestures
+## Current Milestone: v1.2 Continuous and Seamless Commands
 
-**Goal:** Add distance-aware gesture gating and directional swipe gestures to expand input vocabulary.
+**Goal:** Make gesture-to-keystroke firing seamless — direct transitions between gestures, faster swipe↔static switching, and tuned defaults.
 
 **Target features:**
-- Distance threshold filtering (ignore hands too far from camera)
-- Swipe left/right/up/down as new gesture types
-- Swipe gestures configurable in config.yaml with key mappings
+- Fire on gesture-to-gesture transition (no "none" required between static gestures)
+- Reduce swipe→static and static→swipe transition latency
+- Revisit debounce, cooldown, and threshold defaults for real-world usage
 
 ### Out of Scope
 
@@ -70,4 +74,4 @@ Architecture: camera thread → MediaPipe landmarks → classifier → smoother 
 | Lazy TrayApp import in __main__.py | Avoid loading pystray/Pillow when using --preview mode | ✓ Good — faster preview startup |
 
 ---
-*Last updated: 2026-03-21 after v1.1 milestone start*
+*Last updated: 2026-03-22 after v1.2 milestone start*
