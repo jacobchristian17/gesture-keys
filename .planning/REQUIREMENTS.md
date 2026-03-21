@@ -31,9 +31,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Developer Experience
 
-- [ ] **DEV-01**: `--preview` flag opens camera preview window
-- [ ] **DEV-02**: Console output of detected gestures in preview mode
-- [ ] **DEV-03**: FPS display in preview window
+- [x] **DEV-01**: `--preview` flag opens camera preview window
+- [x] **DEV-02**: Console output of detected gestures in preview mode
+- [x] **DEV-03**: FPS display in preview window
 
 ## v2 Requirements
 
@@ -87,9 +87,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRAY-02 | Phase 3 | Pending |
 | TRAY-03 | Phase 3 | Pending |
 | TRAY-04 | Phase 3 | Pending |
-| DEV-01 | Phase 1 | Pending |
-| DEV-02 | Phase 1 | Pending |
-| DEV-03 | Phase 1 | Pending |
+| DEV-01 | Phase 1 | Complete |
+| DEV-02 | Phase 1 | Complete |
+| DEV-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total

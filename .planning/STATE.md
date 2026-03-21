@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-03-21T07:28:35Z"
+stopped_at: "Completed 01-03-PLAN.md (Task 2 checkpoint: human-verify pending)"
+last_updated: "2026-03-21T08:37:28.003Z"
 last_activity: 2026-03-21 — Completed 01-02-PLAN.md
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 67
 ---
 
@@ -50,6 +50,7 @@ Progress: [███████░░░] 67%
 - Trend: Ramping up
 
 *Updated after each plan completion*
+| Phase 01 P03 | 3min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - [01-02]: Module-level MediaPipe constant aliases for clean imports; tests patch these directly
 - [01-02]: HandDetector uses num_hands=2 then filters for Right only (detect both, return one)
 - [01-02]: Model auto-downloads via urllib.request.urlretrieve with progress logging
+- [Phase 01]: Direct OpenCV drawing for landmarks instead of mediapipe.solutions.drawing_utils (Python 3.13 compatibility)
+- [Phase 01]: Extract per-gesture thresholds from nested config dict before passing to classifier
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T07:28:35Z
-Stopped at: Completed 01-02-PLAN.md
-Resume file: .planning/phases/01-detection-and-preview/01-03-PLAN.md
+Last session: 2026-03-21T08:37:28.001Z
+Stopped at: Completed 01-03-PLAN.md (Task 2 checkpoint: human-verify pending)
+Resume file: None
