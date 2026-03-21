@@ -1,23 +1,24 @@
 ---
 phase: 06-integration-and-mutual-exclusion
-verified: 2026-03-22T12:00:00Z
+verified: 2026-03-22T14:00:00Z
 status: passed
-score: 11/11 must-haves verified
+score: 12/12 must-haves verified
 re_verification:
   previous_status: passed
-  previous_score: 8/8
-  gaps_closed: []
+  previous_score: 11/11
+  gaps_closed:
+    - "Plan 04 must-haves not present in previous verification: distance: section in config.yaml now confirmed"
   gaps_remaining: []
   regressions: []
-  note: "Previous verification predated Plan 03 (gap closure). Re-verification incorporates all three plans and all 11 combined must-haves."
+  note: "Previous verification predated Plan 04 (distance config gap closure). Re-verification adds Plan 04 must-haves and confirms all 128 non-config tests still pass."
 ---
 
 # Phase 06: Integration and Mutual Exclusion Verification Report
 
-**Phase Goal:** Integrate swipe detection into main detection loops with mutual exclusion — swiping suppresses static gestures, distance gating resets swipe detector
+**Phase Goal:** Distance gating and swipe detection work together with static gestures without cross-firing or interference
 **Verified:** 2026-03-22
 **Status:** passed
-**Re-verification:** Yes — initial verification predated Plan 03 (gap closure). This report covers all three plans.
+**Re-verification:** Yes — previous verification predated Plan 04 (distance config gap closure). This report covers all four plans.
 
 ---
 
@@ -25,43 +26,16 @@ re_verification:
 
 ### Observable Truths
 
-All four ROADMAP success criteria plus plan-level must-haves are verified.
-
-#### ROADMAP Success Criteria
-
 | # | Truth | Status | Evidence |
-|---|-------|--------|---------|
+|---|-------|--------|----------|
 | SC-1 | Swiping the hand does not trigger static gesture keystrokes even though the hand passes through recognizable poses mid-swipe | VERIFIED | is_swiping flag suppresses static pipeline during ARMED/COOLDOWN; smoother/debouncer reset on swipe start flushes stale window values; debouncer gated during swiping. test_swipe_suppresses_static, test_smoother_reset_clears_stale_gestures pass. |
 | SC-2 | Holding a static pose does not trigger false swipe events even though the wrist has minor movement | VERIFIED | SwipeDetector requires both velocity and displacement thresholds to arm. test_held_pose_does_not_trigger_swipe passes. |
 | SC-3 | When the hand is beyond the distance threshold, neither static gestures nor swipes fire | VERIFIED | Distance gating block calls swipe_detector.reset() alongside smoother.reset() and debouncer.reset(). landmarks = None prevents classifier and swipe update from receiving real data. test_distance_reset_clears_swipe passes. |
-| SC-4 | Transitioning between swipe motion and held pose resolves cleanly without stuck states or missed gestures | VERIFIED | Settling guard prevents false re-arming for 10 frames post-cooldown. test_swipe_to_pose_transition, TestSwipeSettlingGuard::test_no_rearm_during_settling_period, test_swipe_arms_after_settling_expires all pass. |
+| SC-4 | Transitioning between swipe motion and held pose resolves cleanly without stuck states or missed gestures | VERIFIED | Settling guard prevents false re-arming for 10 frames post-cooldown. test_swipe_arms_after_settling_expires, test_no_rearm_during_settling_period, test_swipe_to_pose_transition all pass. |
+| P4-1 | User can see and edit distance gating settings in config.yaml | VERIFIED | config.yaml lines 9-11: distance: section present with enabled: true and min_hand_size: 0.15. Placed between detection: and gestures: sections for logical grouping. |
+| P4-2 | Distance gating is enabled by default so the feature works out of the box | VERIFIED | config.yaml line 10: `enabled: true`. load_config() round-trip: `distance_enabled: True min_hand_size: 0.15`. test_default_config_yaml_has_distance_enabled passes. |
 
-#### Plan 01 Must-Haves
-
-| # | Truth | Status | Evidence |
-|---|-------|--------|---------|
-| 1 | SwipeDetector.is_swiping returns True when state is ARMED or COOLDOWN | VERIFIED | swipe.py line 134: `return self._state in (_SwipeState.ARMED, _SwipeState.COOLDOWN)` |
-| 2 | SwipeDetector.is_swiping returns False when state is IDLE | VERIFIED | Same expression evaluates to False for IDLE; test_idle_not_swiping passes |
-| 3 | SwipeDetector.reset() clears buffer and returns to IDLE state | VERIFIED | swipe.py lines 136-150: buffer cleared, state to IDLE unless COOLDOWN, prev_speed and armed_direction cleared |
-| 4 | SwipeDetector.reset() preserves COOLDOWN state | VERIFIED | swipe.py: `if self._state != _SwipeState.COOLDOWN:` guards IDLE transition |
-
-#### Plan 02 Must-Haves
-
-| # | Truth | Status | Evidence |
-|---|-------|--------|---------|
-| 5 | Swiping the hand does not trigger static gesture keystrokes | VERIFIED | Both loop files: swiping flag gates smoother and debouncer; test_swipe_suppresses_static passes |
-| 6 | Holding a static pose does not trigger false swipe events | VERIFIED | Velocity + displacement thresholds required; test_held_pose_does_not_trigger_swipe passes |
-| 7 | When hand is beyond distance threshold, neither static gestures nor swipes fire | VERIFIED | swipe_detector.reset() in distance gating block; landmarks = None stops both pipelines |
-
-#### Plan 03 Must-Haves
-
-| # | Truth | Status | Evidence |
-|---|-------|--------|---------|
-| 8 | Static gesture keystrokes do not fire during swipe ARMED or COOLDOWN states | VERIFIED | Debouncer gated: `if not swiping: fire_gesture = debouncer.update(...)` else `fire_gesture = None` at __main__.py lines 245-248 and tray.py lines 239-242 |
-| 9 | After swipe cooldown expires, static gesture detection resumes within 1 second | VERIFIED | 10 settling frames at 30fps is ~330ms; test_swipe_arms_after_settling_expires confirms normal arm capability after settling; test_swipe_to_pose_transition confirms is_swiping reaches False |
-| 10 | Post-cooldown hand settling does not cause immediate swipe re-arming | VERIFIED | _settling_frames_remaining counter set to _settling_frames (default 10) on COOLDOWN->IDLE at swipe.py line 189; guard at lines 219-221; test_no_rearm_during_settling_period passes |
-
-**Score:** 10/10 plan-level must-haves verified; all 4 ROADMAP success criteria verified
+**Score:** 6/6 truths verified (4 ROADMAP success criteria + 2 Plan 04 must-haves)
 
 ---
 
@@ -73,7 +47,7 @@ All four ROADMAP success criteria plus plan-level must-haves are verified.
 |----------|----------|--------|-------------|-------|--------|
 | `gesture_keys/swipe.py` | is_swiping property and reset() method | Yes | Yes — real logic at lines 129-150 | Imported and called in both __main__.py and tray.py | VERIFIED |
 | `tests/test_swipe.py` | TestSwipeIsSwiping, TestSwipeReset test classes | Yes | Yes — 8 tests across 2 classes | Runs in pytest suite | VERIFIED |
-| `tests/test_integration_mutual_exclusion.py` | Integration tests including test_swipe_suppresses_static | Yes | Yes — 6 tests across 2 classes (4 integration + 2 smoother regression) | Runs in pytest suite | VERIFIED |
+| `tests/test_integration_mutual_exclusion.py` | Integration tests including test_swipe_suppresses_static | Yes | Yes — 6 tests across 2 classes | Runs in pytest suite | VERIFIED |
 
 ### Plan 02 Artifacts
 
@@ -90,44 +64,57 @@ All four ROADMAP success criteria plus plan-level must-haves are verified.
 | `gesture_keys/__main__.py` | was_swiping tracking + smoother/debouncer reset on swipe start + debouncer gating | Yes | Yes — was_swiping at line 178; transition reset at lines 228-230; debouncer gate at lines 245-248 | All wired in detection loop | VERIFIED |
 | `gesture_keys/tray.py` | Identical changes to __main__.py | Yes | Yes — was_swiping at line 188; transition reset at lines 229-231; debouncer gate at lines 239-242 | All wired in detection loop | VERIFIED |
 
+### Plan 04 Artifacts
+
+| Artifact | Expected | Exists | Substantive | Wired | Status |
+|----------|----------|--------|-------------|-------|--------|
+| `config.yaml` | distance: section with enabled: true and min_hand_size: 0.15 | Yes | Yes — lines 9-11 contain the complete section | gesture_keys/config.py reads via distance.get("enabled") and distance.get("min_hand_size") | VERIFIED |
+| `tests/test_config.py` | test_default_config_yaml_has_distance_enabled asserting config.distance_enabled is True | Yes | Yes — line 229: function renamed and assertion updated; also asserts min_hand_size round-trips | Runs in pytest suite; 4 distance tests pass | VERIFIED |
+
 ---
 
 ## Key Link Verification
 
 ### Plan 01 Key Links
 
-| From | To | Via | Pattern | Status |
-|------|----|-----|---------|--------|
-| `gesture_keys/swipe.py` | `_SwipeState` | is_swiping checks ARMED/COOLDOWN membership | `_SwipeState.ARMED.*_SwipeState.COOLDOWN` | VERIFIED — line 134 |
+| From | To | Via | Status |
+|------|----|-----|--------|
+| `gesture_keys/swipe.py` | `_SwipeState` | is_swiping checks ARMED/COOLDOWN membership via `self._state in (_SwipeState.ARMED, _SwipeState.COOLDOWN)` | VERIFIED — line 134 |
 
 ### Plan 02 Key Links
 
-| From | To | Via | Pattern | Status |
-|------|----|-----|---------|--------|
-| `gesture_keys/__main__.py` | `gesture_keys/swipe.py` | swipe_detector.is_swiping check before static pipeline | `swipe_detector.is_swiping` | VERIFIED — line 228 |
-| `gesture_keys/__main__.py` | `gesture_keys/swipe.py` | swipe_detector.reset() in distance gating block | `swipe_detector.reset()` | VERIFIED — line 206 |
-| `gesture_keys/tray.py` | `gesture_keys/swipe.py` | swipe_detector.is_swiping check before static pipeline | `swipe_detector.is_swiping` | VERIFIED — line 229 |
-| `gesture_keys/tray.py` | `gesture_keys/swipe.py` | swipe_detector.reset() in distance gating block | `swipe_detector.reset()` | VERIFIED — line 207 |
+| From | To | Via | Status |
+|------|----|-----|--------|
+| `gesture_keys/__main__.py` | `gesture_keys/swipe.py` | swipe_detector.is_swiping check before static pipeline | VERIFIED — line 228 |
+| `gesture_keys/__main__.py` | `gesture_keys/swipe.py` | swipe_detector.reset() in distance gating block | VERIFIED — line 206 |
+| `gesture_keys/tray.py` | `gesture_keys/swipe.py` | swipe_detector.is_swiping check before static pipeline | VERIFIED — line 229 |
+| `gesture_keys/tray.py` | `gesture_keys/swipe.py` | swipe_detector.reset() in distance gating block | VERIFIED — line 207 |
 
 ### Plan 03 Key Links
 
-| From | To | Via | Pattern | Status |
-|------|----|-----|---------|--------|
-| `gesture_keys/__main__.py` | `gesture_keys/smoother.py` | smoother.reset() on is_swiping False->True transition | `smoother.reset()` | VERIFIED — lines 204 (distance gate) and 229 (swipe start) |
-| `gesture_keys/swipe.py` | COOLDOWN->IDLE transition | settling guard counter set on state exit | `_settling_frames` | VERIFIED — line 189 sets counter, lines 219-221 decrement and gate |
+| From | To | Via | Status |
+|------|----|-----|--------|
+| `gesture_keys/__main__.py` | `gesture_keys/smoother.py` | smoother.reset() on is_swiping False->True transition | VERIFIED — lines 204 (distance gate) and 229 (swipe start) |
+| `gesture_keys/swipe.py` | COOLDOWN->IDLE transition | settling guard counter set on state exit; _settling_frames_remaining decrements and gates arming in IDLE | VERIFIED — line 189 sets counter, lines 219-221 decrement and gate |
+
+### Plan 04 Key Links
+
+| From | To | Via | Status |
+|------|----|-----|--------|
+| `config.yaml` | `gesture_keys/config.py` | load_config reads `distance.get("enabled", False)` and `distance.get("min_hand_size", 0.15)` | VERIFIED — config.py lines 132-133; `python -c "from gesture_keys.config import load_config; c = load_config(); print(c.distance_enabled, c.min_hand_size)"` prints `True 0.15` |
 
 ---
 
 ## Requirements Coverage
 
 | Requirement | Source Plan(s) | Description | Status | Evidence |
-|-------------|---------------|-------------|--------|---------|
-| INT-01 | 06-01, 06-02, 06-03 | Swipe and static gesture detection are mutually exclusive | SATISFIED | is_swiping suppresses static pipeline during ARMED/COOLDOWN; smoother+debouncer reset on swipe start; debouncer gated during swiping; settling guard prevents post-cooldown re-arming. All 6 integration tests pass. |
-| INT-02 | 06-01, 06-02 | Distance threshold gates both static gestures and swipe detection | SATISFIED | swipe_detector.reset() in distance gating block in both loop files; landmarks = None prevents both pipelines from receiving data. test_distance_reset_clears_swipe passes. |
+|-------------|---------------|-------------|--------|----------|
+| INT-01 | 06-01, 06-02, 06-03, 06-04 | Swipe and static gesture detection are mutually exclusive | SATISFIED | is_swiping suppresses static pipeline during ARMED/COOLDOWN; smoother+debouncer reset on swipe start; debouncer gated during swiping; settling guard prevents post-cooldown re-arming; distance gating is now user-configurable so mutual exclusion can be tuned. All 36 swipe/integration tests pass. REQUIREMENTS.md marks INT-01 Complete. |
+| INT-02 | 06-01, 06-02 | Distance threshold gates both static gestures and swipe detection | SATISFIED | swipe_detector.reset() in distance gating block in both loop files; landmarks = None prevents both pipelines from receiving data; config.yaml distance: section with enabled: true makes gating active out of the box. test_distance_reset_clears_swipe passes. REQUIREMENTS.md marks INT-02 Complete. |
 
 **Requirements assigned to Phase 6 in REQUIREMENTS.md:** INT-01, INT-02 — both SATISFIED.
 
-**Orphaned Phase 6 requirements:** None. The REQUIREMENTS.md traceability table maps only INT-01 and INT-02 to Phase 6. No additional Phase 6 entries exist.
+**Orphaned Phase 6 requirements:** None. REQUIREMENTS.md traceability table maps only INT-01 and INT-02 to Phase 6.
 
 ---
 
@@ -135,29 +122,31 @@ All four ROADMAP success criteria plus plan-level must-haves are verified.
 
 No anti-patterns detected in any Phase 06 modified files.
 
-Checked: `gesture_keys/swipe.py`, `gesture_keys/__main__.py`, `gesture_keys/tray.py`, `tests/test_swipe.py`, `tests/test_integration_mutual_exclusion.py`
+Checked: `gesture_keys/swipe.py`, `gesture_keys/__main__.py`, `gesture_keys/tray.py`, `tests/test_swipe.py`, `tests/test_integration_mutual_exclusion.py`, `config.yaml`, `tests/test_config.py`
 
 - No TODO/FIXME/XXX/HACK/PLACEHOLDER comments
 - No empty return stubs
 - No placeholder implementations
 - All logic is substantive and connected
 
-**Documentation state note:** `06-03-PLAN.md` is marked `[ ]` (incomplete) in ROADMAP.md even though implementation is complete, committed, and tested. This is a minor documentation inconsistency — not an implementation gap. The commits `1841e31`, `ec6ef18`, and `5331a6a` exist in git history and all tests pass.
+**Pre-existing test failures (not introduced by Phase 06):** 4 tests in `tests/test_config.py` fail because config.yaml has been customized by the user (different smoothing_window, thresholds, key_mappings, timing values) but tests still expect original defaults. These are documented in `deferred-items.md` and are unrelated to Phase 06 implementation. The 4 distance-specific tests added/updated by Plan 04 all pass.
 
 ---
 
 ## Test Suite
 
-Full run excluding pre-existing `test_config.py` failures: **128 passed, 0 failed**
+All tests excluding pre-existing config failures: **128 passed, 0 failed**
 
 Phase 06 specific tests by class:
+
 - `tests/test_swipe.py::TestSwipeIsSwiping` — 4 tests, all pass
 - `tests/test_swipe.py::TestSwipeReset` — 4 tests, all pass
-- `tests/test_swipe.py::TestSwipeSettlingGuard` — 4 tests (added by Plan 03), all pass
+- `tests/test_swipe.py::TestSwipeSettlingGuard` — 4 tests, all pass
 - `tests/test_integration_mutual_exclusion.py::TestMutualExclusionIntegration` — 4 tests, all pass
-- `tests/test_integration_mutual_exclusion.py::TestSmootherResetLeakRegression` — 2 tests (added by Plan 03), all pass
+- `tests/test_integration_mutual_exclusion.py::TestSmootherResetLeakRegression` — 2 tests, all pass
+- `tests/test_config.py::TestDistanceConfig` — 4 tests, all pass (including test_default_config_yaml_has_distance_enabled)
 
-**Total Phase 06 tests: 18 — all pass**
+**Total Phase 06 tests: 22 — all pass**
 
 ---
 
@@ -189,17 +178,24 @@ The automated checks cover all structural and logical requirements for this phas
 **Expected:** The static gesture activates within 1-2 seconds of the swipe cooldown plus settling period expiring. No stuck states or permanent suppression.
 **Why human:** The 10-frame settling guard was tuned for 30fps; actual camera frame rates vary and may affect settling duration.
 
+### 5. Distance gating enabled in live use (Plan 04)
+
+**Test:** Run `python -m gesture_keys --preview`. Move hand far from camera (beyond min_hand_size: 0.15).
+**Expected:** Gesture detection stops firing. Moving hand back within range resumes detection.
+**Why human:** Confirms that config.yaml `enabled: true` is actually picked up at startup and the distance filter is active, not just that the config parses correctly.
+
 ---
 
 ## Gaps Summary
 
-No gaps. All must-haves for all three plans are verified. The phase goal is fully achieved:
+No gaps. All must-haves for all four plans are verified. The phase goal is fully achieved:
 
 - is_swiping and reset() are real, wired, and tested (Plan 01)
 - Both detection loops execute swipe-first with is_swiping suppression and distance-gated reset (Plan 02)
 - Smoother/debouncer reset on swipe start, debouncer gating during swiping, and post-cooldown settling guard close the UAT failures identified after Plan 02 (Plan 03)
-- 128 non-config tests pass; 18 Phase 06-specific tests all green
-- INT-01 and INT-02 fully satisfied; no orphaned requirements
+- config.yaml now exposes the distance: section with enabled: true and min_hand_size: 0.15; load_config() reads it correctly; config round-trip confirmed (Plan 04)
+- 128 non-config tests pass; 22 Phase 06-specific tests all green
+- INT-01 and INT-02 fully satisfied and marked Complete in REQUIREMENTS.md; no orphaned requirements
 
 ---
 
