@@ -1,0 +1,25 @@
+camera:
+  index: 0
+
+detection:
+  smoothing_window: 3
+
+gestures:
+  open_palm:
+    key: space
+    threshold: 0.7
+  fist:
+    key: ctrl+z
+    threshold: 0.7
+  thumbs_up:
+    key: ctrl+s
+    threshold: 0.7
+  peace:
+    key: ctrl+c
+    threshold: 0.7
+  pointing:
+    key: enter
+    threshold: 0.7
+  pinch:
+    key: ctrl+v
+    threshold: 0.7
