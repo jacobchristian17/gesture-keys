@@ -11,8 +11,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **DET-01**: Detect 6 hand gestures (open palm, fist, thumbs up, peace, pointing, pinch) from webcam via MediaPipe Task API landmarks
 - [x] **DET-02**: Apply frame smoothing (majority-vote window) before debounce to prevent flicker
-- [ ] **DET-03**: Capture camera frames on a separate thread (non-blocking)
-- [ ] **DET-04**: Right-hand detection only (left hand ignored)
+- [x] **DET-03**: Capture camera frames on a separate thread (non-blocking)
+- [x] **DET-04**: Right-hand detection only (left hand ignored)
 
 ### Keyboard Control
 
@@ -76,8 +76,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | DET-01 | Phase 1 | Complete |
 | DET-02 | Phase 1 | Complete |
-| DET-03 | Phase 1 | Pending |
-| DET-04 | Phase 1 | Pending |
+| DET-03 | Phase 1 | Complete |
+| DET-04 | Phase 1 | Complete |
 | KEY-01 | Phase 2 | Pending |
 | KEY-02 | Phase 2 | Pending |
 | KEY-03 | Phase 2 | Pending |
