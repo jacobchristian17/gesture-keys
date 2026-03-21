@@ -3,6 +3,8 @@ camera:
 
 detection:
   smoothing_window: 3
+  activation_delay: 0.4
+  cooldown_duration: 0.8
 
 gestures:
   open_palm:

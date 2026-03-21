@@ -101,10 +101,10 @@ class TestConsoleOutput:
         mock_detector_cls.return_value = mock_detector
 
         # Run main with logging capture
-        with caplog.at_level(logging.INFO, logger="gesture_keys"):
+        with caplog.at_level(logging.DEBUG, logger="gesture_keys"):
             _main_mod.main()
 
-        # Verify: should see transitions logged
+        # Verify: should see transitions logged at DEBUG level
         gesture_messages = [
             r.message for r in caplog.records
             if "Gesture:" in r.message
@@ -206,7 +206,7 @@ class TestConsoleOutput:
         mock_detector.detect.side_effect = detect_side_effect
         mock_detector_cls.return_value = mock_detector
 
-        with caplog.at_level(logging.INFO, logger="gesture_keys"):
+        with caplog.at_level(logging.DEBUG, logger="gesture_keys"):
             _main_mod.main()
 
         gesture_messages = [

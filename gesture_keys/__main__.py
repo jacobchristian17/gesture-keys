@@ -8,8 +8,10 @@ import cv2
 
 from gesture_keys import __version__
 from gesture_keys.classifier import GestureClassifier
-from gesture_keys.config import load_config
+from gesture_keys.config import ConfigWatcher, load_config
+from gesture_keys.debounce import GestureDebouncer
 from gesture_keys.detector import CameraCapture, HandDetector
+from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.preview import draw_hand_landmarks, render_preview
 from gesture_keys.smoother import GestureSmoother
 
@@ -47,6 +49,28 @@ def print_banner(config, config_path):
     print("Detection started...")
 
 
+def _parse_key_mappings(gestures: dict) -> dict:
+    """Pre-parse key strings from gesture config into pynput objects.
+
+    Args:
+        gestures: Gesture config dict {name: {key: str, ...}}.
+
+    Returns:
+        Dict mapping gesture_name -> (modifiers, key, original_key_string).
+
+    Raises:
+        ValueError: If any key string is invalid (fail fast at startup).
+    """
+    mappings = {}
+    for name, settings in gestures.items():
+        if not isinstance(settings, dict) or "key" not in settings:
+            continue
+        key_string = settings["key"]
+        modifiers, key = parse_key_string(key_string)
+        mappings[name] = (modifiers, key, key_string)
+    return mappings
+
+
 def main():
     """Run the main gesture detection loop."""
     args = parse_args()
@@ -78,6 +102,22 @@ def main():
     classifier = GestureClassifier(thresholds)
     smoother = GestureSmoother(config.smoothing_window)
 
+    # Debounce and keystroke components
+    debouncer = GestureDebouncer(
+        config.activation_delay, config.cooldown_duration
+    )
+    sender = KeystrokeSender()
+
+    # Pre-parse key mappings (fail fast on invalid config)
+    try:
+        key_mappings = _parse_key_mappings(config.gestures)
+    except ValueError as e:
+        logger.error("Invalid key mapping in config: %s", e)
+        raise
+
+    # Config hot-reload watcher
+    watcher = ConfigWatcher(args.config)
+
     prev_gesture = None
     prev_time = time.perf_counter()
     fps = 0.0
@@ -106,11 +146,37 @@ def main():
             else:
                 gesture = smoother.update(None)
 
-            # Log transitions (including None transitions)
+            # Log gesture transitions at DEBUG level
             if gesture != prev_gesture:
                 gesture_name = gesture.value if gesture else "None"
-                logger.info("Gesture: %s", gesture_name)
+                logger.debug("Gesture: %s", gesture_name)
                 prev_gesture = gesture
+
+            # Debounce and fire keystroke
+            fire_gesture = debouncer.update(gesture, current_time)
+            if fire_gesture is not None:
+                gesture_name = fire_gesture.value
+                if gesture_name in key_mappings:
+                    modifiers, key, key_string = key_mappings[gesture_name]
+                    sender.send(modifiers, key)
+                    logger.info("FIRED: %s -> %s", gesture_name, key_string)
+
+            # Config hot-reload check
+            if watcher.check(current_time):
+                try:
+                    new_config = load_config(args.config)
+                    key_mappings = _parse_key_mappings(new_config.gestures)
+                    debouncer._activation_delay = new_config.activation_delay
+                    debouncer._cooldown_duration = new_config.cooldown_duration
+                    debouncer.reset()
+                    logger.info(
+                        "Config reloaded: %d gestures, delay=%.1fs, cooldown=%.1fs",
+                        len(new_config.gestures),
+                        new_config.activation_delay,
+                        new_config.cooldown_duration,
+                    )
+                except Exception as e:
+                    logger.warning("Config reload failed: %s", e)
 
             # Preview rendering
             if args.preview:
