@@ -10,6 +10,7 @@ No Python installation required. Extract the zip and run `GestureKeys.exe`.
 
 ## Supported Gestures
 
+
 | Gesture | Description | Default Key |
 |---------|-------------|-------------|
 | Open Palm | All 5 fingers extended | `win+tab` |
