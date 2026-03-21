@@ -15,6 +15,7 @@ from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.distance import DistanceFilter
 from gesture_keys.smoother import GestureSmoother
+from gesture_keys.swipe import SwipeDetector
 
 logger = logging.getLogger("gesture_keys")
 
@@ -38,6 +39,22 @@ def _parse_key_mappings(gestures: dict) -> dict:
         key_string = settings["key"]
         modifiers, key = parse_key_string(key_string)
         mappings[name] = (modifiers, key, key_string)
+    return mappings
+
+
+def _parse_swipe_key_mappings(swipe_mappings: dict[str, str]) -> dict:
+    """Pre-parse swipe direction key strings into pynput objects.
+
+    Args:
+        swipe_mappings: Dict mapping direction name -> key string.
+
+    Returns:
+        Dict mapping direction_name -> (modifiers, key, original_key_string).
+    """
+    mappings = {}
+    for direction_name, key_string in swipe_mappings.items():
+        modifiers, key = parse_key_string(key_string)
+        mappings[direction_name] = (modifiers, key, key_string)
     return mappings
 
 
@@ -149,6 +166,13 @@ class TrayApp:
                 min_hand_size=config.min_hand_size,
                 enabled=config.distance_enabled,
             )
+            swipe_detector = SwipeDetector(
+                min_velocity=config.swipe_min_velocity,
+                min_displacement=config.swipe_min_displacement,
+                axis_ratio=config.swipe_axis_ratio,
+                cooldown_duration=config.swipe_cooldown,
+            )
+            swipe_detector.enabled = config.swipe_enabled
             watcher = ConfigWatcher(self._config_path)
 
             try:
@@ -159,6 +183,7 @@ class TrayApp:
                 detector.close()
                 continue
 
+            swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
             hand_was_in_range = True
 
             try:
@@ -199,6 +224,18 @@ class TrayApp:
                             sender.send(modifiers, key)
                             logger.info("FIRED: %s -> %s", gesture_name, key_string)
 
+                    # Swipe detection (parallel path, bypasses smoother/debouncer)
+                    if config.swipe_enabled:
+                        swipe_result = swipe_detector.update(landmarks, current_time)
+                        if swipe_result is not None:
+                            swipe_name = swipe_result.value
+                            if swipe_name in swipe_key_mappings:
+                                modifiers, key, key_string = swipe_key_mappings[swipe_name]
+                                sender.send(modifiers, key)
+                                logger.info("SWIPE: %s -> %s", swipe_name, key_string)
+                    else:
+                        swipe_detector.update(None, current_time)  # Keep buffer clear when disabled
+
                     # Config hot-reload
                     if watcher.check(current_time):
                         try:
@@ -209,6 +246,13 @@ class TrayApp:
                             debouncer.reset()
                             distance_filter.enabled = new_config.distance_enabled
                             distance_filter.min_hand_size = new_config.min_hand_size
+                            # Swipe hot-reload
+                            swipe_detector.min_velocity = new_config.swipe_min_velocity
+                            swipe_detector.min_displacement = new_config.swipe_min_displacement
+                            swipe_detector.axis_ratio = new_config.swipe_axis_ratio
+                            swipe_detector.cooldown_duration = new_config.swipe_cooldown
+                            swipe_detector.enabled = new_config.swipe_enabled
+                            swipe_key_mappings = _parse_swipe_key_mappings(new_config.swipe_mappings) if new_config.swipe_enabled else {}
                             logger.info(
                                 "Config reloaded: %d gestures",
                                 len(new_config.gestures),
