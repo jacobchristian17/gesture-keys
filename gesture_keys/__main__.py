@@ -67,7 +67,15 @@ def main():
     # Create pipeline components
     camera = CameraCapture(config.camera_index).start()
     detector = HandDetector()
-    classifier = GestureClassifier(config.gestures)
+
+    # Extract per-gesture thresholds from nested config structure
+    # config.gestures has {name: {key: ..., threshold: ...}} -- classifier needs {name: float}
+    thresholds = {
+        name: settings.get("threshold", 0.7)
+        for name, settings in config.gestures.items()
+        if isinstance(settings, dict)
+    }
+    classifier = GestureClassifier(thresholds)
     smoother = GestureSmoother(config.smoothing_window)
 
     prev_gesture = None
