@@ -59,7 +59,7 @@ class TestConsoleOutput:
         then 3 frames with OPEN_PALM landmarks (smoother produces OPEN_PALM),
         then 3 frames with no hand again (smoother produces None).
         """
-        # Setup args: no preview mode
+        # Setup args: no preview mode (test detection loop directly)
         mock_args = MagicMock()
         mock_args.preview = False
         mock_args.config = "config.yaml"
@@ -100,9 +100,9 @@ class TestConsoleOutput:
         mock_detector.detect.side_effect = detect_side_effect
         mock_detector_cls.return_value = mock_detector
 
-        # Run main with logging capture
+        # Run detection loop directly (main() now dispatches to tray mode when preview=False)
         with caplog.at_level(logging.DEBUG, logger="gesture_keys"):
-            _main_mod.main()
+            _main_mod.run_preview_mode(mock_args)
 
         # Verify: should see transitions logged at DEBUG level
         gesture_messages = [
@@ -146,7 +146,7 @@ class TestConsoleOutput:
         mock_detector = MagicMock()
         mock_detector_cls.return_value = mock_detector
 
-        _main_mod.main()
+        _main_mod.run_preview_mode(mock_args)
 
         captured = capsys.readouterr()
         lines = [l for l in captured.out.strip().split("\n") if l.strip()]
@@ -206,8 +206,9 @@ class TestConsoleOutput:
         mock_detector.detect.side_effect = detect_side_effect
         mock_detector_cls.return_value = mock_detector
 
+        # Run detection loop directly (main() now dispatches to tray mode when preview=False)
         with caplog.at_level(logging.DEBUG, logger="gesture_keys"):
-            _main_mod.main()
+            _main_mod.run_preview_mode(mock_args)
 
         gesture_messages = [
             r.message for r in caplog.records

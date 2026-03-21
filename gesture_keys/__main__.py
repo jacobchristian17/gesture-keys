@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import sys
 import time
 
 import cv2
@@ -33,6 +34,23 @@ def parse_args():
         help="Path to config file (default: config.yaml)",
     )
     return parser.parse_args()
+
+
+def hide_console_window():
+    """Hide the console window on Windows (tray mode only)."""
+    if sys.platform == 'win32':
+        import ctypes
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 0)  # SW_HIDE
+
+
+def run_tray_mode(args):
+    """Run in system tray mode (default, no preview)."""
+    hide_console_window()
+    from gesture_keys.tray import TrayApp
+    app = TrayApp(config_path=args.config)
+    app.run()
 
 
 def print_banner(config, config_path):
@@ -71,10 +89,12 @@ def _parse_key_mappings(gestures: dict) -> dict:
     return mappings
 
 
-def main():
-    """Run the main gesture detection loop."""
-    args = parse_args()
+def run_preview_mode(args):
+    """Run the gesture detection loop with camera preview.
 
+    Args:
+        args: Parsed argparse namespace with config and preview fields.
+    """
     # Load config
     config = load_config(args.config)
 
@@ -202,6 +222,15 @@ def main():
         detector.close()
         if args.preview:
             cv2.destroyAllWindows()
+
+
+def main():
+    """Run gesture-keys: tray mode by default, preview mode with --preview."""
+    args = parse_args()
+    if args.preview:
+        run_preview_mode(args)
+    else:
+        run_tray_mode(args)
 
 
 if __name__ == "__main__":
