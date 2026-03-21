@@ -266,3 +266,122 @@ class TestConfigWatcher:
         missing = tmp_path / "nonexistent.yaml"
         watcher = ConfigWatcher(str(missing), check_interval=0.0)
         assert watcher.check(0.0) is False
+
+
+class TestSwipeConfig:
+    """Test swipe config parsing and defaults."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    FULL_SWIPE_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+        "swipe:\n"
+        "  cooldown: 0.8\n"
+        "  min_velocity: 0.5\n"
+        "  min_displacement: 0.1\n"
+        "  axis_ratio: 3.0\n"
+        "  swipe_left:\n    key: alt+left\n"
+        "  swipe_right:\n    key: alt+right\n"
+        "  swipe_up:\n    key: ctrl+up\n"
+        "  swipe_down:\n    key: ctrl+down\n"
+    )
+
+    def test_default_appconfig_swipe_enabled_false(self):
+        config = AppConfig()
+        assert config.swipe_enabled is False
+
+    def test_default_appconfig_swipe_cooldown(self):
+        config = AppConfig()
+        assert config.swipe_cooldown == 0.5
+
+    def test_default_appconfig_swipe_min_velocity(self):
+        config = AppConfig()
+        assert config.swipe_min_velocity == 0.4
+
+    def test_default_appconfig_swipe_min_displacement(self):
+        config = AppConfig()
+        assert config.swipe_min_displacement == 0.08
+
+    def test_default_appconfig_swipe_axis_ratio(self):
+        config = AppConfig()
+        assert config.swipe_axis_ratio == 2.0
+
+    def test_default_appconfig_swipe_mappings_empty(self):
+        config = AppConfig()
+        assert config.swipe_mappings == {}
+
+    def test_full_swipe_config_parsing(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.FULL_SWIPE_YAML)
+        config = load_config(str(cfg))
+        assert config.swipe_enabled is True
+        assert config.swipe_cooldown == 0.8
+        assert config.swipe_min_velocity == 0.5
+        assert config.swipe_min_displacement == 0.1
+        assert config.swipe_axis_ratio == 3.0
+        assert config.swipe_mappings == {
+            "swipe_left": "alt+left",
+            "swipe_right": "alt+right",
+            "swipe_up": "ctrl+up",
+            "swipe_down": "ctrl+down",
+        }
+
+    def test_missing_swipe_section_defaults_disabled(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.swipe_enabled is False
+        assert config.swipe_mappings == {}
+
+    def test_swipe_section_no_directions_disabled(self, tmp_path):
+        """Swipe section present but no direction mappings = disabled."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "swipe:\n"
+            "  cooldown: 0.6\n"
+            "  min_velocity: 0.5\n"
+        )
+        config = load_config(str(cfg))
+        assert config.swipe_enabled is False
+        assert config.swipe_mappings == {}
+
+    def test_swipe_section_with_one_direction_enabled(self, tmp_path):
+        """Swipe section with at least one direction mapping = enabled."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "swipe:\n"
+            "  swipe_left:\n    key: alt+left\n"
+        )
+        config = load_config(str(cfg))
+        assert config.swipe_enabled is True
+        assert config.swipe_mappings == {"swipe_left": "alt+left"}
+
+    def test_existing_config_unaffected(self, tmp_path):
+        """Adding swipe parsing does not break existing config loading."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 1\n"
+            "detection:\n"
+            "  smoothing_window: 5\n"
+            "  activation_delay: 0.6\n"
+            "  cooldown_duration: 1.0\n"
+            "gestures:\n"
+            "  open_palm:\n    key: space\n    threshold: 0.8\n"
+            "distance:\n  enabled: true\n  min_hand_size: 0.20\n"
+        )
+        config = load_config(str(cfg))
+        assert config.camera_index == 1
+        assert config.smoothing_window == 5
+        assert config.activation_delay == 0.6
+        assert config.cooldown_duration == 1.0
+        assert config.distance_enabled is True
+        assert config.min_hand_size == 0.20
+        assert config.swipe_enabled is False
