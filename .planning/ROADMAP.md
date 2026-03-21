@@ -60,10 +60,11 @@ Plans:
   2. Clicking "Active/Inactive" in the tray menu toggles gesture detection on and off (camera LED turns off when inactive)
   3. Clicking "Edit Config" opens config.yaml in the system default text editor
   4. Clicking "Quit" stops detection, releases the camera, and exits the process cleanly
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — TrayApp class with pystray integration, detection thread, and unit tests
+- [ ] 03-02-PLAN.md — Wire entry point to default tray mode, console hiding, and human verification
 
 ## Progress
 
@@ -74,4 +75,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Detection and Preview | 3/3 | Complete | - |
 | 2. Gesture-to-Keystroke Pipeline | 2/2 | Complete   | 2026-03-21 |
-| 3. System Tray and Background Operation | 0/? | Not started | - |
+| 3. System Tray and Background Operation | 0/2 | Not started | - |
