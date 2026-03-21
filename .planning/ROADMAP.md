@@ -33,7 +33,10 @@
   1. User can set a `min_hand_size` threshold in config.yaml and gestures are ignored when the hand is too far away
   2. User can enable/disable distance gating in config without removing threshold values
   3. Existing static gestures continue to work exactly as before when distance gating is disabled or hand is within range
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 04-01-PLAN.md -- DistanceFilter class and config integration (TDD)
+- [ ] 04-02-PLAN.md -- Wire DistanceFilter into both detection loops
 
 ### Phase 5: Swipe Detection
 **Goal**: Users can perform directional hand swipes that fire mapped keyboard commands, expanding the gesture vocabulary beyond static poses
@@ -77,7 +80,7 @@
 | 1. Detection and Preview | v1.0 | 3/3 | Complete | 2026-03-21 |
 | 2. Gesture-to-Keystroke Pipeline | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 3. System Tray and Background Operation | v1.0 | 2/2 | Complete | 2026-03-21 |
-| 4. Distance Gating | v1.1 | 0/? | Not started | - |
+| 4. Distance Gating | v1.1 | 0/2 | Planning | - |
 | 5. Swipe Detection | v1.1 | 0/? | Not started | - |
 | 6. Integration and Mutual Exclusion | v1.1 | 0/? | Not started | - |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Not started | - |
