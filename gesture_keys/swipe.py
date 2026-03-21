@@ -58,12 +58,14 @@ class SwipeDetector:
         min_displacement: float = 0.08,
         axis_ratio: float = 2.0,
         cooldown_duration: float = 0.5,
+        settling_frames: int = 10,
     ) -> None:
         self._buffer_size = buffer_size
         self._min_velocity = min_velocity
         self._min_displacement = min_displacement
         self._axis_ratio = axis_ratio
         self._cooldown_duration = cooldown_duration
+        self._settling_frames = settling_frames
         self._enabled = True
 
         self._buffer: deque[tuple[float, float, float]] = deque(maxlen=buffer_size)
@@ -71,6 +73,7 @@ class SwipeDetector:
         self._prev_speed: float = 0.0
         self._cooldown_start: float = 0.0
         self._armed_direction: Optional[SwipeDirection] = None
+        self._settling_frames_remaining: int = 0
 
     # --- Property setters for hot-reload ---
 
@@ -113,6 +116,14 @@ class SwipeDetector:
     @cooldown_duration.setter
     def cooldown_duration(self, value: float) -> None:
         self._cooldown_duration = value
+
+    @property
+    def settling_frames(self) -> int:
+        return self._settling_frames
+
+    @settling_frames.setter
+    def settling_frames(self, value: int) -> None:
+        self._settling_frames = value
 
     @property
     def is_swiping(self) -> bool:
@@ -175,6 +186,7 @@ class SwipeDetector:
                 self._state = _SwipeState.IDLE
                 self._buffer.clear()
                 self._prev_speed = 0.0
+                self._settling_frames_remaining = self._settling_frames
                 logger.debug("Swipe COOLDOWN -> IDLE")
                 return None  # Skip this frame to avoid re-arming on stale motion
             else:
@@ -203,6 +215,11 @@ class SwipeDetector:
         frame_speed = math.sqrt(frame_dx * frame_dx + frame_dy * frame_dy) / frame_dt if frame_dt > 0 else 0.0
 
         if self._state == _SwipeState.IDLE:
+            # Post-cooldown settling guard: prevent re-arming while hand settles
+            if self._settling_frames_remaining > 0:
+                self._settling_frames_remaining -= 1
+                return None
+
             # Check if thresholds are met to arm
             if (
                 displacement >= self._min_displacement

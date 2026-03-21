@@ -158,7 +158,7 @@ class TestSwipeCooldown:
         """After cooldown expires, next swipe fires immediately (no return-to-rest needed)."""
         det = SwipeDetector(
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
-            cooldown_duration=0.3,
+            cooldown_duration=0.3, settling_frames=0,
         )
         # First swipe
         pos1 = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
@@ -428,9 +428,9 @@ class TestSwipeSettlingGuard:
         det.update(_make_wrist_landmarks(0.3, 0.5), 1.0)  # COOLDOWN->IDLE
         assert det._settling_frames_remaining == 3
 
-        # Burn settling
+        # Burn settling: need buffer refill (2 frames for <3 entries) + 3 settling frames
         t = 1.033
-        for _ in range(3):
+        for _ in range(6):
             det.update(_make_wrist_landmarks(0.3, 0.5), t)
             t += 0.033
         assert det._settling_frames_remaining == 0
