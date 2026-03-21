@@ -28,11 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Left hand is ignored -- no gesture label appears when only the left hand is visible
   4. Console output prints detected gesture names as they change
   5. FPS counter is visible in the preview window
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md — Project scaffold, config system, gesture classifier, and majority-vote smoother
+- [ ] 01-02-PLAN.md — Camera capture thread and MediaPipe hand detection with right-hand filtering
+- [ ] 01-03-PLAN.md — Preview window, CLI entry point, and full integration with human verification
 
 ### Phase 2: Gesture-to-Keystroke Pipeline
 **Goal**: Holding a gesture for the activation delay fires the mapped keyboard command exactly once in any foreground application
@@ -71,6 +72,6 @@ Phases execute in numeric order: 1 -> 2 -> 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Detection and Preview | 0/? | Not started | - |
+| 1. Detection and Preview | 0/3 | Planning complete | - |
 | 2. Gesture-to-Keystroke Pipeline | 0/? | Not started | - |
 | 3. System Tray and Background Operation | 0/? | Not started | - |
