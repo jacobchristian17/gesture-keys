@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Detection and Preview** - Camera captures hand landmarks, classifies 6 gestures, and displays results in a preview window
 - [x] **Phase 2: Gesture-to-Keystroke Pipeline** - Detected gestures pass through frame smoothing and debounce, then fire mapped keyboard commands (completed 2026-03-21)
-- [ ] **Phase 3: System Tray and Background Operation** - App runs headless in the system tray with active toggle, config editing, and clean shutdown
+- [x] **Phase 3: System Tray and Background Operation** - App runs headless in the system tray with active toggle, config editing, and clean shutdown (completed 2026-03-21)
 
 ## Phase Details
 
@@ -60,7 +60,7 @@ Plans:
   2. Clicking "Active/Inactive" in the tray menu toggles gesture detection on and off (camera LED turns off when inactive)
   3. Clicking "Edit Config" opens config.yaml in the system default text editor
   4. Clicking "Quit" stops detection, releases the camera, and exits the process cleanly
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 03-01-PLAN.md — TrayApp class with pystray integration, detection thread, and unit tests
@@ -75,4 +75,4 @@ Phases execute in numeric order: 1 -> 2 -> 3
 |-------|----------------|--------|-----------|
 | 1. Detection and Preview | 3/3 | Complete | - |
 | 2. Gesture-to-Keystroke Pipeline | 2/2 | Complete   | 2026-03-21 |
-| 3. System Tray and Background Operation | 0/2 | Not started | - |
+| 3. System Tray and Background Operation | 2/2 | Complete   | 2026-03-21 |
