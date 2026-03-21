@@ -59,12 +59,12 @@ class TrayApp:
         self._detection_thread = None
 
     def _create_icon_image(self) -> Image.Image:
-        """Create a 64x64 RGB icon image with a green circle.
+        """Create a 64x64 RGBA icon image with a green circle.
 
         Returns:
             PIL Image suitable for use as a tray icon.
         """
-        img = Image.new("RGB", (64, 64), "black")
+        img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         draw.ellipse([8, 8, 56, 56], fill="#00cc66")
         return img
@@ -203,6 +203,12 @@ class TrayApp:
         )
         self._detection_thread.start()
 
+    def _on_setup(self, icon) -> None:
+        """Setup callback after icon is visible. Starts detection and notifies."""
+        icon.visible = True
+        icon.notify("Gesture Keys is running", "Gesture Keys")
+        self._start_detection()
+
     def run(self) -> None:
         """Run the tray application.
 
@@ -215,4 +221,4 @@ class TrayApp:
             title="Gesture Keys",
             menu=self._build_menu(),
         )
-        self._icon.run(setup=lambda icon: self._start_detection())
+        self._icon.run(setup=self._on_setup)

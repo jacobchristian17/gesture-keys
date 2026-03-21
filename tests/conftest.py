@@ -10,8 +10,13 @@ def _make_landmark(x=0.0, y=0.0, z=0.0):
 
 
 def _make_hand(positions):
-    """Create a list of 21 landmarks from a dict of index -> (x, y, z)."""
-    landmarks = [_make_landmark(0.5, 0.5, 0.0) for _ in range(21)]
+    """Create a list of 21 landmarks from a dict of index -> (x, y, z).
+
+    Default landmark position is (0.5, 0.7, 0.0) so that MCP joints
+    (which serve as the base reference) are naturally below PIP joints
+    in the y-axis, matching a realistic hand pose.
+    """
+    landmarks = [_make_landmark(0.5, 0.7, 0.0) for _ in range(21)]
     for idx, coords in positions.items():
         landmarks[idx] = _make_landmark(*coords)
     return landmarks
@@ -129,6 +134,24 @@ def mock_landmarks_pointing():
         12: (0.5, 0.7, 0.0),   # MIDDLE_TIP (curled)
         14: (0.6, 0.5, 0.0),   # RING_PIP
         16: (0.6, 0.7, 0.0),   # RING_TIP (curled)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (curled)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_scout():
+    """Index + middle + ring extended, pinky curled -- SCOUT."""
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.45, 0.6, 0.0),   # THUMB_IP
+        4: (0.48, 0.65, 0.0),  # THUMB_TIP (curled)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.4, 0.2, 0.0),    # INDEX_TIP (extended)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.2, 0.0),   # MIDDLE_TIP (extended)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.2, 0.0),   # RING_TIP (extended)
         18: (0.7, 0.5, 0.0),   # PINKY_PIP
         20: (0.7, 0.7, 0.0),   # PINKY_TIP (curled)
     })

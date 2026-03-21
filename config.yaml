@@ -3,26 +3,29 @@ camera:
 
 detection:
   smoothing_window: 1
-  activation_delay: 0.2
+  activation_delay: 0.05
   cooldown_duration: 0.5
 
 gestures:
-  open_palm:
+  open_palm: # open 5 fingers
     key: win+tab
     threshold: 0.7
-  fist:
+  fist: # close 5 fingers
     key: esc
     threshold: 0.7
-  thumbs_up:
-    key: alt+tab
+  thumbs_up: 
+    key: enter
     threshold: 0.7
-  peace:
+  peace: # index + middle
     key: win+ctrl+left
     threshold: 0.7
-  pointing:
-    key: win+up
+  pointing: # index
+    key: alt+tab
     threshold: 0.7
-  pinch:
+  pinch: # index + thumb together
     key: win+down
     threshold: 0.05
+  scout: # index + middle + ring
+    key: win+ctrl+right
+    threshold: 0.7
     

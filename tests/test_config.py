@@ -27,13 +27,13 @@ class TestLoadConfigDefault:
         config = load_config(DEFAULT_CONFIG)
         assert config.smoothing_window == 3
 
-    def test_has_six_gestures(self):
+    def test_has_seven_gestures(self):
         config = load_config(DEFAULT_CONFIG)
-        assert len(config.gestures) == 6
+        assert len(config.gestures) == 7
 
     def test_gesture_names(self):
         config = load_config(DEFAULT_CONFIG)
-        expected = {"open_palm", "fist", "thumbs_up", "peace", "pointing", "pinch"}
+        expected = {"open_palm", "fist", "thumbs_up", "peace", "pointing", "pinch", "scout"}
         assert set(config.gestures.keys()) == expected
 
     def test_gesture_has_key_and_threshold(self):
@@ -58,6 +58,7 @@ class TestLoadConfigDefault:
             "peace": 0.7,
             "pointing": 0.7,
             "pinch": 0.05,
+            "scout": 0.7,
         }
         for name, gesture in config.gestures.items():
             expected = expected_thresholds[name]

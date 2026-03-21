@@ -20,8 +20,8 @@ def classifier_custom():
 class TestGestureEnum:
     """Test Gesture enum values."""
 
-    def test_has_all_six_gestures(self):
-        expected = {"OPEN_PALM", "FIST", "THUMBS_UP", "PEACE", "POINTING", "PINCH"}
+    def test_has_all_seven_gestures(self):
+        expected = {"OPEN_PALM", "FIST", "THUMBS_UP", "PEACE", "POINTING", "PINCH", "SCOUT"}
         actual = {g.name for g in Gesture}
         assert expected == actual
 
@@ -52,6 +52,10 @@ class TestClassifyGestures:
     def test_pinch(self, classifier, mock_landmarks_pinch):
         result = classifier.classify(mock_landmarks_pinch)
         assert result == Gesture.PINCH
+
+    def test_scout(self, classifier, mock_landmarks_scout):
+        result = classifier.classify(mock_landmarks_scout)
+        assert result == Gesture.SCOUT
 
     def test_none_for_ambiguous(self, classifier, mock_landmarks_none):
         result = classifier.classify(mock_landmarks_none)

@@ -14,6 +14,7 @@ class Gesture(Enum):
     PEACE = "peace"
     POINTING = "pointing"
     PINCH = "pinch"
+    SCOUT = "scout"
 
 
 # MediaPipe landmark indices
@@ -39,9 +40,10 @@ PINKY_PIP = 18
 PINKY_DIP = 19
 PINKY_TIP = 20
 
-# Finger tip and PIP joint pairs (index, middle, ring, pinky)
+# Finger tip, PIP, and MCP joint groups (index, middle, ring, pinky)
 FINGER_TIPS = [INDEX_TIP, MIDDLE_TIP, RING_TIP, PINKY_TIP]
 FINGER_PIPS = [INDEX_PIP, MIDDLE_PIP, RING_PIP, PINKY_PIP]
+FINGER_MCPS = [INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP]
 
 
 class GestureClassifier:
@@ -49,7 +51,7 @@ class GestureClassifier:
 
     Uses rule-based finger state detection (extended/curled) and
     priority-ordered classification:
-    PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > None
+    PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > SCOUT > None
     """
 
     def __init__(self, thresholds: Optional[dict[str, float]] = None):
@@ -73,7 +75,7 @@ class GestureClassifier:
         Returns:
             Gesture enum value, or None if no gesture matches.
         """
-        # Priority order: PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM
+        # Priority order: PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > SCOUT
         if self._is_pinch(landmarks):
             return Gesture.PINCH
 
@@ -103,14 +105,21 @@ class GestureClassifier:
         if all(finger_states) and thumb_extended:
             return Gesture.OPEN_PALM
 
+        # SCOUT: index + middle + ring extended, pinky curled
+        if index_ext and middle_ext and ring_ext and not pinky_ext:
+            return Gesture.SCOUT
+
         return None
 
-    def _is_finger_extended(self, landmarks: list, tip_idx: int, pip_idx: int) -> bool:
-        """Check if a finger is extended (tip above PIP joint).
+    def _is_finger_extended(self, landmarks: list, tip_idx: int, pip_idx: int, mcp_idx: int) -> bool:
+        """Check if a finger is extended (tip above PIP and PIP above MCP).
 
+        Uses both tip-vs-PIP and PIP-vs-MCP checks to reduce false positives
+        from borderline finger positions (e.g. pinky following ring finger).
         In normalized coordinates, lower Y = higher on screen = extended.
         """
-        return landmarks[tip_idx].y < landmarks[pip_idx].y
+        return (landmarks[tip_idx].y < landmarks[pip_idx].y and
+                landmarks[pip_idx].y < landmarks[mcp_idx].y)
 
     def _is_thumb_extended(self, landmarks: list) -> bool:
         """Check if thumb is extended.
@@ -133,6 +142,6 @@ class GestureClassifier:
     def _get_finger_states(self, landmarks: list) -> list[bool]:
         """Get extended/curled state for index, middle, ring, pinky."""
         return [
-            self._is_finger_extended(landmarks, tip, pip)
-            for tip, pip in zip(FINGER_TIPS, FINGER_PIPS)
+            self._is_finger_extended(landmarks, tip, pip, mcp)
+            for tip, pip, mcp in zip(FINGER_TIPS, FINGER_PIPS, FINGER_MCPS)
         ]
