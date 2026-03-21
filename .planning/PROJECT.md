@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard commands (single keys and combos). Runs as a Windows system tray app with optional camera preview, leveraging an NVIDIA RTX 3060 GPU via CUDA for accelerated inference.
+A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard commands (single keys and combos). Runs as a Windows system tray app with optional camera preview.
 
 ## Core Value
 
@@ -12,39 +12,37 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Detect 6 hand gestures (open palm, fist, thumbs up, peace, pointing, pinch) from webcam via MediaPipe landmarks — v1.0
+- ✓ Map each gesture to configurable keyboard commands (single keys and combos) via YAML config — v1.0
+- ✓ Debounce gesture detection with activation delay and cooldown to prevent false triggers — v1.0
+- ✓ Run as Windows system tray app with Active toggle, Edit Config, and Quit menu items — v1.0
+- ✓ Support optional `--preview` flag for camera preview window during development/testing — v1.0
+- ✓ Fire keyboard commands that work in any foreground application — v1.0
 
 ### Active
 
-- [ ] Detect 6 hand gestures (open palm, fist, thumbs up, peace, pointing, pinch) from webcam via MediaPipe landmarks
-- [ ] Map each gesture to configurable keyboard commands (single keys and combos) via YAML config
-- [ ] Debounce gesture detection with activation delay (0.4s) and cooldown (0.8s) to prevent false triggers
-- [ ] Run as Windows system tray app with Active toggle, Edit Config, and Quit menu items
-- [ ] Support optional `--preview` flag for camera preview window during development/testing
-- [ ] Accelerate inference on RTX 3060 via onnxruntime-gpu / CUDA
-- [ ] Fire keyboard commands that work in any foreground application (text editors, browsers, etc.)
+(None — define with next milestone)
 
 ### Out of Scope
 
-- Custom gesture training / ML model training — using MediaPipe landmarks only
-- Mobile or cross-platform — Windows-only for v1
+- Custom gesture training / ML model training — MediaPipe landmarks sufficient for 6 gestures
+- Mobile or cross-platform — Windows-only experiment
 - GUI configuration — YAML file editing is sufficient
 - Multiple camera support — single camera index from config
-- Gesture profiles / per-app mappings — single global config
+- Gesture profiles / per-app mappings — single global config for now
+- GPU acceleration (onnxruntime-gpu) — MediaPipe Python on Windows is CPU-only; 30+ FPS on CPU is sufficient
+- Two-hand gestures — high complexity, defer until 6-gesture ceiling is hit
 
 ## Context
 
-- Fun experiment to explore MediaPipe hand tracking + keyboard automation
-- Target machine: Windows 11 with NVIDIA RTX 3060 (CUDA available)
-- MediaPipe provides 21 hand landmarks; gesture classification uses finger tip vs PIP joint comparison
-- Priority-ordered classification: PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > None
-- Threading: pystray requires main thread on Windows; detection runs on daemon thread
-- Key dependencies: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML, onnxruntime-gpu
+Shipped v1.0 MVP with 2,949 LOC Python.
+Tech stack: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML.
+Platform: Windows 11, CPU inference (30+ FPS sufficient).
+Architecture: camera thread → MediaPipe landmarks → classifier → smoother → debouncer → keystroke sender, all wrapped in pystray tray app.
 
 ## Constraints
 
 - **Platform**: Windows only — pystray main thread requirement, `os.startfile()` for config editing
-- **GPU**: NVIDIA RTX 3060 with CUDA — onnxruntime-gpu for acceleration
 - **No custom ML**: Classification purely from MediaPipe landmark geometry, no training step
 - **Python**: Standard Python ecosystem (pip, venv)
 
@@ -52,11 +50,14 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| MediaPipe landmarks over custom ML | No training data needed, 21 landmarks sufficient for 6 gestures | — Pending |
-| pynput for keyboard simulation | Handles single keys and combos, works across apps | — Pending |
-| YAML config over GUI settings | Simpler to build, easy to hand-edit, sufficient for experiment | — Pending |
-| Debounce state machine (0.4s activate, 0.8s cooldown) | Prevents false fires from transitional poses and held gestures | — Pending |
-| Priority-ordered gesture classification | Resolves ambiguous poses deterministically (e.g., pinch vs pointing) | — Pending |
+| MediaPipe landmarks over custom ML | No training data needed, 21 landmarks sufficient for 6 gestures | ✓ Good — reliable detection, no training overhead |
+| pynput for keyboard simulation | Handles single keys and combos, works across apps | ✓ Good — works in all tested foreground apps |
+| YAML config over GUI settings | Simpler to build, easy to hand-edit, sufficient for experiment | ✓ Good — hot-reload makes editing fast |
+| Debounce state machine (0.4s activate, 0.8s cooldown) | Prevents false fires from transitional poses and held gestures | ✓ Good — configurable per user preference |
+| Priority-ordered gesture classification | Resolves ambiguous poses deterministically (e.g., pinch vs pointing) | ✓ Good — no ambiguity in practice |
+| Dropped GPU acceleration | MediaPipe Python on Windows is CPU-only, 30+ FPS sufficient | ✓ Good — simplified dependencies |
+| RGBA icon + visible=True for pystray | RGB icons invisible on some Windows 11 configs | ✓ Good — fixed tray icon visibility |
+| Lazy TrayApp import in __main__.py | Avoid loading pystray/Pillow when using --preview mode | ✓ Good — faster preview startup |
 
 ---
-*Last updated: 2026-03-21 after initialization*
+*Last updated: 2026-03-21 after v1.0 milestone*
