@@ -185,6 +185,7 @@ class TrayApp:
 
             swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
             hand_was_in_range = True
+            was_swiping = False
 
             try:
                 while self._active.is_set() and not self._shutdown.is_set():
@@ -225,13 +226,20 @@ class TrayApp:
 
                     # Classify and smooth (suppressed when swiping to prevent cross-fire)
                     swiping = config.swipe_enabled and swipe_detector.is_swiping
+                    if swiping and not was_swiping:
+                        smoother.reset()
+                        debouncer.reset()
+                    was_swiping = swiping
                     if landmarks and not swiping:
                         raw_gesture = classifier.classify(landmarks)
                         gesture = smoother.update(raw_gesture)
                     else:
                         gesture = smoother.update(None)
 
-                    fire_gesture = debouncer.update(gesture, current_time)
+                    if not swiping:
+                        fire_gesture = debouncer.update(gesture, current_time)
+                    else:
+                        fire_gesture = None
                     if fire_gesture is not None:
                         gesture_name = fire_gesture.value
                         if gesture_name in key_mappings:

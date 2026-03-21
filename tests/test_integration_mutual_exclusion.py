@@ -5,11 +5,20 @@ These tests validate the contract that the main loop relies on:
 - is_swiping is False during held poses (static pipeline runs normally)
 - reset() cleanly interrupts swipe state for distance gating
 - Swipe-to-pose transitions are clean (no stuck states)
+- Smoother reset eliminates stale gesture leakage
 """
 
+from enum import Enum
 from types import SimpleNamespace
 
+from gesture_keys.smoother import GestureSmoother
 from gesture_keys.swipe import SwipeDetector, SwipeDirection, _SwipeState
+
+
+class _FakeGesture(Enum):
+    """Fake gesture enum for smoother testing."""
+    OPEN_PALM = "open_palm"
+    FIST = "fist"
 
 
 # --- Helpers (duplicated from test_swipe to keep test file independent) ---
@@ -132,3 +141,42 @@ class TestMutualExclusionIntegration:
             assert result is None
             assert det.is_swiping is False
             t += 0.033
+
+
+class TestSmootherResetLeakRegression:
+    """Regression test: smoother reset must eliminate stale gesture values."""
+
+    def test_smoother_reset_clears_stale_gestures(self):
+        """After filling smoother with a gesture and resetting, feeding None
+        should return None immediately -- not the stale gesture via majority vote."""
+        smoother = GestureSmoother(window_size=3)
+
+        # Fill the window with OPEN_PALM
+        for _ in range(3):
+            result = smoother.update(_FakeGesture.OPEN_PALM)
+        assert result == _FakeGesture.OPEN_PALM, "Setup: smoother should report OPEN_PALM"
+
+        # Reset (simulating swipe start)
+        smoother.reset()
+
+        # Feed None -- should return None, not stale OPEN_PALM
+        result = smoother.update(None)
+        assert result is None, (
+            "After reset, smoother should return None (not stale gesture from window)"
+        )
+
+    def test_smoother_reset_then_new_gesture_works(self):
+        """After reset, a new gesture fills the window cleanly."""
+        smoother = GestureSmoother(window_size=3)
+
+        # Fill with OPEN_PALM
+        for _ in range(3):
+            smoother.update(_FakeGesture.OPEN_PALM)
+
+        smoother.reset()
+
+        # Fill with FIST
+        for _ in range(3):
+            result = smoother.update(_FakeGesture.FIST)
+
+        assert result == _FakeGesture.FIST, "After reset, new gesture should dominate"

@@ -175,6 +175,7 @@ def run_preview_mode(args):
 
     prev_gesture = None
     hand_was_in_range = True
+    was_swiping = False
     prev_time = time.perf_counter()
     fps = 0.0
 
@@ -224,6 +225,10 @@ def run_preview_mode(args):
 
             # Classify and smooth (suppressed when swiping to prevent cross-fire)
             swiping = config.swipe_enabled and swipe_detector.is_swiping
+            if swiping and not was_swiping:
+                smoother.reset()
+                debouncer.reset()
+            was_swiping = swiping
             if landmarks and not swiping:
                 raw_gesture = classifier.classify(landmarks)
                 gesture = smoother.update(raw_gesture)
@@ -236,8 +241,11 @@ def run_preview_mode(args):
                 logger.debug("Gesture: %s", gesture_name)
                 prev_gesture = gesture
 
-            # Debounce and fire keystroke
-            fire_gesture = debouncer.update(gesture, current_time)
+            # Debounce and fire keystroke (gated during swiping)
+            if not swiping:
+                fire_gesture = debouncer.update(gesture, current_time)
+            else:
+                fire_gesture = None
             if fire_gesture is not None:
                 gesture_name = fire_gesture.value
                 if gesture_name in key_mappings:
