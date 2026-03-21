@@ -24,10 +24,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### System Tray
 
-- [ ] **TRAY-01**: Run as Windows system tray app with no camera preview by default
-- [ ] **TRAY-02**: Active/inactive toggle in tray menu
-- [ ] **TRAY-03**: Edit Config option opens config.yaml in default editor
-- [ ] **TRAY-04**: Quit option stops camera and exits
+- [x] **TRAY-01**: Run as Windows system tray app with no camera preview by default
+- [x] **TRAY-02**: Active/inactive toggle in tray menu
+- [x] **TRAY-03**: Edit Config option opens config.yaml in default editor
+- [x] **TRAY-04**: Quit option stops camera and exits
 
 ### Developer Experience
 
@@ -83,10 +83,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | KEY-03 | Phase 2 | Complete |
 | KEY-04 | Phase 2 | Complete |
 | KEY-05 | Phase 2 | Complete |
-| TRAY-01 | Phase 3 | Pending |
-| TRAY-02 | Phase 3 | Pending |
-| TRAY-03 | Phase 3 | Pending |
-| TRAY-04 | Phase 3 | Pending |
+| TRAY-01 | Phase 3 | Complete |
+| TRAY-02 | Phase 3 | Complete |
+| TRAY-03 | Phase 3 | Complete |
+| TRAY-04 | Phase 3 | Complete |
 | DEV-01 | Phase 1 | Complete |
 | DEV-02 | Phase 1 | Complete |
 | DEV-03 | Phase 1 | Complete |
