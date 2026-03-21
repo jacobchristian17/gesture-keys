@@ -2,3 +2,4 @@ mediapipe>=0.10.33
 opencv-python>=4.8.0
 PyYAML>=6.0
 pytest>=8.0
+pynput>=1.7.6
