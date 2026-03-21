@@ -62,11 +62,12 @@ Plans:
   2. Holding a static pose does not trigger false swipe events even though the wrist has minor movement
   3. When the hand is beyond the distance threshold, neither static gestures nor swipes fire
   4. Transitioning between swipe motion and held pose resolves cleanly without stuck states or missed gestures
-**Plans:** 3 plans (2 executed + 1 gap closure)
+**Plans:** 4 plans (3 executed + 1 gap closure)
 Plans:
 - [x] 06-01-PLAN.md -- SwipeDetector is_swiping property and reset() method (TDD)
 - [x] 06-02-PLAN.md -- Wire mutual exclusion into both detection loops
-- [ ] 06-03-PLAN.md -- Fix smoother leak and post-cooldown re-arming (gap closure)
+- [x] 06-03-PLAN.md -- Fix smoother leak and post-cooldown re-arming (gap closure)
+- [ ] 06-04-PLAN.md -- Add missing distance config section to config.yaml (gap closure)
 
 ### Phase 7: Preview Overlays and Calibration
 **Goal**: Users can see live distance and swipe feedback in the preview window to calibrate thresholds for their specific setup
@@ -89,5 +90,5 @@ Plans:
 | 3. System Tray and Background Operation | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 4. Distance Gating | v1.1 | 0/2 | Planning | - |
 | 5. Swipe Detection | v1.1 | 2/2 | Complete | 2026-03-21 |
-| 6. Integration and Mutual Exclusion | v1.1 | 2/3 | In Progress | - |
+| 6. Integration and Mutual Exclusion | v1.1 | 3/4 | In Progress | - |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Not started | - |
