@@ -1,7 +1,7 @@
 # Requirements: Gesture Keys
 
 **Defined:** 2026-03-21
-**Milestone:** v1.1 — Distance Threshold and Swiping Gestures
+**Milestone:** v1.1 -- Distance Threshold and Swiping Gestures
 **Core Value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
 
 ## v1.1 Requirements
@@ -24,8 +24,8 @@ Requirements for distance gating and swipe gesture detection. Each maps to roadm
 
 ### Integration
 
-- [ ] **INT-01**: Swipe and static gesture detection are mutually exclusive — swipe motion does not trigger static gestures, and held poses do not trigger false swipes
-- [ ] **INT-02**: Distance threshold gates both static gestures and swipe detection — if hand is too far, neither fires
+- [ ] **INT-01**: Swipe and static gesture detection are mutually exclusive -- swipe motion does not trigger static gestures, and held poses do not trigger false swipes
+- [ ] **INT-02**: Distance threshold gates both static gestures and swipe detection -- if hand is too far, neither fires
 
 ## Future Requirements
 
@@ -42,7 +42,7 @@ Deferred to later milestones:
 |---------|--------|
 | Custom gesture training / ML models | MediaPipe landmarks sufficient |
 | Depth camera / hardware distance sensor | Palm span proxy is accurate enough for gating |
-| Continuous gesture tracking (drag) | Discrete events only — swipe fires once per motion |
+| Continuous gesture tracking (drag) | Discrete events only -- swipe fires once per motion |
 | Gesture recording / replay | Out of scope for v1.1 |
 
 ## Traceability
@@ -51,21 +51,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIST-01 | - | - |
-| DIST-02 | - | - |
-| DIST-03 | - | - |
-| SWIPE-01 | - | - |
-| SWIPE-02 | - | - |
-| SWIPE-03 | - | - |
-| SWIPE-04 | - | - |
-| SWIPE-05 | - | - |
-| INT-01 | - | - |
-| INT-02 | - | - |
+| DIST-01 | Phase 4 | Pending |
+| DIST-02 | Phase 4 | Pending |
+| DIST-03 | Phase 7 | Pending |
+| SWIPE-01 | Phase 5 | Pending |
+| SWIPE-02 | Phase 5 | Pending |
+| SWIPE-03 | Phase 5 | Pending |
+| SWIPE-04 | Phase 5 | Pending |
+| SWIPE-05 | Phase 7 | Pending |
+| INT-01 | Phase 6 | Pending |
+| INT-02 | Phase 6 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
+*Traceability updated: 2026-03-21*
