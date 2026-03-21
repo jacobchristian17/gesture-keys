@@ -157,6 +157,7 @@ def run_preview_mode(args):
     # Distance gating filter
     distance_filter = DistanceFilter(
         min_hand_size=config.min_hand_size,
+        max_hand_size=config.max_hand_size,
         enabled=config.distance_enabled,
     )
 
@@ -263,6 +264,7 @@ def run_preview_mode(args):
                     debouncer.reset()
                     distance_filter.enabled = new_config.distance_enabled
                     distance_filter.min_hand_size = new_config.min_hand_size
+                    distance_filter.max_hand_size = new_config.max_hand_size
                     # Swipe hot-reload
                     swipe_detector.min_velocity = new_config.swipe_min_velocity
                     swipe_detector.min_displacement = new_config.swipe_min_displacement

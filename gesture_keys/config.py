@@ -21,6 +21,7 @@ class AppConfig:
     gestures: dict[str, dict[str, Any]] = field(default_factory=dict)
     distance_enabled: bool = False
     min_hand_size: float = 0.15
+    max_hand_size: float = 0.0
     swipe_enabled: bool = False
     swipe_cooldown: float = 0.5
     swipe_min_velocity: float = 0.4
@@ -131,6 +132,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         gestures=gestures,
         distance_enabled=bool(distance.get("enabled", False)),
         min_hand_size=float(distance.get("min_hand_size", 0.15)),
+        max_hand_size=float(distance.get("max_hand_size", 0.0)),
         swipe_enabled=swipe_enabled,
         swipe_cooldown=float(swipe.get("cooldown", 0.5)),
         swipe_min_velocity=float(swipe.get("min_velocity", 0.4)),

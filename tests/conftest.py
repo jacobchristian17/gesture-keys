@@ -159,23 +159,23 @@ def mock_landmarks_scout():
 
 @pytest.fixture
 def mock_landmarks_pinch():
-    """Thumb tip very close to index tip -- PINCH.
+    """Thumb tip very close to index tip, thumb extended -- PINCH.
 
-    Other fingers don't matter much but set them extended to ensure
-    pinch priority wins over other gestures.
+    Thumb reaches out (tip further from wrist than IP) to meet index tip.
+    Other fingers curled to match realistic pinch pose.
     """
     return _make_hand({
         0: (0.5, 0.8, 0.0),    # WRIST
-        3: (0.35, 0.5, 0.0),   # THUMB_IP
-        4: (0.40, 0.35, 0.0),  # THUMB_TIP (very close to index tip)
+        3: (0.38, 0.5, 0.0),   # THUMB_IP
+        4: (0.35, 0.45, 0.0),  # THUMB_TIP (further from wrist x than IP = extended)
         6: (0.4, 0.5, 0.0),    # INDEX_PIP
-        8: (0.41, 0.35, 0.0),  # INDEX_TIP (very close to thumb tip)
+        8: (0.36, 0.45, 0.0),  # INDEX_TIP (very close to thumb tip)
         10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
-        12: (0.5, 0.2, 0.0),   # MIDDLE_TIP (extended)
+        12: (0.5, 0.7, 0.0),   # MIDDLE_TIP (curled)
         14: (0.6, 0.5, 0.0),   # RING_PIP
-        16: (0.6, 0.2, 0.0),   # RING_TIP (extended)
+        16: (0.6, 0.7, 0.0),   # RING_TIP (curled)
         18: (0.7, 0.5, 0.0),   # PINKY_PIP
-        20: (0.7, 0.2, 0.0),   # PINKY_TIP (extended)
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (curled)
     })
 
 

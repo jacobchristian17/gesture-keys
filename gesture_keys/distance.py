@@ -19,11 +19,18 @@ class DistanceFilter:
 
     Args:
         min_hand_size: Minimum palm span in normalized coordinates.
+        max_hand_size: Maximum palm span (0 = no upper limit).
         enabled: Whether distance gating is active.
     """
 
-    def __init__(self, min_hand_size: float = 0.15, enabled: bool = True) -> None:
+    def __init__(
+        self,
+        min_hand_size: float = 0.15,
+        max_hand_size: float = 0.0,
+        enabled: bool = True,
+    ) -> None:
         self._min_hand_size = min_hand_size
+        self._max_hand_size = max_hand_size
         self._enabled = enabled
         self._was_in_range = True  # Track transitions for logging
 
@@ -43,6 +50,14 @@ class DistanceFilter:
     def min_hand_size(self, value: float) -> None:
         self._min_hand_size = value
 
+    @property
+    def max_hand_size(self) -> float:
+        return self._max_hand_size
+
+    @max_hand_size.setter
+    def max_hand_size(self, value: float) -> None:
+        self._max_hand_size = value
+
     def check(self, landmarks: list[Any]) -> bool:
         """Check if hand is within distance range.
 
@@ -50,26 +65,30 @@ class DistanceFilter:
             landmarks: 21 MediaPipe hand landmarks.
 
         Returns:
-            True if hand passes filter (close enough or gating disabled).
+            True if hand passes filter (within min/max range or gating disabled).
         """
         if not self._enabled:
             return True
 
         palm_span = self._compute_palm_span(landmarks)
         in_range = palm_span >= self._min_hand_size
+        if self._max_hand_size > 0:
+            in_range = in_range and palm_span <= self._max_hand_size
 
         # Log transitions only
         if in_range and not self._was_in_range:
             logger.debug(
-                "Hand in range: palm span %.3f >= threshold %.3f",
+                "Hand in range: palm span %.3f (range %.3f–%.3f)",
                 palm_span,
                 self._min_hand_size,
+                self._max_hand_size,
             )
         elif not in_range and self._was_in_range:
             logger.debug(
-                "Hand filtered: palm span %.3f < threshold %.3f",
+                "Hand filtered: palm span %.3f outside range %.3f–%.3f",
                 palm_span,
                 self._min_hand_size,
+                self._max_hand_size,
             )
 
         self._was_in_range = in_range

@@ -132,12 +132,19 @@ class GestureClassifier:
         return tip_dist > ip_dist
 
     def _is_pinch(self, landmarks: list) -> bool:
-        """Check if thumb tip is close to index tip (pinch gesture)."""
+        """Check if thumb tip is close to index tip (pinch gesture).
+
+        Excludes fist poses where thumb naturally rests against curled
+        index finger: in a fist the thumb is curled (not extended),
+        while in a pinch the thumb reaches out (extended).
+        """
         dx = landmarks[THUMB_TIP].x - landmarks[INDEX_TIP].x
         dy = landmarks[THUMB_TIP].y - landmarks[INDEX_TIP].y
         dz = landmarks[THUMB_TIP].z - landmarks[INDEX_TIP].z
         distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-        return distance < self._pinch_threshold
+        if distance >= self._pinch_threshold:
+            return False
+        return self._is_thumb_extended(landmarks)
 
     def _get_finger_states(self, landmarks: list) -> list[bool]:
         """Get extended/curled state for index, middle, ring, pinky."""

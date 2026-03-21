@@ -3,12 +3,13 @@ camera:
 
 detection:
   smoothing_window: 1
-  activation_delay: 0.3
+  activation_delay: 0.1
   cooldown_duration: 0.5
 
 distance:
   enabled: true
-  min_hand_size: 0.15
+  min_hand_size: 0.12
+  max_hand_size: 0.4
 
 gestures:
   open_palm: # open 5 fingers
@@ -41,10 +42,12 @@ gestures:
   pinch: # index + thumb together
     # key: space     
     key: win+down
-    threshold: 0.1
+    threshold: 0.06
 
       
 swipe:
+
+
   cooldown: 0.5
   min_velocity: 0.15
   min_displacement: 0.03
