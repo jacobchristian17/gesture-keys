@@ -21,6 +21,12 @@ class AppConfig:
     gestures: dict[str, dict[str, Any]] = field(default_factory=dict)
     distance_enabled: bool = False
     min_hand_size: float = 0.15
+    swipe_enabled: bool = False
+    swipe_cooldown: float = 0.5
+    swipe_min_velocity: float = 0.4
+    swipe_min_displacement: float = 0.08
+    swipe_axis_ratio: float = 2.0
+    swipe_mappings: dict[str, str] = field(default_factory=dict)
 
 
 class ConfigWatcher:
@@ -108,6 +114,15 @@ def load_config(path: str = "config.yaml") -> AppConfig:
 
     distance = raw.get("distance", {})
 
+    swipe = raw.get("swipe", {})
+    swipe_directions = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
+    swipe_mappings: dict[str, str] = {}
+    for direction in swipe_directions:
+        mapping = swipe.get(direction)
+        if isinstance(mapping, dict) and "key" in mapping:
+            swipe_mappings[direction] = mapping["key"]
+    swipe_enabled = bool(swipe) and len(swipe_mappings) > 0
+
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
         smoothing_window=int(detection.get("smoothing_window", 3)),
@@ -116,4 +131,10 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         gestures=gestures,
         distance_enabled=bool(distance.get("enabled", False)),
         min_hand_size=float(distance.get("min_hand_size", 0.15)),
+        swipe_enabled=swipe_enabled,
+        swipe_cooldown=float(swipe.get("cooldown", 0.5)),
+        swipe_min_velocity=float(swipe.get("min_velocity", 0.4)),
+        swipe_min_displacement=float(swipe.get("min_displacement", 0.08)),
+        swipe_axis_ratio=float(swipe.get("axis_ratio", 2.0)),
+        swipe_mappings=swipe_mappings,
     )
