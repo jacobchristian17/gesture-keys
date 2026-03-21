@@ -15,6 +15,7 @@ from gesture_keys.debounce import GestureDebouncer
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.preview import draw_hand_landmarks, render_preview
+from gesture_keys.distance import DistanceFilter
 from gesture_keys.smoother import GestureSmoother
 
 logger = logging.getLogger("gesture_keys")
@@ -136,10 +137,17 @@ def run_preview_mode(args):
         logger.error("Invalid key mapping in config: %s", e)
         raise
 
+    # Distance gating filter
+    distance_filter = DistanceFilter(
+        min_hand_size=config.min_hand_size,
+        enabled=config.distance_enabled,
+    )
+
     # Config hot-reload watcher
     watcher = ConfigWatcher(args.config)
 
     prev_gesture = None
+    hand_was_in_range = True
     prev_time = time.perf_counter()
     fps = 0.0
 
@@ -159,6 +167,20 @@ def run_preview_mode(args):
             # Detect right-hand landmarks
             timestamp_ms = int(time.time() * 1000)
             landmarks = detector.detect(frame, timestamp_ms)
+
+            # Distance gating: suppress gestures when hand is too far
+            if landmarks:
+                in_range = distance_filter.check(landmarks)
+                if not in_range:
+                    if hand_was_in_range:
+                        smoother.reset()
+                        debouncer.reset()
+                    hand_was_in_range = False
+                    landmarks = None
+                else:
+                    hand_was_in_range = True
+            else:
+                hand_was_in_range = True  # No hand = reset tracking for next appearance
 
             # Classify and smooth
             if landmarks:
@@ -190,11 +212,14 @@ def run_preview_mode(args):
                     debouncer._activation_delay = new_config.activation_delay
                     debouncer._cooldown_duration = new_config.cooldown_duration
                     debouncer.reset()
+                    distance_filter.enabled = new_config.distance_enabled
+                    distance_filter.min_hand_size = new_config.min_hand_size
                     logger.info(
-                        "Config reloaded: %d gestures, delay=%.1fs, cooldown=%.1fs",
+                        "Config reloaded: %d gestures, delay=%.1fs, cooldown=%.1fs, distance=%s",
                         len(new_config.gestures),
                         new_config.activation_delay,
                         new_config.cooldown_duration,
+                        "on" if new_config.distance_enabled else "off",
                     )
                 except Exception as e:
                     logger.warning("Config reload failed: %s", e)
