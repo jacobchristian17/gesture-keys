@@ -13,7 +13,7 @@ Gesture Keys is built bottom-up following the pipeline's natural dependency chai
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Detection and Preview** - Camera captures hand landmarks, classifies 6 gestures, and displays results in a preview window
-- [ ] **Phase 2: Gesture-to-Keystroke Pipeline** - Detected gestures pass through frame smoothing and debounce, then fire mapped keyboard commands
+- [x] **Phase 2: Gesture-to-Keystroke Pipeline** - Detected gestures pass through frame smoothing and debounce, then fire mapped keyboard commands (completed 2026-03-21)
 - [ ] **Phase 3: System Tray and Background Operation** - App runs headless in the system tray with active toggle, config editing, and clean shutdown
 
 ## Phase Details
@@ -45,7 +45,7 @@ Plans:
   3. Brief or flickering gestures (under 0.4 seconds) do not fire any key command
   4. Detection events and key fires are logged with timestamps to the console
   5. Editing config.yaml and triggering a reload applies new gesture-to-key mappings without restarting the app
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 02-01-PLAN.md — Debounce state machine and keystroke sender with TDD tests
@@ -73,5 +73,5 @@ Phases execute in numeric order: 1 -> 2 -> 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Detection and Preview | 3/3 | Complete | - |
-| 2. Gesture-to-Keystroke Pipeline | 0/2 | Not started | - |
+| 2. Gesture-to-Keystroke Pipeline | 2/2 | Complete   | 2026-03-21 |
 | 3. System Tray and Background Operation | 0/? | Not started | - |
