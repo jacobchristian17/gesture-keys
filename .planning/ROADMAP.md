@@ -3,7 +3,8 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** -- Phases 1-3 (shipped 2026-03-21)
-- 🚧 **v1.1 Distance Threshold and Swiping Gestures** -- Phases 4-7 (in progress)
+- ✅ **v1.1 Distance Threshold and Swiping Gestures** -- Phases 4-7 (shipped 2026-03-21)
+- 🚧 **v1.2 Continuous and Seamless Commands** -- Phases 8-10 (in progress)
 
 ## Phases
 
@@ -16,79 +17,69 @@
 
 </details>
 
-### v1.1 Distance Threshold and Swiping Gestures
+<details>
+<summary>v1.1 Distance Threshold and Swiping Gestures (Phases 4-7) -- SHIPPED 2026-03-21</summary>
 
-- [ ] **Phase 4: Distance Gating** - Filter gestures by hand proximity using palm span threshold
-- [x] **Phase 5: Swipe Detection** - Detect four cardinal swipe directions as new gesture types (completed 2026-03-21)
-- [x] **Phase 6: Integration and Mutual Exclusion** - Wire distance and swipe into pipeline with cross-fire prevention (completed 2026-03-21)
-- [ ] **Phase 7: Preview Overlays and Calibration** - Visual feedback for distance values and swipe events in preview window
+- [x] **Phase 4: Distance Gating** - 2/2 plans -- completed 2026-03-21
+- [x] **Phase 5: Swipe Detection** - 2/2 plans -- completed 2026-03-21
+- [x] **Phase 6: Integration and Mutual Exclusion** - 4/4 plans -- completed 2026-03-21
+- [x] **Phase 7: Preview Overlays and Calibration** - completed 2026-03-21
+
+</details>
+
+### v1.2 Continuous and Seamless Commands
+
+- [ ] **Phase 8: Direct Gesture Transitions** - Fire on gesture-to-gesture switch without returning to neutral
+- [ ] **Phase 9: Swipe/Static Transition Latency** - Fix latent reset bug and reduce swipe-to-static settling delay
+- [ ] **Phase 10: Tuned Defaults and Config Surface** - Update timing defaults and expose tuning knobs in config.yaml
 
 ## Phase Details
 
-### Phase 4: Distance Gating
-**Goal**: Users can gate gesture detection by hand distance from camera so gestures only fire when the hand is close enough
-**Depends on**: Phase 3 (v1.0 complete)
-**Requirements**: DIST-01, DIST-02
+### Phase 8: Direct Gesture Transitions
+**Goal**: Users can switch between static gestures fluidly -- each new gesture fires immediately without dropping the hand to neutral first
+**Depends on**: Phase 7 (v1.1 complete)
+**Requirements**: TRANS-01, TRANS-02, TRANS-03
 **Success Criteria** (what must be TRUE):
-  1. User can set a `min_hand_size` threshold in config.yaml and gestures are ignored when the hand is too far away
-  2. User can enable/disable distance gating in config without removing threshold values
-  3. Existing static gestures continue to work exactly as before when distance gating is disabled or hand is within range
-**Plans:** 2 plans
-Plans:
-- [ ] 04-01-PLAN.md -- DistanceFilter class and config integration (TDD)
-- [ ] 04-02-PLAN.md -- Wire DistanceFilter into both detection loops
+  1. User can switch from one static gesture to a different static gesture and the new gesture fires its mapped keystroke without the user needing to release their hand to "none" first
+  2. Holding the same gesture continuously (through and beyond cooldown) produces exactly one keystroke fire -- no repeat-fire on sustained hold
+  3. Preview window displays the current debounce state (IDLE / ACTIVATING / COOLDOWN) so the user can see why a gesture has or has not fired
+  4. Transitional hand poses during gesture switches (e.g., passing through POINTING when going from FIST to PEACE) do not cause spurious extra fires
+**Plans**: TBD
 
-### Phase 5: Swipe Detection
-**Goal**: Users can perform directional hand swipes that fire mapped keyboard commands, expanding the gesture vocabulary beyond static poses
-**Depends on**: Phase 4
-**Requirements**: SWIPE-01, SWIPE-02, SWIPE-03, SWIPE-04
+### Phase 9: Swipe/Static Transition Latency
+**Goal**: Switching from a swipe back to a static gesture feels responsive -- the static gesture fires within ~300ms of swipe cooldown ending instead of the current ~1.3s delay
+**Depends on**: Phase 7 (v1.1 complete); independent of Phase 8
+**Requirements**: LAT-01, LAT-02, LAT-03
 **Success Criteria** (what must be TRUE):
-  1. User can swipe their hand left, right, up, or down and each direction is detected as a distinct gesture
-  2. User can map each swipe direction to a keyboard command in config.yaml using the same format as static gestures
-  3. Swipes fire once per motion with a cooldown that prevents double-firing on a single swipe movement
-  4. Swipe detection works regardless of what hand pose the user holds during the swipe
-  5. Casual hand repositioning and MediaPipe landmark jitter do not trigger false swipe detections
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 05-01-PLAN.md -- SwipeDetector class, config integration (TDD)
-- [ ] 05-02-PLAN.md -- Wire SwipeDetector into both detection loops
+  1. After completing a swipe and its cooldown, holding a static gesture fires within approximately 300ms (down from ~1.3s)
+  2. The smoother and debouncer are properly reset when transitioning from swipe mode back to static mode (no stale state carrying over)
+  3. Settling frames after swipe cooldown are reduced to 3-5 frames without causing false static fires from residual hand motion
+  4. Existing swipe detection accuracy and mutual exclusion with static gestures are not degraded by the latency reduction
+**Plans**: TBD
 
-### Phase 6: Integration and Mutual Exclusion
-**Goal**: Distance gating and swipe detection work together with static gestures without cross-firing or interference
-**Depends on**: Phase 5
-**Requirements**: INT-01, INT-02
+### Phase 10: Tuned Defaults and Config Surface
+**Goal**: New users get a responsive out-of-box experience with proven timing defaults, and power users can fine-tune settling frames and per-gesture cooldowns via config.yaml
+**Depends on**: Phase 8, Phase 9 (structural changes must be stable before tuning)
+**Requirements**: TUNE-01, TUNE-02, TUNE-03
 **Success Criteria** (what must be TRUE):
-  1. Swiping the hand does not trigger static gesture keystrokes even though the hand passes through recognizable poses mid-swipe
-  2. Holding a static pose does not trigger false swipe events even though the wrist has minor movement
-  3. When the hand is beyond the distance threshold, neither static gestures nor swipes fire
-  4. Transitioning between swipe motion and held pose resolves cleanly without stuck states or missed gestures
-**Plans:** 4/4 plans complete
-Plans:
-- [x] 06-01-PLAN.md -- SwipeDetector is_swiping property and reset() method (TDD)
-- [x] 06-02-PLAN.md -- Wire mutual exclusion into both detection loops
-- [x] 06-03-PLAN.md -- Fix smoother leak and post-cooldown re-arming (gap closure)
-- [ ] 06-04-PLAN.md -- Add missing distance config section to config.yaml (gap closure)
-
-### Phase 7: Preview Overlays and Calibration
-**Goal**: Users can see live distance and swipe feedback in the preview window to calibrate thresholds for their specific setup
-**Depends on**: Phase 6
-**Requirements**: DIST-03, SWIPE-05
-**Success Criteria** (what must be TRUE):
-  1. Preview window displays the current palm span value so the user can determine what `min_hand_size` threshold to set
-  2. Preview window shows a clear indicator when the hand is detected but filtered out by distance gating
-  3. Preview window displays the detected swipe direction when a swipe fires
+  1. A fresh install with no config.yaml customization uses tuned defaults (activation ~0.15s, cooldown ~0.3s, smoothing window ~2) that feel responsive without false fires
+  2. User can set `settling_frames` (or equivalent) in the swipe section of config.yaml to control how long the system waits after a swipe before accepting static gestures
+  3. User can set per-gesture cooldown overrides in config.yaml so that gestures prone to accidental repeat (e.g., pinch) can have longer cooldowns than others (e.g., fist)
 **Plans**: TBD
 
 ## Progress
 
-**Execution Order:** 4 -> 5 -> 6 -> 7
+**Execution Order:** 8 -> 9 -> 10 (8 and 9 are independent but sequential for simplicity; 10 depends on both)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1. Detection and Preview | v1.0 | 3/3 | Complete | 2026-03-21 |
 | 2. Gesture-to-Keystroke Pipeline | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 3. System Tray and Background Operation | v1.0 | 2/2 | Complete | 2026-03-21 |
-| 4. Distance Gating | v1.1 | 0/2 | Planning | - |
+| 4. Distance Gating | v1.1 | 2/2 | Complete | 2026-03-21 |
 | 5. Swipe Detection | v1.1 | 2/2 | Complete | 2026-03-21 |
-| 6. Integration and Mutual Exclusion | 4/4 | Complete   | 2026-03-21 | - |
-| 7. Preview Overlays and Calibration | v1.1 | 0/? | Not started | - |
+| 6. Integration and Mutual Exclusion | v1.1 | 4/4 | Complete | 2026-03-21 |
+| 7. Preview Overlays and Calibration | v1.1 | 0/? | Complete | 2026-03-21 |
+| 8. Direct Gesture Transitions | v1.2 | 0/? | Not started | - |
+| 9. Swipe/Static Transition Latency | v1.2 | 0/? | Not started | - |
+| 10. Tuned Defaults and Config Surface | v1.2 | 0/? | Not started | - |

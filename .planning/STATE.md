@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Continuous and Seamless Commands
-status: defining_requirements
+status: roadmap_complete
 stopped_at: null
 last_updated: "2026-03-22"
-last_activity: 2026-03-22 -- Milestone v1.2 started
+last_activity: 2026-03-22 -- Roadmap created for v1.2 (Phases 8-10)
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Defining requirements for v1.2
+**Current focus:** v1.2 Phase 8 -- Direct Gesture Transitions
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-22 — Milestone v1.2 started
+Phase: 8 of 10 (Direct Gesture Transitions)
+Plan: Not yet planned
+Status: Ready to plan
+Last activity: 2026-03-22 -- Roadmap created for v1.2
 
 Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: ~4min
-- Total execution time: ~0.5 hours
+- Total plans completed: 15 (v1.0: 7, v1.1: 8)
+- Average duration: ~2.5min
+- Total execution time: ~0.6 hours
 
 **By Phase:**
 
@@ -46,19 +46,13 @@ Progress: [░░░░░░░░░░] 0%
 | 1 - Detection and Preview | 3 | 19min | 6.3min |
 | 2 - Keystroke Pipeline | 2 | 7min | 3.5min |
 | 3 - System Tray | 2 | 5min | 2.5min |
+| 4 - Distance Gating | 2 | ~4min | ~2min |
+| 5 - Swipe Detection | 2 | ~6min | ~3min |
+| 6 - Integration | 4 | ~9min | ~2min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (2min), 02-02 (5min), 03-01 (2min), 03-02 (3min), 04-01 (2min)
-- Trend: Improving
-
-*Updated after each plan completion*
-| Phase 04 P02 | 126s | 1 tasks | 2 files |
-| Phase 05 P01 | 243s | 2 tasks | 4 files |
-| Phase 05 P02 | 137 | 1 tasks | 2 files |
-| Phase 06 P01 | 139s | 2 tasks | 3 files |
-| Phase 06 P02 | 115s | 1 tasks | 2 files |
-| Phase 06 P03 | 216 | 2 tasks | 5 files |
-| Phase 06 P04 | 52s | 1 tasks | 2 files |
+- Last 5 plans: 05-02 (2min), 06-01 (2min), 06-02 (2min), 06-03 (4min), 06-04 (1min)
+- Trend: Stable/fast
 
 ## Accumulated Context
 
@@ -67,25 +61,12 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [05-01]: 3-state machine (IDLE/ARMED/COOLDOWN) for swipes -- no separate FIRED state needed
-- [05-01]: Deceleration firing via frame-to-frame speed comparison
-- [05-01]: Buffer clears on both hand loss AND fire to prevent stale data
-- [05-01]: axis_ratio=2.0 default for diagonal rejection
-- [04-01]: Default min_hand_size=0.15 (mid-range, errs low to avoid false suppression)
-- [04-01]: enabled:false preserves min_hand_size value in config and AppConfig
-- [Research]: SwipeDetector must bypass GestureSmoother/GestureDebouncer -- parallel pipeline path with own cooldown
-- [Research]: Rolling deque (5-8 frames) for velocity, not frame-to-frame deltas (jitter-resistant)
-- [Research]: Mutual exclusion between swipe and static gestures via wrist velocity threshold
-- [Research]: No new dependencies needed -- all stdlib math and collections.deque
-- [Phase 05]: Swipe detection placed after debouncer fire block -- parallel path sharing landmarks variable
-- [Phase 05]: When swipe disabled, still call update(None) to keep buffer clear
-- [06-01]: reset() preserves COOLDOWN state -- cooldowns must expire naturally even on distance transitions
-- [06-01]: is_swiping checks ARMED and COOLDOWN membership (both suppress static gestures)
-- [06-02]: Swipe detection runs before static classification to get raw landmarks
-- [06-02]: is_swiping suppression feeds None to smoother (natural decay) rather than hard reset
+- [Research]: Keystone change is debouncer COOLDOWN->ACTIVATING for different gesture (~15 LOC in debounce.py)
+- [Research]: Latent bug -- missing smoother/debouncer reset on swipe->static exit in __main__.py; must fix BEFORE reducing settling frames
+- [Research]: Hot-reload latent bug -- config reload resets debouncer but not smoother or swipe settling state
+- [Research]: Smoother window + activation delay are coupled: perceived_latency = (window/fps) + activation_delay
+- [Research]: Double-fire risk on transitional poses -- need activation_delay >= 0.15s minimum for direct transitions
 - [Phase 06]: Default 10 settling frames (~330ms) prevents post-cooldown re-arming
-- [Phase 06]: Belt-and-suspenders: debouncer gated during swiping even though smoother feeds None
-- [06-04]: distance: enabled: true by default in config.yaml so distance gating works out of the box
 
 ### Pending Todos
 
@@ -93,11 +74,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Swipe threshold defaults (min_velocity, min_displacement, axis ratio) are estimates -- need empirical tuning during Phase 5
-- Both __main__.py and tray.py have duplicated loop code -- phases 4-6 must modify both identically
+- LAT-02 (missing swipe->static reset) must be fixed before LAT-03 (settling frame reduction) -- hard prerequisite
+- Confusable gesture pairs (PEACE<->SCOUT, POINTING<->PEACE, FIST<->THUMBS_UP) need testing with direct transitions enabled
+- Both __main__.py and tray.py have duplicated loop code -- phases 8-10 must modify both identically
 
 ## Session Continuity
 
-Last session: 2026-03-21T19:03:12.803Z
-Stopped at: Completed 06-04-PLAN.md
+Last session: 2026-03-22
+Stopped at: Roadmap created for v1.2
 Resume file: None
