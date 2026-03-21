@@ -114,6 +114,26 @@ class SwipeDetector:
     def cooldown_duration(self, value: float) -> None:
         self._cooldown_duration = value
 
+    @property
+    def is_swiping(self) -> bool:
+        """True when a swipe is in progress (ARMED or COOLDOWN state).
+
+        Used by the main loop to suppress static gesture detection during swipes.
+        """
+        return self._state in (_SwipeState.ARMED, _SwipeState.COOLDOWN)
+
+    def reset(self) -> None:
+        """Reset detector state for distance-gating transitions.
+
+        Clears the position buffer and resets tracking fields.
+        Preserves COOLDOWN state so active cooldowns expire naturally.
+        """
+        self._buffer.clear()
+        if self._state != _SwipeState.COOLDOWN:
+            self._state = _SwipeState.IDLE
+        self._prev_speed = 0.0
+        self._armed_direction = None
+
     def update(
         self, landmarks: Optional[list[Any]], timestamp: float
     ) -> Optional[SwipeDirection]:
