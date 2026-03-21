@@ -1,18 +1,38 @@
 # Requirements: Gesture Keys
 
-**Defined:** 2026-03-21
-**Milestone:** v1.1 -- Distance Threshold and Swiping Gestures
+**Defined:** 2026-03-22
+**Milestone:** v1.2 -- Continuous and Seamless Commands
 **Core Value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
 
-## v1.1 Requirements
+## v1.2 Requirements
 
-Requirements for distance gating and swipe gesture detection. Each maps to roadmap phases.
+Requirements for seamless gesture transitions, reduced mode-switching latency, and tuned defaults.
+
+### Transitions
+
+- [ ] **TRANS-01**: User can switch directly from one static gesture to another and the new gesture fires without needing to return hand to neutral/"none" first
+- [ ] **TRANS-02**: Holding the same gesture through cooldown does NOT re-fire — only a different gesture triggers direct transition
+- [ ] **TRANS-03**: Preview window displays current debounce state (IDLE/ACTIVATING/COOLDOWN) so user can see why a gesture hasn't fired yet
+
+### Latency
+
+- [ ] **LAT-01**: Swipe-to-static transition fires a static gesture within ~300ms of swipe cooldown ending (down from ~1.3s)
+- [ ] **LAT-02**: Smoother and debouncer are NOT unnecessarily reset when transitioning from swipe to static mode
+- [ ] **LAT-03**: Settling frames after swipe cooldown are reduced from 10 to 3-5 frames
+
+### Tuning
+
+- [ ] **TUNE-01**: Code defaults updated to match proven real-usage values (activation_delay ~0.15s, cooldown ~0.3s, smoothing_window ~2)
+- [ ] **TUNE-02**: Settling frames are configurable in config.yaml swipe section
+- [ ] **TUNE-03**: Per-gesture cooldown overrides are configurable in config.yaml (e.g., pinch gets longer cooldown than fist)
+
+## v1.1 Requirements (Shipped)
 
 ### Distance Gating
 
 - [x] **DIST-01**: User can configure a minimum hand size threshold in config.yaml to ignore hands too far from the camera
 - [x] **DIST-02**: Gestures are only detected when the hand's palm span (wrist-to-MCP distance) exceeds the configured threshold
-- [ ] **DIST-03**: Preview window displays the current palm span value so the user can calibrate the distance threshold
+- [x] **DIST-03**: Preview window displays the current palm span value so the user can calibrate the distance threshold
 
 ### Swipe Gestures
 
@@ -20,7 +40,7 @@ Requirements for distance gating and swipe gesture detection. Each maps to roadm
 - [x] **SWIPE-02**: Each swipe direction can be mapped to a keyboard command in config.yaml, same as static gestures
 - [x] **SWIPE-03**: Swipe detection uses wrist velocity tracking in a rolling buffer, firing once per swipe with its own cooldown
 - [x] **SWIPE-04**: Swipe detection works with any hand pose (no pose gating required)
-- [ ] **SWIPE-05**: Preview window shows detected swipe direction as visual feedback
+- [x] **SWIPE-05**: Preview window shows detected swipe direction as visual feedback
 
 ### Integration
 
@@ -35,6 +55,9 @@ Deferred to later milestones:
 - Diagonal swipe directions (NE, NW, SE, SW)
 - Swipe pose gating (require specific hand pose to trigger swipe)
 - Swipe sensitivity profiles (fast vs slow swipe modes)
+- Configurable transition mode toggle (legacy "require none" vs "direct transition")
+- Adaptive activation delay (shorter for gesture-to-gesture vs none-to-gesture)
+- Held-key mode (hold gesture = hold key down)
 
 ## Out of Scope
 
@@ -43,7 +66,9 @@ Deferred to later milestones:
 | Custom gesture training / ML models | MediaPipe landmarks sufficient |
 | Depth camera / hardware distance sensor | Palm span proxy is accurate enough for gating |
 | Continuous gesture tracking (drag) | Discrete events only -- swipe fires once per motion |
-| Gesture recording / replay | Out of scope for v1.1 |
+| Gesture recording / replay | Out of scope |
+| Zero-cooldown / instant repeat | Held gesture fires every frame, flooding OS with keystrokes |
+| Simultaneous multi-gesture firing | Hand pose unreliable during motion, creates double-keystrokes |
 
 ## Traceability
 
@@ -51,22 +76,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIST-01 | Phase 4 | Complete |
-| DIST-02 | Phase 4 | Complete |
-| DIST-03 | Phase 7 | Pending |
-| SWIPE-01 | Phase 5 | Complete |
-| SWIPE-02 | Phase 5 | Complete |
-| SWIPE-03 | Phase 5 | Complete |
-| SWIPE-04 | Phase 5 | Complete |
-| SWIPE-05 | Phase 7 | Pending |
-| INT-01 | Phase 6 | Complete |
-| INT-02 | Phase 6 | Complete |
+| TRANS-01 | TBD | Pending |
+| TRANS-02 | TBD | Pending |
+| TRANS-03 | TBD | Pending |
+| LAT-01 | TBD | Pending |
+| LAT-02 | TBD | Pending |
+| LAT-03 | TBD | Pending |
+| TUNE-01 | TBD | Pending |
+| TUNE-02 | TBD | Pending |
+| TUNE-03 | TBD | Pending |
 
 **Coverage:**
-- v1.1 requirements: 10 total
-- Mapped to phases: 10
-- Unmapped: 0
+- v1.2 requirements: 9 total
+- Mapped to phases: 0
+- Unmapped: 9 ⚠️
 
 ---
-*Requirements defined: 2026-03-21*
-*Traceability updated: 2026-03-21*
+*Requirements defined: 2026-03-22*
+*Last updated: 2026-03-22 after initial definition*
