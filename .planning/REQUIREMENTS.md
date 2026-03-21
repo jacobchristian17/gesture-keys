@@ -24,8 +24,8 @@ Requirements for distance gating and swipe gesture detection. Each maps to roadm
 
 ### Integration
 
-- [ ] **INT-01**: Swipe and static gesture detection are mutually exclusive -- swipe motion does not trigger static gestures, and held poses do not trigger false swipes
-- [ ] **INT-02**: Distance threshold gates both static gestures and swipe detection -- if hand is too far, neither fires
+- [x] **INT-01**: Swipe and static gesture detection are mutually exclusive -- swipe motion does not trigger static gestures, and held poses do not trigger false swipes
+- [x] **INT-02**: Distance threshold gates both static gestures and swipe detection -- if hand is too far, neither fires
 
 ## Future Requirements
 
@@ -59,8 +59,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SWIPE-03 | Phase 5 | Complete |
 | SWIPE-04 | Phase 5 | Complete |
 | SWIPE-05 | Phase 7 | Pending |
-| INT-01 | Phase 6 | Pending |
-| INT-02 | Phase 6 | Pending |
+| INT-01 | Phase 6 | Complete |
+| INT-02 | Phase 6 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 10 total

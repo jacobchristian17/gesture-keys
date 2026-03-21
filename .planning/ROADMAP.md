@@ -62,7 +62,7 @@ Plans:
   2. Holding a static pose does not trigger false swipe events even though the wrist has minor movement
   3. When the hand is beyond the distance threshold, neither static gestures nor swipes fire
   4. Transitioning between swipe motion and held pose resolves cleanly without stuck states or missed gestures
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 06-01-PLAN.md -- SwipeDetector is_swiping property and reset() method (TDD)
 - [ ] 06-02-PLAN.md -- Wire mutual exclusion into both detection loops
@@ -88,5 +88,5 @@ Plans:
 | 3. System Tray and Background Operation | v1.0 | 2/2 | Complete | 2026-03-21 |
 | 4. Distance Gating | v1.1 | 0/2 | Planning | - |
 | 5. Swipe Detection | 2/2 | Complete   | 2026-03-21 | - |
-| 6. Integration and Mutual Exclusion | v1.1 | 0/2 | Planning | - |
+| 6. Integration and Mutual Exclusion | 1/2 | In Progress|  | - |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Not started | - |

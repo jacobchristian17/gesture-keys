@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Distance Threshold and Swiping Gestures
-status: completed
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-03-21T15:37:08.929Z"
-last_activity: 2026-03-21 -- Completed 05-02 Pipeline Integration
+status: in_progress
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-03-21T17:57:36Z"
+last_activity: 2026-03-21 -- Completed 06-01 SwipeDetector State API
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 100
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** v1.1 Phase 5 -- Swipe Detection
+**Current focus:** v1.1 Phase 6 -- Integration and Mutual Exclusion
 
 ## Current Position
 
-Phase: 5 of 7 (Swipe Detection)
-Plan: 2 of 2
-Status: Phase 5 Complete
-Last activity: 2026-03-21 -- Completed 05-02 Pipeline Integration
+Phase: 6 of 7 (Integration and Mutual Exclusion)
+Plan: 1 of 2
+Status: Plan 06-01 Complete
+Last activity: 2026-03-21 -- Completed 06-01 SwipeDetector State API
 
-Progress: [██████████] 100%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 04 P02 | 126s | 1 tasks | 2 files |
 | Phase 05 P01 | 243s | 2 tasks | 4 files |
 | Phase 05 P02 | 137 | 1 tasks | 2 files |
+| Phase 06 P01 | 139s | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [Research]: No new dependencies needed -- all stdlib math and collections.deque
 - [Phase 05]: Swipe detection placed after debouncer fire block -- parallel path sharing landmarks variable
 - [Phase 05]: When swipe disabled, still call update(None) to keep buffer clear
+- [06-01]: reset() preserves COOLDOWN state -- cooldowns must expire naturally even on distance transitions
+- [06-01]: is_swiping checks ARMED and COOLDOWN membership (both suppress static gestures)
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T15:33:28.062Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-03-21T17:57:36Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
