@@ -1,131 +1,246 @@
 # Stack Research
 
-**Domain:** Hand gesture recognition desktop app (Windows system tray)
+**Domain:** Distance threshold and swipe gesture detection for gesture-keys v1.1
 **Researched:** 2026-03-21
 **Confidence:** HIGH
 
-## Critical Finding: GPU Acceleration
+## Executive Summary
 
-MediaPipe's Python API on Windows is **CPU-only**. There is no native GPU support for MediaPipe Python on Windows -- GPU acceleration is only available on Linux, Android, iOS, and web. However, MediaPipe hand landmark detection already achieves **30-60+ FPS on CPU**, which is more than sufficient for gesture-to-keystroke mapping at human interaction speeds.
+No new dependencies are needed. Both distance-based gesture gating and swipe detection can be implemented entirely with data already available from MediaPipe's HandLandmarkerResult, combined with simple math (stdlib `math` module) and frame-over-frame position tracking using Python's `collections.deque`. The existing stack (mediapipe, opencv-python, pynput, pystray, PyYAML) is sufficient.
 
-The PROJECT.md mentions `onnxruntime-gpu` for acceleration, but this does not plug into MediaPipe's built-in hand landmarker pipeline on Windows without significant custom work (extracting models, running them manually through ONNX Runtime). **This is not worth the complexity for this project.** CPU inference at 30+ FPS with debounce timings of 0.4s activation is already far faster than the gesture recognition needs to be.
-
-**Recommendation:** Drop `onnxruntime-gpu` from the stack. Use MediaPipe CPU inference. Revisit GPU only if CPU performance is measurably insufficient (unlikely).
-
-## Recommended Stack
+## Recommended Stack Additions
 
 ### Core Technologies
 
-| Technology | Version | Purpose | Why Recommended | Confidence |
-|------------|---------|---------|-----------------|------------|
-| Python | 3.12 | Runtime | Latest stable version supported by MediaPipe. 3.13 has known MediaPipe compatibility issues. | HIGH |
-| mediapipe | 0.10.33 | Hand landmark detection | Google's standard solution for hand tracking. 21 landmarks, CPU runs at 30-60 FPS on Windows. No viable alternative with this accuracy-to-simplicity ratio. | HIGH |
-| opencv-python | 4.13.0.92 | Webcam capture and frame processing | Industry standard for video capture. MediaPipe expects OpenCV frames (BGR numpy arrays). Use `opencv-python` not `opencv-contrib-python` -- no extra modules needed. | HIGH |
-| pynput | 1.8.1 | Keyboard command simulation | Handles single keys and combos via `Controller.press()`/`release()`. Works across foreground apps. Same author as pystray -- consistent API philosophy. | HIGH |
-| pystray | 0.19.5 | Windows system tray icon/menu | The only maintained Python system tray library. Requires `icon.run()` on main thread (Windows constraint). In maintenance mode but stable and functional. | HIGH |
-| Pillow | 12.1.1 | System tray icon image creation | Required by pystray for icon rendering. Use `Image.new()` + `ImageDraw` to create a simple colored icon programmatically rather than shipping an .ico file. | HIGH |
-| PyYAML | 6.0.3 | Configuration file parsing | Standard YAML parser. Simple, well-understood. Always use `yaml.safe_load()` never `yaml.load()`. | HIGH |
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| **None** | -- | -- | No new packages needed. All techniques use existing MediaPipe output + stdlib math. |
 
-### Supporting Libraries
+### Techniques (Not Libraries)
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| numpy | (bundled with mediapipe) | Landmark coordinate math | Comes as mediapipe dependency. Use for distance calculations in gesture classification. |
-| logging (stdlib) | -- | Application logging | Built-in. Use for debug output, gesture detection events, error reporting. |
-| argparse (stdlib) | -- | CLI argument parsing | Built-in. For `--preview` flag and `--config` path override. |
-| threading (stdlib) | -- | Concurrent detection loop | Built-in. Detection loop runs on daemon thread; pystray owns main thread. |
+These are the implementation approaches, not new dependencies.
 
-### Development Tools
+| Technique | Purpose | Inputs | Why This Approach |
+|-----------|---------|--------|-------------------|
+| Palm span proxy | Estimate hand distance from camera | `hand_landmarks` (image-space normalized) | Euclidean distance between WRIST(0) and MIDDLE_MCP(9) shrinks as hand moves away. No calibration needed for threshold gating -- just compare against a configurable normalized value. |
+| Wrist position delta tracking | Detect swipe direction | `hand_landmarks[0]` (WRIST) x,y across N frames | WRIST is the most stable landmark (least jitter from finger movement). Track position in a ring buffer, compute displacement vector over a time window. |
+| Velocity thresholding | Distinguish intentional swipes from drift | Wrist displacement / elapsed time | Require minimum velocity to trigger swipe, preventing slow hand repositioning from firing. |
+| Direction classification | Map movement vector to swipe direction | Displacement vector (dx, dy) | Use `atan2(dy, dx)` to get angle, bin into 4 quadrants (left/right/up/down). Require dominant axis magnitude > minor axis to reject diagonal noise. |
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| venv | Virtual environment | Use `python -m venv .venv`. Do NOT use conda -- adds unnecessary complexity for a pip-only stack. |
-| pip | Package management | Pin exact versions in `requirements.txt`. No need for poetry/pipenv for a project this size. |
-| ruff | Linting and formatting | Fast, replaces flake8+black+isort. Single tool, zero config needed. |
-| pytest | Testing | For unit testing gesture classification logic (pure math on landmark coords). |
+## Distance Threshold: Technical Design
 
-## Installation
+### Approach: Palm Span as Distance Proxy
 
-```bash
-# Create and activate virtual environment
-python -m venv .venv
-.venv\Scripts\activate
+**What:** Measure the Euclidean distance between WRIST (landmark 0) and MIDDLE_MCP (landmark 9) in normalized image coordinates. This span is a proxy for how close the hand is to the camera -- closer hand = larger span, farther hand = smaller span.
 
-# Core dependencies
-pip install mediapipe==0.10.33 opencv-python==4.13.0.92 pynput==1.8.1 pystray==0.19.5 Pillow==12.1.1 PyYAML==6.0.3
+**Why WRIST-to-MIDDLE_MCP:**
+- These are skeletal joints, not fingertips -- they are stable regardless of which gesture is being made (fist, open palm, pointing all have the same wrist-to-MCP distance in real space)
+- The pair spans the palm length, giving a good signal-to-noise ratio
+- Both are reliably detected with low jitter
 
-# Dev dependencies
-pip install ruff pytest
+**Why NOT use world_landmarks or z-coordinate:**
+- `world_landmarks` are in meters with origin at the hand's geometric center -- they encode hand-relative 3D pose, not distance from camera. The origin moves with the hand, so absolute camera distance is not available from world_landmarks alone.
+- The `z` coordinate in image-space landmarks represents depth relative to the wrist, not distance from camera. Per MediaPipe docs: "the depth at the wrist being the origin, and the smaller the value the closer the landmark is to the camera." This is inter-landmark depth, not camera distance.
+- Palm span in normalized image coordinates is a direct, reliable proxy that requires zero calibration and works across different cameras and resolutions.
 
-# Freeze
-pip freeze > requirements.txt
+**Formula:**
+```python
+import math
+
+def palm_span(landmarks) -> float:
+    """Euclidean distance between WRIST and MIDDLE_MCP in normalized coords."""
+    wrist = landmarks[0]   # WRIST
+    mcp = landmarks[9]     # MIDDLE_MCP
+    dx = wrist.x - mcp.x
+    dy = wrist.y - mcp.y
+    return math.sqrt(dx * dx + dy * dy)
+```
+
+**Config integration:**
+```yaml
+detection:
+  distance_threshold: 0.15  # minimum palm span (normalized) to accept gestures
+```
+
+A palm span below the threshold means the hand is too far away -- skip classification entirely. Typical values: approximately 0.25 at arm's length, approximately 0.10 at 1.5m away, approximately 0.35+ when hand is close to camera. Users tune via config; a default of 0.15 is a sensible starting point (rejects hands roughly >1m away).
+
+**Integration point:** This check goes in the pipeline BEFORE the classifier. If palm span is below threshold, return no gesture (same as no hand detected). This means the smoother, debouncer, and keystroke sender are unaffected.
+
+### Alternative Considered: Bounding Box Area
+
+Could compute the bounding box of all 21 landmarks and use its area as a proxy. Rejected because:
+- Bounding box area changes with gesture (open palm is much larger than fist)
+- Palm span between skeletal joints is gesture-invariant
+- Bounding box requires iterating all 21 landmarks; palm span needs only 2
+
+## Swipe Detection: Technical Design
+
+### Approach: Wrist Velocity in a Sliding Window
+
+**What:** Track the WRIST landmark position across frames in a ring buffer. When displacement over a time window exceeds a velocity threshold and has a clear dominant direction, fire the corresponding swipe gesture.
+
+**Why WRIST landmark:**
+- Most stable point on the hand -- fingertip landmarks jitter significantly during finger movement
+- Represents whole-hand translation, not finger articulation
+- Already indexed as landmark 0 in the existing codebase
+
+**Core algorithm:**
+```python
+from collections import deque
+import math
+
+class SwipeDetector:
+    def __init__(self, min_velocity=0.8, window_seconds=0.3, cooldown=0.5):
+        self._history = deque(maxlen=30)  # (x, y, timestamp) tuples
+        self._min_velocity = min_velocity       # normalized units/second
+        self._window_seconds = window_seconds   # look-back window
+        self._cooldown = cooldown
+        self._last_swipe_time = 0.0
+
+    def update(self, wrist_x, wrist_y, timestamp):
+        """Add wrist position. Returns swipe direction string or None."""
+        self._history.append((wrist_x, wrist_y, timestamp))
+
+        if timestamp - self._last_swipe_time < self._cooldown:
+            return None
+
+        # Find oldest sample within the time window
+        oldest = None
+        for x, y, t in self._history:
+            if timestamp - t <= self._window_seconds:
+                oldest = (x, y, t)
+                break
+
+        if oldest is None:
+            return None
+
+        dx = wrist_x - oldest[0]
+        dy = wrist_y - oldest[1]
+        dt = timestamp - oldest[2]
+
+        if dt < 0.05:  # need at least ~50ms of data
+            return None
+
+        velocity = math.sqrt(dx*dx + dy*dy) / dt
+
+        if velocity < self._min_velocity:
+            return None
+
+        # Require dominant axis (reject diagonals)
+        if abs(dx) > abs(dy) * 1.5:
+            direction = "swipe_right" if dx > 0 else "swipe_left"
+        elif abs(dy) > abs(dx) * 1.5:
+            direction = "swipe_down" if dy > 0 else "swipe_up"
+        else:
+            return None  # diagonal -- ignore
+
+        self._last_swipe_time = timestamp
+        self._history.clear()  # reset after firing
+        return direction
+```
+
+**Key design decisions:**
+
+1. **Sliding window, not frame-to-frame delta:** Frame-to-frame is too noisy (single dropped frame causes huge velocity spike). A 0.3s window smooths out jitter while still being responsive.
+
+2. **Velocity threshold, not displacement threshold:** A slow hand repositioning over 2 seconds covers the same distance as a quick swipe. Velocity (displacement/time) distinguishes intentional swipes from drift.
+
+3. **Dominant axis requirement (1.5x ratio):** Rejects diagonal motion that does not clearly map to a single direction. The 1.5x multiplier means horizontal displacement must be at least 1.5x vertical to register as left/right. Tunable.
+
+4. **Cooldown + history clear after fire:** Prevents a single swipe from firing multiple times as the hand decelerates. Clearing the history means the next swipe starts fresh.
+
+5. **Swipe gestures bypass the static gesture pipeline:** Swipes are motion events, not poses. They should not go through the smoother/debouncer (which are designed for held poses). Swipes fire immediately when detected, with their own cooldown.
+
+**Config integration:**
+```yaml
+gestures:
+  swipe_left:
+    key: alt+left
+  swipe_right:
+    key: alt+right
+  swipe_up:
+    key: ctrl+up
+  swipe_down:
+    key: ctrl+down
+
+detection:
+  swipe_velocity: 0.8      # normalized units/second
+  swipe_window: 0.3         # seconds to measure velocity over
+  swipe_cooldown: 0.5       # seconds between swipe fires
+```
+
+**Integration point:** The SwipeDetector runs in parallel with the static gesture classifier. Each frame, the wrist position is fed to both the SwipeDetector and the classifier. If SwipeDetector fires, it takes priority (suppress static gesture for that frame). The SwipeDetector outputs a string like "swipe_left" that maps directly to config keys.
+
+## Pipeline Integration Summary
+
+```
+Camera Frame
+    |
+    v
+HandDetector.detect() -- returns landmarks (or empty)
+    |
+    v
+[NEW] Distance gate -- palm_span(landmarks) >= threshold?
+    |                        |
+    | YES                    | NO --> treat as no hand
+    v                        v
++---+---+              return None
+|       |
+v       v
+SwipeDetector.update(wrist)    GestureClassifier.classify(landmarks)
+    |                               |
+    | swipe detected?               v
+    | YES --> fire swipe key    GestureSmoother.update()
+    | NO  --> continue               |
+    v                               v
+                              GestureDebouncer.update()
+                                    |
+                                    v
+                              KeystrokeSender (if fired)
 ```
 
 ## Alternatives Considered
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| mediapipe (CPU) | mediapipe + onnxruntime-gpu (custom pipeline) | Only if CPU inference proves too slow -- requires extracting .tflite models, converting to ONNX, and managing inference manually. Massive complexity increase for marginal benefit. |
-| mediapipe (CPU) | OpenPose | Never for this project. Requires separate installation, heavier models, no pip install. MediaPipe is strictly better for hand landmarks. |
-| pynput | pyautogui | Never. pyautogui adds mouse/screen dependencies. pynput is lighter and focused on keyboard/mouse input. |
-| pynput | keyboard (library) | Only if pynput has permission issues. The `keyboard` library requires root/admin on some systems but handles some edge cases differently. |
-| pystray | infi.systray | Never. Unmaintained since 2019. pystray is the only viable option. |
-| PyYAML | toml (tomllib) | If you prefer TOML syntax. YAML is fine for simple key-value gesture mappings. TOML would also work but YAML is more readable for nested combo key definitions. |
-| ruff | flake8 + black | Never. ruff replaces both, runs 10-100x faster, single dependency. |
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| Palm span (WRIST-MIDDLE_MCP) for distance | Z-coordinate depth | Z is relative to wrist, not camera distance |
+| Palm span for distance | World landmarks | Origin is at hand center, not camera; does not encode camera distance |
+| Palm span for distance | Bounding box area | Area changes with gesture shape; palm span is gesture-invariant |
+| Wrist position tracking for swipe | Fingertip tracking | Fingertips jitter during gesture transitions; wrist is stable |
+| Velocity threshold for swipe | Displacement-only threshold | Slow drift covers same distance as fast swipe; velocity discriminates intent |
+| Sliding window velocity | Frame-to-frame delta | Too noisy; dropped frames cause false spikes |
+| Separate swipe pipeline | Swipes through smoother/debouncer | Smoother is designed for held poses (majority vote); swipes are instantaneous events with opposite temporal characteristics |
+| `collections.deque` for history | numpy arrays | Overkill; deque is stdlib, maxlen handles ring buffer natively, no dependency needed |
 
-## What NOT to Use
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| onnxruntime-gpu | MediaPipe Python on Windows is CPU-only. Adding onnxruntime-gpu does NOT accelerate MediaPipe's built-in hand landmarker. You'd need to extract models and build a custom inference pipeline -- massive complexity for a project where CPU already runs at 30-60 FPS. | mediapipe (CPU inference) |
-| opencv-contrib-python | Conflicts with opencv-python if both installed. Adds 200+ MB of modules you won't use (CUDA, SIFT, etc). | opencv-python |
-| tensorflow | MediaPipe bundles its own TFLite runtime. Installing full TensorFlow adds 500+ MB and provides zero benefit for hand landmark detection. | Nothing -- mediapipe handles inference internally. |
-| pyinstaller (premature) | Don't package into .exe until the app works well. PyInstaller + mediapipe has known issues with model file bundling. Cross that bridge later. | Run from venv during development. |
-| conda | Adds environment complexity. All dependencies are pip-installable. Conda's mediapipe packages often lag behind PyPI. | python -m venv + pip |
-| keyboard (library) | Requires admin/root privileges on some platforms. pynput works without elevation for most use cases. | pynput |
+| **numpy** for swipe math | Only need Euclidean distance and atan2 on 2-3 points per frame; stdlib `math` is sufficient and avoids adding a direct dependency | `math.sqrt`, `math.atan2` |
+| **scipy** for signal filtering | Smoothing is already handled by GestureSmoother; swipe detection uses a time window which is inherently smooth | Sliding window approach |
+| **MediaPipe GestureRecognizer** task | Different task than HandLandmarker; would require switching models, losing the existing landmark-based classifier, and adds a heavier model for recognizing only 7 static gestures (no swipe support anyway) | Keep HandLandmarker + custom classifier |
+| **OpenCV optical flow** | Operates on pixel-level motion, not semantic hand position; much heavier compute for worse results when landmarks are already available | Landmark position tracking |
+| **Machine learning for swipe classification** | 4-direction swipe from a velocity vector is trivially solved with atan2 and axis dominance check; ML adds training data requirements and complexity for no benefit | Rule-based direction classification |
+| **Kalman filter for landmark smoothing** | The existing GestureSmoother handles classification noise; wrist position is already stable enough; Kalman filter adds complexity without measurable benefit for this use case | Raw wrist position + time window averaging |
 
 ## Version Compatibility
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| mediapipe 0.10.33 | Python 3.9-3.12 | Does NOT support Python 3.13 yet. Stick with 3.12. |
-| mediapipe 0.10.33 | opencv-python 4.x | MediaPipe internally uses OpenCV. Ensure only one opencv package is installed. |
-| pystray 0.19.5 | Pillow 10+ | pystray uses Pillow for icon creation. Any recent Pillow works. |
-| pynput 1.8.1 | Python 3.7+ | No known compatibility issues with other packages in this stack. |
-| PyYAML 6.0.3 | Python 3.6+ | Stable, no conflicts expected. |
+No new packages, so no new compatibility concerns. Existing stack is unchanged:
 
-## Stack Patterns
-
-**For development/testing:**
-- Run with `--preview` flag to show OpenCV window with landmark overlay
-- Use `cv2.imshow()` for camera preview (only when preview enabled)
-- Log gesture detections to console for debugging
-
-**For production/daily use:**
-- Run as system tray app (no console, no preview window)
-- Use `pythonw.exe` instead of `python.exe` to suppress console window
-- Consider `--startup` flag to add to Windows startup via registry or shortcut
-
-**Threading model (pystray constraint):**
-- Main thread: `pystray.Icon.run()` -- must be main thread on Windows
-- Daemon thread: OpenCV capture loop + MediaPipe inference + gesture classification + keyboard firing
-- Communication: Use `threading.Event` for start/stop signals from tray menu
+| Package | Current | Compatible With | Notes |
+|---------|---------|-----------------|-------|
+| mediapipe | >=0.10.x | HandLandmarkerResult includes hand_world_landmarks since 0.10.0 | Not needed for distance proxy, but available if future features need world-space data |
+| opencv-python | >=4.x | mediapipe >=0.10.x | Already in use, no changes |
+| collections.deque | stdlib | All Python 3.x | No version concern; used for swipe history ring buffer |
 
 ## Sources
 
-- [mediapipe PyPI](https://pypi.org/project/mediapipe/) -- version 0.10.33, Python 3.9-3.12 support (HIGH confidence)
-- [opencv-python PyPI](https://pypi.org/project/opencv-python/) -- version 4.13.0.92 (HIGH confidence)
-- [pynput PyPI](https://pypi.org/project/pynput/) -- version 1.8.1 (HIGH confidence)
-- [pystray PyPI](https://pypi.org/project/pystray/) -- version 0.19.5 (HIGH confidence)
-- [Pillow PyPI](https://pypi.org/project/pillow/) -- version 12.1.1 (HIGH confidence)
-- [PyYAML PyPI](https://pypi.org/project/PyYAML/) -- version 6.0.3 (HIGH confidence)
-- [onnxruntime-gpu PyPI](https://pypi.org/project/onnxruntime-gpu/) -- version 1.24.4, CUDA 12.x required (HIGH confidence)
-- [MediaPipe GPU Support docs](https://developers.google.com/mediapipe/framework/getting_started/gpu_support) -- Windows not supported (HIGH confidence)
-- [MediaPipe Issue #5742](https://github.com/google-ai-edge/mediapipe/issues/5742) -- Confirms no GPU for Python on Windows (HIGH confidence)
-- [ONNX Runtime CUDA EP docs](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html) -- CUDA 12.x + cuDNN 9 required (HIGH confidence)
-- [Hand Tracking 30 FPS on CPU](https://medium.com/augmented-startups/hand-tracking-30-fps-on-cpu-in-5-minutes-986a749709d7) -- CPU performance benchmarks (MEDIUM confidence)
-- [MediaPipe Hand Landmarker Guide](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) -- model_complexity settings, Task API (HIGH confidence)
+- [MediaPipe Hand Landmarker docs (Google AI Edge)](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) -- confirmed output includes hand_landmarks, hand_world_landmarks, handedness; z-coordinate semantics verified (HIGH confidence)
+- [MediaPipe Hands legacy docs](https://mediapipe.readthedocs.io/en/latest/solutions/hands.html) -- confirmed z-coordinate is "depth at wrist being origin", x/y normalized to [0.0, 1.0], z magnitude "uses roughly the same scale as x" (HIGH confidence)
+- [MediaPipe Hand Landmarker Python guide](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/python) -- confirmed HandLandmarkerResult structure with hand_landmarks and hand_world_landmarks arrays (HIGH confidence)
+- [Hand-Distance-Measurement repo](https://github.com/MohamedAlaouiMhamdi/Hand-Distance-Measurement) -- uses landmark-pair distances with polynomial regression for cm conversion; validates landmark distance approach but calibration is unnecessary for threshold gating (MEDIUM confidence)
+- Existing codebase (`classifier.py`, `detector.py`, `smoother.py`, `debounce.py`) -- confirmed landmark indices, coordinate access patterns, current pipeline architecture (HIGH confidence)
 
 ---
-*Stack research for: Hand gesture recognition to keyboard commands (Windows desktop)*
+*Stack research for: gesture-keys v1.1 distance threshold and swipe gestures*
 *Researched: 2026-03-21*

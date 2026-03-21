@@ -1,176 +1,214 @@
-# Feature Research
+# Feature Research: Distance Threshold and Swiping Gestures
 
-**Domain:** Hand gesture recognition to keyboard commands (desktop utility)
+**Domain:** Hand gesture recognition -- distance gating and dynamic gesture detection
 **Researched:** 2026-03-21
-**Confidence:** MEDIUM
+**Confidence:** MEDIUM (distance approach verified via MediaPipe docs; swipe algorithms well-documented but implementation details are project-specific)
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features users assume exist. Missing these = product feels incomplete.
+Features that are non-negotiable if advertising "distance threshold" and "swipe gestures."
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Reliable gesture detection (6+ gestures) | Core promise of the app; if gestures misfire or miss, the app is worthless | MEDIUM | MediaPipe landmarks + geometric classification. Priority-ordered resolution handles ambiguous poses |
-| Configurable gesture-to-key mappings | Every user has different workflows; hardcoded mappings kill adoption | LOW | YAML config with single keys and combo support. Already planned |
-| Debounce / false-trigger prevention | False positives are the #1 complaint in gesture apps. Users abandon immediately if random keys fire | MEDIUM | State machine with activation delay (0.4s) and cooldown (0.8s). Both configurable. Critical for usability |
-| System tray with enable/disable toggle | Users need to quickly pause detection (phone call, stretching, etc.) without quitting | LOW | pystray with Active checkbox, already planned |
-| Runs in background without visible window | Nobody wants a camera preview window up permanently while working | LOW | Default headless mode with optional --preview flag |
-| Works across all foreground apps | Keyboard commands must land in whatever app is focused (editor, browser, game) | LOW | pynput handles this natively via OS-level key injection |
-| Startup configuration (camera index, confidence thresholds) | Different webcams, lighting conditions, and setups need tuning | LOW | YAML config section for camera and detection parameters |
+| Distance gating toggle | Users need to turn distance filtering on/off without editing thresholds | LOW | Boolean `enabled` flag in config under a `distance` section |
+| Configurable distance threshold | Different webcam setups and arm lengths require tuning | LOW | Single float in config.yaml; uses hand bounding box area ratio as proxy (see notes below) |
+| Swipe left/right/up/down detection | The four cardinal directions are the universal swipe vocabulary | MEDIUM | Track wrist position across a frame buffer, compute velocity and displacement, classify direction |
+| Swipe gestures in config.yaml | Must follow existing pattern: gesture name -> key mapping | LOW | Add `swipe_left`, `swipe_right`, `swipe_up`, `swipe_down` to gestures section with same `key`/`threshold` structure |
+| Swipe visual feedback in preview | Without feedback, users cannot tell if swipe was detected or why it failed | LOW | Draw direction arrow or flash text on preview window when swipe fires |
+| Distance indicator in preview | Users need to see current "distance" value to tune their threshold | LOW | Overlay a bar or numeric value on the preview window showing current hand size ratio |
 
 ### Differentiators (Competitive Advantage)
 
-Features that set the product apart. Not required, but valuable.
+Features that improve UX beyond the basics but are not strictly required.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| GPU-accelerated inference (CUDA/RTX 3060) | Lower latency, lower CPU load. Most hobby projects run CPU-only and stutter | LOW | onnxruntime-gpu is a pip install; MediaPipe uses ONNX internally. Minimal code, big perf win |
-| Confidence-based gesture gating | Only fire when detection confidence exceeds threshold, reducing false positives beyond what debounce alone provides | LOW | MediaPipe already returns confidence scores; just add a threshold check |
-| Visual feedback overlay (preview mode) | Shows detected landmarks + current gesture label + debounce state. Essential for debugging and tuning | MEDIUM | OpenCV overlay on camera feed. Only active with --preview flag |
-| Per-gesture activation delay tuning | Some gestures (pinch) are harder to hold steady; let users set per-gesture timing | LOW | Extend YAML config to allow per-gesture overrides of global debounce values |
-| Gesture sequence support (two gestures = one action) | Enables richer command vocabulary without adding more static gestures. E.g., fist then open palm = "save file" | HIGH | Requires sequence state machine on top of debounce. Defer to v2 |
-| On-screen notification on gesture fire | Brief toast/popup confirming which command fired. Builds trust that the right thing happened | MEDIUM | Win32 balloon tip or overlay. Helpful for learning phase |
-| Two-hand gesture support | Doubles the gesture vocabulary. Left hand = modifier context, right hand = action | HIGH | MediaPipe supports multi-hand. Complexity is in classification and mapping logic |
-| Logging / gesture history | Records what was detected and fired. Essential for debugging false triggers after the fact | LOW | Simple file or console logger with timestamps |
+| Per-gesture distance thresholds | Some gestures (pinch) need closer range than others (open palm) | LOW | Extend existing per-gesture threshold dict; classifier already supports per-gesture config |
+| Swipe sensitivity config | Let users tune how fast/far they need to swipe | LOW | `min_velocity` and `min_displacement` in config under a `swipe` section |
+| Swipe + static gesture combos | "Swipe right while pointing" expands vocabulary significantly | HIGH | Requires tracking static gesture state during motion; complex state machine interaction with debouncer |
+| Distance-based confidence scaling | Closer hand = higher confidence = faster activation | MEDIUM | Modulate activation_delay based on distance proxy; nice UX but adds coupling between distance and debounce systems |
+| Diagonal swipe support | 8 directions instead of 4 | MEDIUM | Adds ambiguity between cardinal and diagonal; angle-based classification with dead zones needed |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem good but create problems.
-
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Custom ML model training | "I want to add my own gestures" | Requires training data collection, ML expertise, model management. Massively increases scope and support burden | Stick with MediaPipe landmark geometry. 6 gestures from finger positions covers common needs. Add gestures by coding new geometric rules, not training models |
-| Mouse cursor control via hand position | Every demo project does it; looks impressive | Extremely imprecise compared to a real mouse. Jittery, fatiguing, unusable for real work. The "wow demo" that nobody actually uses | Focus on discrete keyboard commands which are reliable. Mouse control is a different product |
-| GUI configuration editor | "YAML is scary" | Adds PyQt5/tkinter dependency, massive UI surface area, version sync issues with config file | Open YAML in default text editor via system tray menu. YAML is simple enough for the target audience (developers/power users) |
-| Per-application gesture profiles | "Different gestures for different apps" | Requires foreground window detection, profile switching logic, complex config, confusing UX | Single global config. Users who need per-app can use AutoHotkey on top of gesture-keys |
-| Continuous/dynamic gestures (swipe, wave) | "Swipe to scroll" | Dynamic gesture recognition is fundamentally harder than static pose detection. Requires temporal modeling (LSTM/DTW), training data, and has much higher false positive rates | Stick with static poses. A held "pointing up" gesture can trigger "scroll up" key repeatedly via the debounce cooldown |
-| Multiple camera support | "What if I have two webcams?" | Adds device selection UI, resource management for multiple streams, unclear UX for which camera is active | Single camera index in config. User picks which one |
-| Always-on camera preview | "I want to see myself" | Wastes screen real estate, CPU/GPU for rendering, privacy concern if someone walks by | --preview flag for debugging only. Not intended for daily use |
+| Absolute distance in centimeters | "I want to set threshold to 50cm" | MediaPipe normalized landmarks have no absolute depth from a single RGB camera. The z-coordinate is relative to the wrist, not the camera. World landmarks give metric coordinates relative to hand center, not camera distance. Getting real cm requires camera calibration or a depth sensor -- both out of scope. | Use hand bounding box area (ratio of landmark spread to frame size) as a unitless proxy. Bigger hand in frame = closer to camera. Document that threshold is relative, not in cm. |
+| Continuous swipe tracking (drag) | "I want to drag-and-hold while swiping" | Requires maintaining a pressed key state during motion, releasing on stop. Interacts badly with cooldown state machine. Edge cases around "when does drag end?" are numerous. | Stick to discrete swipe-fires (one keystroke per swipe). Revisit drag semantics in a future milestone if needed. |
+| Swipe with any hand shape | "Any movement should count as swipe" | Detects unintentional hand repositioning as swipes. Every time user adjusts hand position, spurious swipes fire. | Require swipe velocity above a high threshold so casual repositioning is ignored. Optionally gate swipes behind a specific hand pose. |
+| Two-hand swipe gestures | "Swipe with both hands" | Already out of scope per PROJECT.md. Current detector filters to right hand only. Adding left hand doubles complexity. | Single right-hand swipes are sufficient for v1.1. |
+| ML-based swipe classification | "Train a model on swipe data" | Adds training data requirement, model management, and contradicts the no-custom-ML constraint. | Rule-based velocity + displacement + direction works well for 4 cardinal swipes. No ML needed. |
 
 ## Feature Dependencies
 
 ```
-[Camera Capture + MediaPipe Detection]
-    +--requires--> [Gesture Classification (landmark geometry)]
-                       +--requires--> [Debounce State Machine]
-                                          +--requires--> [Keyboard Simulation (pynput)]
+[Distance proxy calculation]
+    |-- requires --> [Access to landmark bounding box from HandDetector]
+    |                   (computable from existing landmark x,y -- no API changes)
+    |-- enables --> [Distance gating filter in pipeline]
+    |                   |-- enables --> [Per-gesture distance thresholds]
+    |-- enables --> [Distance indicator in preview]
 
-[YAML Config Loader]
-    +--required-by--> [Gesture-to-Key Mappings]
-    +--required-by--> [Camera Settings]
-    +--required-by--> [Debounce Timings]
+[Swipe detection]
+    |-- requires --> [Wrist/palm position history buffer (N frames)]
+    |-- requires --> [Velocity + displacement calculation]
+    |-- requires --> [Direction classification (4-way)]
+    |-- enables --> [Swipe gesture entries in config.yaml]
+    |-- enables --> [Swipe visual feedback in preview]
 
-[System Tray (pystray)]
-    +--requires--> [Active/Inactive Toggle (threading.Event)]
-    +--enhances--> [Edit Config menu item]
+[Distance gating] -- independent of --> [Swipe detection]
+    (No dependency between the two; they can be built in either order)
 
-[Visual Feedback Overlay]
-    +--requires--> [Camera Capture + MediaPipe Detection]
-    +--requires--> [Gesture Classification]
-    +--optional, gated by--> [--preview flag]
-
-[GPU Acceleration]
-    +--enhances--> [Camera Capture + MediaPipe Detection]
-    +--independent of--> [all other features]
-
-[Logging]
-    +--enhances--> [Debounce State Machine]
-    +--enhances--> [Keyboard Simulation]
-    +--independent of--> [other features]
+[Swipe detection] -- interacts with --> [Debounce state machine]
+    (Swipes are instantaneous events, not held poses. They need a different
+     activation model than static gestures which use hold-to-activate.)
 ```
 
 ### Dependency Notes
 
-- **Keyboard Simulation requires Debounce:** Without debounce, gestures fire continuously at frame rate (~30 FPS), making the app unusable. Debounce is not optional.
-- **All mappings require Config Loader:** Config must load before detection starts. Validation at load time prevents runtime crashes.
-- **Visual Feedback requires Detection pipeline:** Overlay draws on the camera feed with landmark data. Cannot exist without the detection loop.
-- **GPU Acceleration is independent:** Swapping onnxruntime-gpu for onnxruntime-cpu changes nothing in app logic. Pure infrastructure concern.
+- **Distance proxy requires no HandDetector API changes:** The bounding box area can be computed from the existing 21 normalized landmark x,y values (min/max). No need to access `hand_world_landmarks` or modify `detect()` return values. A standalone function `compute_hand_size(landmarks) -> float` is sufficient.
+- **Swipe detection requires a new component -- position history buffer:** The current pipeline is stateless per-frame (landmarks -> classify -> smooth -> debounce). Swipe detection needs a ring buffer of wrist positions across frames to compute velocity and displacement. This is a new `SwipeTracker` class, not a modification of an existing one.
+- **Swipe interacts with debounce differently than static gestures:** Static gestures use hold-to-activate (IDLE -> ACTIVATING -> FIRED -> COOLDOWN). Swipes are instantaneous -- they should fire immediately when velocity/displacement thresholds are crossed, then enter cooldown to prevent double-fires. Swipes need either a separate debounce path or the existing debouncer needs an "instant fire" mode for swipe-type gestures.
+- **Distance gating and swipe detection are independent:** They share no state. Distance gating is simpler and should be implemented first as a warm-up before the more complex swipe tracker.
 
 ## MVP Definition
 
-### Launch With (v1)
+### Launch With (v1.1)
 
-Minimum viable product -- what's needed to validate the concept.
+Minimum features to deliver the milestone goal.
 
-- [x] 6-gesture detection from MediaPipe landmarks -- core value proposition
-- [x] YAML-configurable gesture-to-key mappings (single keys + combos) -- without this, app is a tech demo
-- [x] Debounce state machine (activation delay + cooldown) -- without this, false triggers make it unusable
-- [x] System tray with Active toggle, Edit Config, Quit -- minimum viable UX for a background app
-- [x] Optional --preview flag for camera overlay -- needed for setup and debugging
-- [x] GPU acceleration via onnxruntime-gpu -- low effort, meaningful performance gain
-- [ ] Basic logging (gesture detected, key fired, timestamps) -- needed for debugging false triggers
+- [ ] **Distance proxy from landmark bounding box** -- compute hand area ratio from min/max of landmark x,y coordinates. No new dependencies, no API changes needed.
+- [ ] **Distance gating filter** -- reject all gestures (both static and swipe) when hand is outside configured distance range. Single `distance.min_hand_size` config value (unitless ratio 0.0-1.0). Inserted between detector and classifier in pipeline.
+- [ ] **Distance indicator in preview** -- numeric overlay showing current hand size ratio so users can determine their threshold value.
+- [ ] **4 cardinal swipe gestures** -- swipe_left, swipe_right, swipe_up, swipe_down as new entries in Gesture enum and config.yaml.
+- [ ] **Wrist position tracker** -- ring buffer of recent wrist (landmark 0) positions with timestamps. Compute velocity and displacement per frame.
+- [ ] **Swipe classifier** -- rule-based: displacement > min_displacement AND velocity > min_velocity AND primary axis ratio > direction_threshold.
+- [ ] **Swipe cooldown** -- prevent double-fire after a swipe is detected. Dedicated cooldown for swipes, separate from static gesture debouncer.
+- [ ] **Config entries for swipe tuning** -- `swipe.min_velocity`, `swipe.min_displacement`, `swipe.cooldown` under a `swipe` section in config.yaml.
 
 ### Add After Validation (v1.x)
 
-Features to add once core is working and gestures are reliably detected.
-
-- [ ] On-screen toast notification when gesture fires -- builds user trust, aids learning
-- [ ] Per-gesture debounce timing overrides -- fine-tune difficult gestures like pinch
-- [ ] Confidence threshold gating (in addition to debounce) -- extra false positive prevention
-- [ ] Startup with Windows (optional registry entry or shortcut in Startup folder) -- convenience for daily use
-- [ ] Config hot-reload (watch config file for changes, reload without restart) -- faster tuning loop
+- [ ] **Per-gesture distance thresholds** -- once users confirm the global distance gate works, add per-gesture overrides
+- [ ] **Swipe sensitivity presets** -- "slow", "normal", "fast" named presets instead of raw numeric tuning
+- [ ] **Swipe visual feedback** -- arrow overlays on preview window showing detected swipe direction
 
 ### Future Consideration (v2+)
 
-Features to defer until v1 is proven useful in daily workflows.
-
-- [ ] Gesture sequences (fist then palm = save) -- HIGH complexity, needs careful UX design
-- [ ] Two-hand gesture support -- doubles vocabulary but doubles complexity
-- [ ] Additional gestures beyond initial 6 -- only if users hit the 6-gesture ceiling
-- [ ] Tray icon visual indicator of detection state (green = active, red = paused, yellow = gesture detected) -- polish
+- [ ] **Diagonal swipes** -- 8-direction classification; defer because 4 directions already double the input vocabulary
+- [ ] **Swipe + static combos** -- "pointing + swipe right" as a distinct gesture; defer because state machine complexity is high
+- [ ] **Distance-based confidence scaling** -- closer hand = faster activation; defer because it couples two independent systems
 
 ## Feature Prioritization Matrix
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| 6-gesture detection | HIGH | MEDIUM | P1 |
-| Gesture-to-key mappings (YAML) | HIGH | LOW | P1 |
-| Debounce state machine | HIGH | MEDIUM | P1 |
-| System tray (toggle, edit, quit) | HIGH | LOW | P1 |
-| GPU acceleration (onnxruntime-gpu) | MEDIUM | LOW | P1 |
-| --preview camera overlay | MEDIUM | LOW | P1 |
-| Basic logging | MEDIUM | LOW | P1 |
-| On-screen notification on fire | MEDIUM | MEDIUM | P2 |
-| Per-gesture debounce overrides | LOW | LOW | P2 |
-| Confidence threshold gating | MEDIUM | LOW | P2 |
-| Config hot-reload | MEDIUM | MEDIUM | P2 |
-| Startup with Windows | LOW | LOW | P2 |
-| Gesture sequences | MEDIUM | HIGH | P3 |
-| Two-hand support | MEDIUM | HIGH | P3 |
-| Additional gestures (7+) | LOW | MEDIUM | P3 |
+| Distance gating filter | HIGH | LOW | P1 |
+| Distance preview indicator | MEDIUM | LOW | P1 |
+| 4 cardinal swipe gestures | HIGH | MEDIUM | P1 |
+| Swipe config entries | HIGH | LOW | P1 |
+| Swipe cooldown | HIGH | LOW | P1 |
+| Per-gesture distance thresholds | LOW | LOW | P2 |
+| Swipe visual feedback | MEDIUM | LOW | P2 |
+| Swipe sensitivity presets | LOW | LOW | P3 |
+| Diagonal swipes | LOW | MEDIUM | P3 |
+| Swipe + static combos | MEDIUM | HIGH | P3 |
 
 **Priority key:**
-- P1: Must have for launch
-- P2: Should have, add when possible
-- P3: Nice to have, future consideration
+- P1: Must have for v1.1 launch
+- P2: Should have, add when possible within milestone
+- P3: Nice to have, future milestone
 
-## Competitor Feature Analysis
+## Implementation Architecture Notes
 
-| Feature | Neural-Hand (GitHub) | AI-Gesture-Control | GestureSign (Windows) | Our Approach |
-|---------|---------------------|--------------------|-----------------------|--------------|
-| Gesture detection | 10+ gestures, MediaPipe | MediaPipe, volume/brightness focus | Touch/mouse drawn gestures (not camera) | 6 static hand poses via MediaPipe landmarks |
-| Output actions | Mouse + keyboard + window mgmt | Volume, brightness, mouse, scroll | Keyboard sim, window control, app launch | Keyboard only (single keys + combos). Focused scope |
-| False positive prevention | Not documented | Not documented | N/A (touch-based, different problem) | Debounce state machine + configurable thresholds. Primary design goal |
-| Configuration | Hardcoded or minimal | Hardcoded | GUI with per-app profiles | YAML config file. Editable, version-controllable |
-| Background operation | Foreground window required | Foreground window | System tray | System tray, headless by default |
-| GPU acceleration | CPU only (25-30 FPS) | CPU only | N/A | CUDA via onnxruntime-gpu on RTX 3060 |
-| Platform | Cross-platform (Python) | Cross-platform (Python) | Windows only | Windows only (intentional constraint) |
+### Distance Proxy: Bounding Box Area Ratio (Recommended)
 
-**Key insight from competitor analysis:** Most open-source gesture projects are tech demos that prioritize "wow factor" (mouse control, volume sliders) over reliability. They lack debounce, run in foreground windows, and have no configuration. Our differentiation is reliability-first: debounce state machine, configurable thresholds, background operation, and focused scope (keyboard commands only).
+The best approach for estimating hand distance without a depth sensor is computing the **bounding box area of the hand landmarks as a fraction of frame area**. This works because:
+
+1. MediaPipe normalized landmarks have x,y in [0.0, 1.0] relative to image dimensions
+2. A hand closer to the camera occupies more of the frame
+3. Computing `(max_x - min_x) * (max_y - min_y)` from the 21 landmarks gives a unitless ratio
+4. No camera calibration needed, no new dependencies, no API changes
+
+The alternative -- using `hand_world_landmarks` from MediaPipe -- gives metric coordinates in meters but relative to the hand's geometric center, not the camera. This does NOT help estimate camera-to-hand distance.
+
+**Why not use the z-coordinate?** MediaPipe's z for normalized landmarks is depth relative to the wrist origin, not absolute distance from camera. It tells you finger depth relative to the palm, not how far the hand is from the lens. The bounding box approach is the standard proxy used in webcam-only hand tracking systems.
+
+**Config format:**
+```yaml
+distance:
+  enabled: true
+  min_hand_size: 0.04  # minimum bounding box area ratio (0.0-1.0)
+```
+
+### Swipe Detection: Velocity + Displacement + Direction
+
+Standard approach for swipe detection from position tracking:
+
+1. **Ring buffer** of (x, y, timestamp) tuples for wrist landmark (index 0), sized to ~10-15 frames (~0.3-0.5s at 30fps)
+2. **Displacement** = Euclidean distance from oldest to newest position in buffer
+3. **Velocity** = displacement / time_delta
+4. **Direction** = angle of displacement vector, classified into 4 quadrants with dead zones (~15 degrees each side of axis boundaries)
+5. **Fire condition** = velocity > min_velocity AND displacement > min_displacement
+6. **After fire** = clear buffer, enter cooldown
+
+**Key design decision:** Swipes should be detected on the **wrist landmark** (index 0), not fingertips. The wrist is the most stable landmark during hand movement -- fingertips jitter and change position relative to the hand during gestures.
+
+**Config format:**
+```yaml
+swipe:
+  enabled: true
+  min_velocity: 1.5      # normalized units per second
+  min_displacement: 0.15  # minimum travel distance (normalized)
+  cooldown: 0.5           # seconds after swipe before another can fire
+  buffer_size: 10         # frames of position history
+```
+
+### Pipeline Integration Points
+
+Current pipeline:
+```
+camera -> detector -> classifier -> smoother -> debouncer -> keystroke
+```
+
+New pipeline with both features:
+```
+camera -> detector -> [distance gate] -> classifier -> smoother -> debouncer -> keystroke
+                   \-> [swipe tracker] -----------------------------> keystroke
+```
+
+Key observations:
+- **Distance gate sits BEFORE classifier** -- rejects far-away hands entirely, affects both static gestures and swipe detection
+- **Swipe tracker is a PARALLEL path** from detector output, not sequential with static gesture classification
+- **Swipe tracker needs raw landmark positions**, not classified gestures -- it watches wrist movement regardless of what static gesture the hand is making
+- **Swipe has its own cooldown**, separate from the static gesture debouncer -- the two systems fire independently
+- **Both paths converge at keystroke sender** -- the sender does not care whether the trigger was a static gesture or a swipe
+
+### Existing Pipeline Touch Points
+
+| Component | Changes Needed | Risk |
+|-----------|---------------|------|
+| `detector.py` (HandDetector) | None -- landmark data already sufficient | NONE |
+| `classifier.py` (GestureClassifier) | Add SWIPE_LEFT/RIGHT/UP/DOWN to Gesture enum | LOW |
+| `smoother.py` (GestureSmoother) | None -- swipes bypass smoother (they are instantaneous) | NONE |
+| `debounce.py` (GestureDebouncer) | None -- swipes use separate cooldown | NONE |
+| `config.py` (load_config) | Add `distance` and `swipe` config sections | LOW |
+| `preview.py` | Add distance indicator overlay, swipe direction feedback | LOW |
+| `__main__.py` | Add distance gate check, swipe tracker in main loop | MEDIUM |
+| `tray.py` | Propagate new config to swipe/distance components on reload | LOW |
 
 ## Sources
 
-- [Neural-Hand - 10+ gestures with MediaPipe](https://github.com/Mo-Abdalkader/Neural-Hand)
-- [AI-Gesture-Control-System - Volume/brightness/mouse](https://github.com/VASANI007/AI-Gesture-Control-System)
-- [Custom Hand Gesture Recognition and Control](https://github.com/atharvakale31/Custom_Hand_Gesture_Recognition_and_Control)
-- [GestureSign - Windows gesture recognition](https://gesturesign.win/)
-- [Combating False Positives In Gesture Recognition](https://medium.com/@leeor.langer/combating-false-positives-in-gesture-recognition-e727932b41b1)
-- [MAGIC 2.0 - False positive prediction for gesture systems](https://ieeexplore.ieee.org/document/5771412/)
-- [MediaPipe Hands GitHub topic](https://github.com/topics/mediapipe-hands)
-- [Deloitte - Desktop control via hand gestures](https://medium.com/deloitte-uk-tech-blog/how-to-control-desktop-apps-and-websites-using-hand-gestures-e2605283b3a4)
+- [MediaPipe Hand Landmarker Guide](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) -- confirmed normalized vs world landmark coordinate systems, z-depth limitations
+- [MediaPipe Hand Landmarker Python Guide](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/python) -- confirmed HandLandmarkerResult includes hand_landmarks and hand_world_landmarks fields
+- [MediaPipe z-value discussion (Issue #2439)](https://github.com/google-ai-edge/mediapipe/issues/2439) -- confirmed z is relative depth, not absolute camera distance
+- [MediaPipe camera distance discussion (Issue #1153)](https://github.com/google/mediapipe/issues/1153) -- confirmed no built-in camera distance estimation from RGB
+- [Hand Distance Measurement repo](https://github.com/MohamedAlaouiMhamdi/Hand-Distance-Measurement) -- example of using landmark spread as distance proxy
+- [Gestop: Customizable Gesture Control (arXiv:2010.13197)](https://arxiv.org/pdf/2010.13197) -- reference for swipe detection using palm base timediff coordinates and velocity thresholds
+- [Implementing a Swipe Gesture (Musing Mortoray)](https://mortoray.com/implementing-a-swipe-gesture/) -- velocity threshold patterns, distance thresholds, direction classification
+- [Dynamic Hand Gesture Recognition Using MediaPipe and Transformer](https://www.mdpi.com/2673-4591/108/1/22) -- confirms frame-to-frame landmark delta approach for dynamic gestures
 
 ---
-*Feature research for: Hand gesture recognition to keyboard commands*
+*Feature research for: gesture-keys v1.1 distance threshold and swiping gestures*
 *Researched: 2026-03-21*
