@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: completed
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-03-21T12:23:12.383Z"
-last_activity: 2026-03-21 -- Completed 03-02-PLAN.md
+milestone: v1.1
+milestone_name: distance-threshold-and-swiping-gestures
+status: in-progress
+stopped_at: null
+last_updated: "2026-03-21T12:35:00.000Z"
+last_activity: 2026-03-21 -- Milestone v1.1 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 3 - Polish and Packaging
+**Current focus:** v1.1 — Distance threshold and swiping gestures
 
 ## Current Position
 
-Phase: 3 of 3 (System Tray and Background Operation)
-Plan: 2 of 2 in current phase (2 complete)
-Status: Complete
-Last activity: 2026-03-21 -- Completed 03-02-PLAN.md
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-21 -- Milestone v1.1 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 

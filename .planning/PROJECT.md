@@ -21,7 +21,17 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ### Active
 
-(None — define with next milestone)
+- [ ] Distance-based gesture gating — only detect gestures when hand is within configurable distance from camera
+- [ ] Swipe gestures (left, right, up, down) — detect directional hand movement and fire mapped keyboard commands
+
+## Current Milestone: v1.1 Distance Threshold and Swiping Gestures
+
+**Goal:** Add distance-aware gesture gating and directional swipe gestures to expand input vocabulary.
+
+**Target features:**
+- Distance threshold filtering (ignore hands too far from camera)
+- Swipe left/right/up/down as new gesture types
+- Swipe gestures configurable in config.yaml with key mappings
 
 ### Out of Scope
 
@@ -60,4 +70,4 @@ Architecture: camera thread → MediaPipe landmarks → classifier → smoother 
 | Lazy TrayApp import in __main__.py | Avoid loading pystray/Pillow when using --preview mode | ✓ Good — faster preview startup |
 
 ---
-*Last updated: 2026-03-21 after v1.0 milestone*
+*Last updated: 2026-03-21 after v1.1 milestone start*
