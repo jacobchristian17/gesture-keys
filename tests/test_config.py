@@ -50,9 +50,18 @@ class TestLoadConfigDefault:
 
     def test_default_threshold_values(self):
         config = load_config(DEFAULT_CONFIG)
+        expected_thresholds = {
+            "open_palm": 0.7,
+            "fist": 0.7,
+            "thumbs_up": 0.7,
+            "peace": 0.7,
+            "pointing": 0.7,
+            "pinch": 0.05,
+        }
         for name, gesture in config.gestures.items():
-            assert gesture["threshold"] == 0.7, (
-                f"{name} threshold should be 0.7"
+            expected = expected_thresholds[name]
+            assert gesture["threshold"] == expected, (
+                f"{name} threshold should be {expected}"
             )
 
     def test_key_mappings(self):
