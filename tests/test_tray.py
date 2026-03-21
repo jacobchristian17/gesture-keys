@@ -50,7 +50,7 @@ class TestCreateIconImage:
         img = app._create_icon_image()
 
         assert img.size == (64, 64)
-        assert img.mode == "RGB"
+        assert img.mode == "RGBA"
 
 
 class TestToggleActiveInactive:
