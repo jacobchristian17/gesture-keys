@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 06-integration-and-mutual-exclusion
 source: [06-01-SUMMARY.md, 06-02-SUMMARY.md]
 started: 2026-03-22T00:15:00Z
-updated: 2026-03-22T00:20:00Z
+updated: 2026-03-22T00:25:00Z
 ---
 
 ## Current Test
@@ -45,7 +45,10 @@ skipped: 0
   reason: "User reported: distance is not configured on yaml"
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "config.yaml is missing the distance: section entirely. The backend is fully wired — config.py already reads distance.enabled and distance.min_hand_size from YAML, and both detection loops pass these values to DistanceFilter. The only gap is the missing YAML section, so distance defaults to enabled: False with hardcoded min_hand_size: 0.15 invisible to the user."
+  artifacts:
+    - path: "config.yaml"
+      issue: "Missing distance: section — backend support exists but no user-facing config"
+  missing:
+    - "Add distance: section to config.yaml with enabled: true and min_hand_size: 0.15"
+  debug_session: ".planning/debug/distance-config-missing-yaml.md"
