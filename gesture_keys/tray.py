@@ -229,6 +229,10 @@ class TrayApp:
                     if swiping and not was_swiping:
                         smoother.reset()
                         debouncer.reset()
+                    if was_swiping and not swiping:
+                        smoother.reset()
+                        debouncer.reset()
+                        logger.debug("Swipe exiting: smoother/debouncer reset")
                     was_swiping = swiping
                     if landmarks and not swiping:
                         raw_gesture = classifier.classify(landmarks)

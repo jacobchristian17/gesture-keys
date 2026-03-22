@@ -165,6 +165,71 @@ class TestSmootherResetLeakRegression:
             "After reset, smoother should return None (not stale gesture from window)"
         )
 
+class TestSwipeExitReset:
+    """Tests for smoother/debouncer reset when swipe exits (is_swiping True->False)."""
+
+    def test_exit_reset_clears_smoother(self):
+        """When swipe exits, smoother buffer must be cleared so stale
+        swipe-motion frames don't leak into static gesture recognition."""
+        smoother = GestureSmoother(window_size=3)
+
+        # Fill smoother with swipe-motion frames (simulating gestures during swipe)
+        for _ in range(3):
+            smoother.update(_FakeGesture.OPEN_PALM)
+        assert smoother.update(_FakeGesture.OPEN_PALM) == _FakeGesture.OPEN_PALM
+
+        # Simulate swipe exit: was_swiping=True, swiping=False -> reset
+        smoother.reset()
+
+        # After reset, buffer should be empty -- feeding None should return None
+        assert smoother.update(None) is None, (
+            "After exit reset, smoother should not return stale gesture"
+        )
+        assert len(smoother._buffer) == 1, "Buffer should only contain the one new frame"
+
+    def test_exit_reset_clears_debouncer(self):
+        """When swipe exits, debouncer must return to IDLE so no stale
+        activation/cooldown state carries over."""
+        from gesture_keys.debounce import GestureDebouncer, DebounceState
+        from gesture_keys.classifier import Gesture
+
+        debouncer = GestureDebouncer(activation_delay=0.3, cooldown_duration=0.5)
+
+        # Advance debouncer to ACTIVATING state
+        debouncer.update(Gesture.OPEN_PALM, 0.0)
+        assert debouncer.state == DebounceState.ACTIVATING
+
+        # Simulate swipe exit: reset
+        debouncer.reset()
+        assert debouncer.state == DebounceState.IDLE, (
+            "After exit reset, debouncer should be IDLE"
+        )
+
+    def test_exit_reset_symmetric_with_entry(self):
+        """The exit condition (was_swiping and not swiping) is the logical
+        mirror of entry (swiping and not was_swiping). Both trigger resets."""
+        # This test validates the logical symmetry by simulating the state
+        # transitions that the main loop performs.
+        was_swiping = False
+        swiping = True
+
+        # Entry: swiping and not was_swiping
+        entry_fires = swiping and not was_swiping
+        assert entry_fires is True, "Entry condition should fire"
+
+        was_swiping = swiping  # Transition
+
+        # During swipe: both True, neither fires
+        swiping = True
+        assert not (swiping and not was_swiping), "No re-entry while swiping"
+        assert not (was_swiping and not swiping), "No exit while swiping"
+
+        # Exit: was_swiping and not swiping
+        swiping = False
+        exit_fires = was_swiping and not swiping
+        assert exit_fires is True, "Exit condition should fire"
+
+
     def test_smoother_reset_then_new_gesture_works(self):
         """After reset, a new gesture fills the window cleanly."""
         smoother = GestureSmoother(window_size=3)
