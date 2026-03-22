@@ -2,12 +2,14 @@
 
 Prevents false fires from flickering gestures and held poses.
 State machine: IDLE -> ACTIVATING -> FIRED -> COOLDOWN -> IDLE
+                                               COOLDOWN -> ACTIVATING (different gesture)
 
 The debouncer sits between the smoother output and keystroke firing.
 It requires a gesture to be held continuously for activation_delay
-before firing, then enters a cooldown period that blocks all gestures.
-After cooldown, the gesture must be released (None) before a new
-activation can begin.
+before firing, then enters a cooldown period. During cooldown, a
+DIFFERENT gesture can interrupt and begin activating immediately,
+enabling fluid gesture-to-gesture transitions. The SAME gesture
+remains blocked until released to None.
 """
 
 import logging
@@ -48,6 +50,7 @@ class GestureDebouncer:
         self._activating_gesture: Optional[Gesture] = None
         self._activation_start: float = 0.0
         self._cooldown_start: float = 0.0
+        self._cooldown_gesture: Optional[Gesture] = None
 
     @property
     def state(self) -> DebounceState:
@@ -60,6 +63,7 @@ class GestureDebouncer:
         self._activating_gesture = None
         self._activation_start = 0.0
         self._cooldown_start = 0.0
+        self._cooldown_gesture = None
 
     def update(
         self, gesture: Optional[Gesture], timestamp: float
@@ -120,6 +124,7 @@ class GestureDebouncer:
     ) -> Optional[Gesture]:
         self._state = DebounceState.COOLDOWN
         self._cooldown_start = timestamp
+        self._cooldown_gesture = self._activating_gesture
         self._activating_gesture = None
         logger.debug("FIRED -> COOLDOWN")
         return None
@@ -127,8 +132,24 @@ class GestureDebouncer:
     def _handle_cooldown(
         self, gesture: Optional[Gesture], timestamp: float
     ) -> Optional[Gesture]:
-        if timestamp - self._cooldown_start >= self._cooldown_duration:
-            if gesture is None:
-                self._state = DebounceState.IDLE
-                logger.debug("COOLDOWN -> IDLE: released")
+        # Different gesture during cooldown -> start activating immediately
+        if gesture is not None and gesture != self._cooldown_gesture:
+            self._state = DebounceState.ACTIVATING
+            self._activating_gesture = gesture
+            self._activation_start = timestamp
+            self._cooldown_gesture = None
+            logger.debug(
+                "COOLDOWN -> ACTIVATING: %s (direct transition)", gesture.value
+            )
+            return None
+
+        # Cooldown elapsed + hand released -> return to idle
+        if (
+            timestamp - self._cooldown_start >= self._cooldown_duration
+            and gesture is None
+        ):
+            self._state = DebounceState.IDLE
+            self._cooldown_gesture = None
+            logger.debug("COOLDOWN -> IDLE: released")
+
         return None
