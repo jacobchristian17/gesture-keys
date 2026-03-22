@@ -10,8 +10,8 @@ Requirements for seamless gesture transitions, reduced mode-switching latency, a
 
 ### Transitions
 
-- [ ] **TRANS-01**: User can switch directly from one static gesture to another and the new gesture fires without needing to return hand to neutral/"none" first
-- [ ] **TRANS-02**: Holding the same gesture through cooldown does NOT re-fire -- only a different gesture triggers direct transition
+- [x] **TRANS-01**: User can switch directly from one static gesture to another and the new gesture fires without needing to return hand to neutral/"none" first
+- [x] **TRANS-02**: Holding the same gesture through cooldown does NOT re-fire -- only a different gesture triggers direct transition
 - [ ] **TRANS-03**: Preview window displays current debounce state (IDLE/ACTIVATING/COOLDOWN) so user can see why a gesture hasn't fired yet
 
 ### Latency
@@ -76,8 +76,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TRANS-01 | Phase 8 | Pending |
-| TRANS-02 | Phase 8 | Pending |
+| TRANS-01 | Phase 8 | Complete |
+| TRANS-02 | Phase 8 | Complete |
 | TRANS-03 | Phase 8 | Pending |
 | LAT-01 | Phase 9 | Pending |
 | LAT-02 | Phase 9 | Pending |
