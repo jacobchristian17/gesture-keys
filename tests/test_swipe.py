@@ -445,6 +445,11 @@ class TestSwipeSettlingGuard:
         # Settling counter should be reset to 3 again
         assert det._settling_frames_remaining == 3
 
+    def test_default_settling_frames_is_3(self):
+        """Default settling_frames should be 3 (not 10) for fast transitions."""
+        detector = SwipeDetector()
+        assert detector._settling_frames == 3
+
     def test_no_settling_without_recent_cooldown(self):
         """Settling guard does not affect normal IDLE->ARMED when no recent cooldown."""
         det = SwipeDetector(

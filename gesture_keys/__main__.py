@@ -266,6 +266,8 @@ def run_preview_mode(args):
                     debouncer._activation_delay = new_config.activation_delay
                     debouncer._cooldown_duration = new_config.cooldown_duration
                     debouncer.reset()
+                    smoother.reset()
+                    swipe_detector._settling_frames_remaining = 0
                     distance_filter.enabled = new_config.distance_enabled
                     distance_filter.min_hand_size = new_config.min_hand_size
                     distance_filter.max_hand_size = new_config.max_hand_size
