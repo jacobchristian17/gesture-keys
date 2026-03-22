@@ -288,7 +288,7 @@ def run_preview_mode(args):
                 if landmarks:
                     draw_hand_landmarks(frame, landmarks)
                 gesture_label = gesture.value if gesture else None
-                render_preview(frame, gesture_label, fps)
+                render_preview(frame, gesture_label, fps, debounce_state=debouncer.state.value)
 
                 key = cv2.waitKey(1) & 0xFF
                 if key == 27:  # ESC
