@@ -29,7 +29,9 @@
 
 ### v1.2 Continuous and Seamless Commands
 
-- [ ] **Phase 8: Direct Gesture Transitions** - Fire on gesture-to-gesture switch without returning to neutral
+- [ ] **Phase 8: Direct Gesture Transitions** - 2 plans
+  - [ ] 08-01-PLAN.md -- TDD: direct transition state machine (COOLDOWN->ACTIVATING for different gestures)
+  - [ ] 08-02-PLAN.md -- Debounce state preview indicator + wiring
 - [ ] **Phase 9: Swipe/Static Transition Latency** - Fix latent reset bug and reduce swipe-to-static settling delay
 - [ ] **Phase 10: Tuned Defaults and Config Surface** - Update timing defaults and expose tuning knobs in config.yaml
 
@@ -39,12 +41,12 @@
 **Goal**: Users can switch between static gestures fluidly -- each new gesture fires immediately without dropping the hand to neutral first
 **Depends on**: Phase 7 (v1.1 complete)
 **Requirements**: TRANS-01, TRANS-02, TRANS-03
+**Plans:** 2 plans
 **Success Criteria** (what must be TRUE):
   1. User can switch from one static gesture to a different static gesture and the new gesture fires its mapped keystroke without the user needing to release their hand to "none" first
   2. Holding the same gesture continuously (through and beyond cooldown) produces exactly one keystroke fire -- no repeat-fire on sustained hold
   3. Preview window displays the current debounce state (IDLE / ACTIVATING / COOLDOWN) so the user can see why a gesture has or has not fired
   4. Transitional hand poses during gesture switches (e.g., passing through POINTING when going from FIST to PEACE) do not cause spurious extra fires
-**Plans**: TBD
 
 ### Phase 9: Swipe/Static Transition Latency
 **Goal**: Switching from a swipe back to a static gesture feels responsive -- the static gesture fires within ~300ms of swipe cooldown ending instead of the current ~1.3s delay
@@ -80,6 +82,6 @@
 | 5. Swipe Detection | v1.1 | 2/2 | Complete | 2026-03-21 |
 | 6. Integration and Mutual Exclusion | v1.1 | 4/4 | Complete | 2026-03-21 |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Complete | 2026-03-21 |
-| 8. Direct Gesture Transitions | v1.2 | 0/? | Not started | - |
+| 8. Direct Gesture Transitions | v1.2 | 0/2 | Planning | - |
 | 9. Swipe/Static Transition Latency | v1.2 | 0/? | Not started | - |
 | 10. Tuned Defaults and Config Surface | v1.2 | 0/? | Not started | - |
