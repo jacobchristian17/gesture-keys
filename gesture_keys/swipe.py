@@ -58,7 +58,7 @@ class SwipeDetector:
         min_displacement: float = 0.08,
         axis_ratio: float = 2.0,
         cooldown_duration: float = 0.5,
-        settling_frames: int = 10,
+        settling_frames: int = 3,
     ) -> None:
         self._buffer_size = buffer_size
         self._min_velocity = min_velocity
