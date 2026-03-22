@@ -2,9 +2,9 @@ camera:
   index: 0
 
 detection:
-  smoothing_window: 1
-  activation_delay: 0.1
-  cooldown_duration: 0.5
+  smoothing_window: 30
+  activation_delay: 0.2
+  cooldown_duration: 0.3
 
 distance:
   enabled: true
@@ -56,7 +56,7 @@ swipe:
     key: right
   swipe_right:
     key: left   
-  # swipe_up:
-  #   key: up
-  # swipe_down:
-  #   key: down
+  swipe_up:
+    key: up
+  swipe_down:
+    key: down
