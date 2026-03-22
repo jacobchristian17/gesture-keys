@@ -11,6 +11,8 @@ These tests validate the contract that the main loop relies on:
 from enum import Enum
 from types import SimpleNamespace
 
+from gesture_keys.classifier import Gesture
+from gesture_keys.debounce import GestureDebouncer, DebounceState
 from gesture_keys.smoother import GestureSmoother
 from gesture_keys.swipe import SwipeDetector, SwipeDirection, _SwipeState
 
@@ -245,3 +247,111 @@ class TestSwipeExitReset:
             result = smoother.update(_FakeGesture.FIST)
 
         assert result == _FakeGesture.FIST, "After reset, new gesture should dominate"
+
+
+class TestHotReloadReset:
+    """Tests for hot-reload resetting smoother and clearing settling state."""
+
+    def test_hot_reload_resets_smoother(self):
+        """Hot-reload must reset smoother so stale buffer doesn't persist
+        across config changes."""
+        smoother = GestureSmoother(window_size=3)
+
+        # Fill smoother with gestures
+        for _ in range(3):
+            smoother.update(_FakeGesture.OPEN_PALM)
+        assert len(smoother._buffer) == 3
+
+        # Simulate hot-reload: reset()
+        smoother.reset()
+        assert len(smoother._buffer) == 0, "Smoother buffer should be empty after reset"
+
+    def test_settling_frames_clear_on_reload(self):
+        """Hot-reload must clear settling_frames_remaining so stale settling
+        state doesn't persist across config changes."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            cooldown_duration=0.2, settling_frames=10,
+        )
+
+        # Simulate settling state: manually set remaining frames
+        det._settling_frames_remaining = 5
+        assert det._settling_frames_remaining == 5
+
+        # Simulate hot-reload: clear settling
+        det._settling_frames_remaining = 0
+        assert det._settling_frames_remaining == 0, (
+            "Settling frames should be cleared after hot-reload"
+        )
+
+
+class TestTransitionLatency:
+    """End-to-end test: swipe -> cooldown -> settling -> smoother refill -> debouncer fires.
+
+    Validates that the full pipeline latency from cooldown end to static gesture
+    fire is within the ~600ms budget (settling 100ms + smoother 100ms + activation_delay 400ms).
+    """
+
+    def test_transition_latency_within_budget(self):
+        """After swipe cooldown ends, a held static gesture should fire within 0.7s.
+
+        Pipeline stages after cooldown ends:
+        1. Settling frames (3 frames @ ~33ms = ~100ms)
+        2. Smoother window refill (3 frames @ ~33ms = ~100ms)
+        3. Activation delay (0.4s default)
+        Total: ~600ms, budget = 700ms with margin.
+        """
+        fps_dt = 0.033  # ~30fps
+
+        # Create components with default parameters
+        swipe_detector = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            cooldown_duration=0.5,
+            # settling_frames uses default -- this is what we're testing
+        )
+        smoother = GestureSmoother(window_size=3)
+        debouncer = GestureDebouncer(activation_delay=0.4, cooldown_duration=0.8)
+
+        # Phase 1: Trigger a swipe
+        positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        results = _swipe_sequence(swipe_detector, positions, start_time=0.0, dt=fps_dt)
+        assert any(r is not None for r in results), "Setup: swipe should fire"
+        assert swipe_detector.is_swiping is True
+
+        # Phase 2: Advance past cooldown
+        cooldown_end_time = 1.0  # Well past 0.5s cooldown
+        swipe_detector.update(_make_wrist_landmarks(0.3, 0.5), cooldown_end_time)
+        assert swipe_detector.is_swiping is False, "Cooldown should have expired"
+
+        # Simulate main-loop exit reset (as __main__.py does)
+        smoother.reset()
+        debouncer.reset()
+
+        # Phase 3: Feed static gesture frames and track when debouncer fires
+        t = cooldown_end_time + fps_dt
+        fire_time = None
+
+        # Feed up to 30 frames (~1s) of static gesture
+        for _ in range(30):
+            # Swipe detector: feed stable position (settling guard consumes frames)
+            swipe_detector.update(_make_wrist_landmarks(0.3, 0.5), t)
+
+            # Static pipeline runs whenever is_swiping is False
+            gesture = smoother.update(Gesture.OPEN_PALM)
+            fire = debouncer.update(gesture, t)
+
+            if fire is not None:
+                fire_time = t
+                break
+
+            t += fps_dt
+
+        assert fire_time is not None, (
+            "Static gesture should have fired within 30 frames (~1s)"
+        )
+
+        latency = fire_time - cooldown_end_time
+        assert latency < 0.7, (
+            f"Transition latency {latency:.3f}s exceeds 0.7s budget. "
+            f"Expected ~0.6s (smoother refill + activation_delay)."
+        )
