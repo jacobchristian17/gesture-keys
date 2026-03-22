@@ -75,16 +75,19 @@ def draw_hand_landmarks(frame, hand_landmarks):
         cv2.circle(frame, (px, py), 5, (0, 0, 0), 1)  # Black outline
 
 
-def render_preview(frame, gesture_name, fps):
+def render_preview(frame, gesture_name, fps, debounce_state=None):
     """Render frame with solid bottom bar showing gesture label and FPS.
 
     Creates a dark gray bar below the camera feed with the gesture name
-    in the bottom-left and the FPS counter in the bottom-right.
+    in the bottom-left, the FPS counter in the bottom-right, and an
+    optional debounce state indicator centered in the bar.
 
     Args:
         frame: BGR numpy array (camera feed).
         gesture_name: Current gesture label string, or None.
         fps: Current frames per second value.
+        debounce_state: Optional debounce state string (IDLE, ACTIVATING,
+            COOLDOWN, FIRED). Displayed centered and color-coded when provided.
     """
     h, w = frame.shape[:2]
 
@@ -102,6 +105,22 @@ def render_preview(frame, gesture_name, fps):
     text_size = cv2.getTextSize(fps_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)[0]
     cv2.putText(bar, fps_text, (w - text_size[0] - 10, 28),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 1)
+
+    # Debounce state indicator (centered)
+    if debounce_state is not None:
+        state_colors = {
+            "IDLE": (128, 128, 128),        # Gray
+            "ACTIVATING": (0, 255, 255),    # Yellow
+            "COOLDOWN": (0, 128, 255),      # Orange
+            "FIRED": (0, 255, 0),           # Green
+        }
+        color = state_colors.get(debounce_state, (128, 128, 128))
+        text_size = cv2.getTextSize(
+            debounce_state, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+        )[0]
+        x = (w - text_size[0]) // 2
+        cv2.putText(bar, debounce_state, (x, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
     # Stack frame + bar
     display = np.vstack([frame, bar])
