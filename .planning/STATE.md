@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Continuous and Seamless Commands
 status: completed
-stopped_at: Phase 9 context gathered
-last_updated: "2026-03-22T08:26:01.007Z"
-last_activity: 2026-03-22 -- Completed 08-02 debounce state preview indicator
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-23T16:50:20Z"
+last_activity: 2026-03-23 -- Completed 09-02 settling frame reduction (LAT-03)
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
   percent: 100
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** v1.2 Phase 8 -- Direct Gesture Transitions
+**Current focus:** v1.2 Phase 9 -- Swipe/Static Transition Latency
 
 ## Current Position
 
-Phase: 8 of 10 (Direct Gesture Transitions)
+Phase: 9 of 10 (Swipe/Static Transition Latency)
 Plan: 2 of 2 complete
-Status: Phase 8 complete
-Last activity: 2026-03-22 -- Completed 08-02 debounce state preview indicator
+Status: Phase 9 complete
+Last activity: 2026-03-23 -- Completed 09-02 settling frame reduction (LAT-03)
 
 Progress: [██████████] 100%
 
@@ -56,6 +56,8 @@ Progress: [██████████] 100%
 
 | Phase 08-01 P01 | 2min | 1 tasks | 2 files |
 | Phase 08 P02 | 2min | 2 tasks | 2 files |
+| Phase 09 P01 | 5min | 2 tasks | 3 files |
+| Phase 09 P02 | 4min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -72,6 +74,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Default 10 settling frames (~330ms) prevents post-cooldown re-arming
 - [Phase 08-01]: Different gesture check runs before cooldown-elapsed check in _handle_cooldown for direct transitions
 - [Phase 08]: Used optional kwarg with None default for backward-compatible preview state indicator
+- [Phase 09]: Settling frames 10->3 safe with LAT-02 exit reset flushing stale state
+- [Phase 09]: Latency budget test validates full pipeline (smoother refill + activation_delay) within 700ms
 
 ### Pending Todos
 
@@ -79,12 +83,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- LAT-02 (missing swipe->static reset) must be fixed before LAT-03 (settling frame reduction) -- hard prerequisite
+- ~~LAT-02 (missing swipe->static reset) must be fixed before LAT-03 (settling frame reduction)~~ RESOLVED: both fixed in Phase 9
 - Confusable gesture pairs (PEACE<->SCOUT, POINTING<->PEACE, FIST<->THUMBS_UP) need testing with direct transitions enabled
 - Both __main__.py and tray.py have duplicated loop code -- phases 8-10 must modify both identically
 
 ## Session Continuity
 
-Last session: 2026-03-22T08:26:00.993Z
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-swipe-static-transition-latency/09-CONTEXT.md
+Last session: 2026-03-23T16:50:20Z
+Stopped at: Completed 09-02-PLAN.md
+Resume file: .planning/phases/09-swipe-static-transition-latency/09-02-SUMMARY.md

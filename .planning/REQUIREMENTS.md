@@ -16,9 +16,9 @@ Requirements for seamless gesture transitions, reduced mode-switching latency, a
 
 ### Latency
 
-- [ ] **LAT-01**: Swipe-to-static transition fires a static gesture within ~300ms of swipe cooldown ending (down from ~1.3s)
-- [ ] **LAT-02**: Smoother and debouncer are NOT unnecessarily reset when transitioning from swipe to static mode
-- [ ] **LAT-03**: Settling frames after swipe cooldown are reduced from 10 to 3-5 frames
+- [x] **LAT-01**: Swipe-to-static transition fires a static gesture within ~300ms of swipe cooldown ending (down from ~1.3s)
+- [x] **LAT-02**: Smoother and debouncer are NOT unnecessarily reset when transitioning from swipe to static mode
+- [x] **LAT-03**: Settling frames after swipe cooldown are reduced from 10 to 3-5 frames
 
 ### Tuning
 
@@ -79,9 +79,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRANS-01 | Phase 8 | Complete |
 | TRANS-02 | Phase 8 | Complete |
 | TRANS-03 | Phase 8 | Complete |
-| LAT-01 | Phase 9 | Pending |
-| LAT-02 | Phase 9 | Pending |
-| LAT-03 | Phase 9 | Pending |
+| LAT-01 | Phase 9 | Complete |
+| LAT-02 | Phase 9 | Complete |
+| LAT-03 | Phase 9 | Complete |
 | TUNE-01 | Phase 10 | Pending |
 | TUNE-02 | Phase 10 | Pending |
 | TUNE-03 | Phase 10 | Pending |
