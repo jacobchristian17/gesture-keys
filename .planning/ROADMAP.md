@@ -32,7 +32,9 @@
 - [ ] **Phase 8: Direct Gesture Transitions** - 2 plans
   - [ ] 08-01-PLAN.md -- TDD: direct transition state machine (COOLDOWN->ACTIVATING for different gestures)
   - [ ] 08-02-PLAN.md -- Debounce state preview indicator + wiring
-- [ ] **Phase 9: Swipe/Static Transition Latency** - Fix latent reset bug and reduce swipe-to-static settling delay
+- [ ] **Phase 9: Swipe/Static Transition Latency** - 2 plans
+  - [ ] 09-01-PLAN.md -- Fix swipe-exit reset bug + hot-reload smoother reset (LAT-02)
+  - [ ] 09-02-PLAN.md -- Reduce settling frames to 3 + latency budget verification (LAT-03, LAT-01)
 - [ ] **Phase 10: Tuned Defaults and Config Surface** - Update timing defaults and expose tuning knobs in config.yaml
 
 ## Phase Details
@@ -52,12 +54,12 @@
 **Goal**: Switching from a swipe back to a static gesture feels responsive -- the static gesture fires within ~300ms of swipe cooldown ending instead of the current ~1.3s delay
 **Depends on**: Phase 7 (v1.1 complete); independent of Phase 8
 **Requirements**: LAT-01, LAT-02, LAT-03
+**Plans:** 2 plans
 **Success Criteria** (what must be TRUE):
   1. After completing a swipe and its cooldown, holding a static gesture fires within approximately 300ms (down from ~1.3s)
   2. The smoother and debouncer are properly reset when transitioning from swipe mode back to static mode (no stale state carrying over)
   3. Settling frames after swipe cooldown are reduced to 3-5 frames without causing false static fires from residual hand motion
   4. Existing swipe detection accuracy and mutual exclusion with static gestures are not degraded by the latency reduction
-**Plans**: TBD
 
 ### Phase 10: Tuned Defaults and Config Surface
 **Goal**: New users get a responsive out-of-box experience with proven timing defaults, and power users can fine-tune settling frames and per-gesture cooldowns via config.yaml
@@ -83,5 +85,5 @@
 | 6. Integration and Mutual Exclusion | v1.1 | 4/4 | Complete | 2026-03-21 |
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Complete | 2026-03-21 |
 | 8. Direct Gesture Transitions | v1.2 | 0/2 | Planning | - |
-| 9. Swipe/Static Transition Latency | v1.2 | 0/? | Not started | - |
+| 9. Swipe/Static Transition Latency | v1.2 | 0/2 | Planning | - |
 | 10. Tuned Defaults and Config Surface | v1.2 | 0/? | Not started | - |
