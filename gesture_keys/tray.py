@@ -9,7 +9,7 @@ import pystray
 from PIL import Image, ImageDraw
 
 from gesture_keys.classifier import GestureClassifier
-from gesture_keys.config import ConfigWatcher, load_config
+from gesture_keys.config import ConfigWatcher, load_config, resolve_hand_gestures, resolve_hand_swipe_mappings
 from gesture_keys.debounce import DebounceAction, DebounceState, GestureDebouncer
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
@@ -180,14 +180,20 @@ class TrayApp:
             watcher = ConfigWatcher(self._config_path)
 
             try:
-                key_mappings = _parse_key_mappings(config.gestures)
+                right_key_mappings = _parse_key_mappings(config.gestures)
+                left_gestures_resolved = resolve_hand_gestures("Left", config)
+                left_key_mappings = _parse_key_mappings(left_gestures_resolved)
+                key_mappings = right_key_mappings  # start with right (or preferred hand)
             except ValueError as e:
                 logger.error("Invalid key mapping: %s", e)
                 camera.stop()
                 detector.close()
                 continue
 
-            swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
+            right_swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
+            left_swipe_resolved = resolve_hand_swipe_mappings("Left", config)
+            left_swipe_key_mappings = _parse_swipe_key_mappings(left_swipe_resolved) if config.swipe_enabled else {}
+            swipe_key_mappings = right_swipe_key_mappings
             hand_was_in_range = True
             was_swiping = False
             pre_swipe_gesture = None
@@ -220,6 +226,23 @@ class TrayApp:
                         debouncer.reset()
                         swipe_detector.reset()
                         logger.info("Hand switch: %s -> %s", prev_handedness, handedness)
+                        # Swap to correct mapping set for new hand
+                        if handedness == "Left":
+                            key_mappings = left_key_mappings
+                            swipe_key_mappings = left_swipe_key_mappings
+                        else:
+                            key_mappings = right_key_mappings
+                            swipe_key_mappings = right_swipe_key_mappings
+
+                    # Initial hand detection: set mappings on first hand appearance
+                    if prev_handedness is None and handedness is not None:
+                        if handedness == "Left":
+                            key_mappings = left_key_mappings
+                            swipe_key_mappings = left_swipe_key_mappings
+                        else:
+                            key_mappings = right_key_mappings
+                            swipe_key_mappings = right_swipe_key_mappings
+
                     prev_handedness = handedness if handedness is not None else prev_handedness
 
                     # Distance gating: suppress gestures when hand is too far
@@ -320,11 +343,25 @@ class TrayApp:
                             new_config = load_config(self._config_path)
                             hold_active = False
                             sender.release_all()
-                            key_mappings = _parse_key_mappings(new_config.gestures)
+                            # Re-parse both hand mapping sets
+                            right_key_mappings = _parse_key_mappings(new_config.gestures)
+                            left_gestures_resolved = resolve_hand_gestures("Left", new_config)
+                            left_key_mappings = _parse_key_mappings(left_gestures_resolved)
+                            if prev_handedness == "Left":
+                                key_mappings = left_key_mappings
+                            else:
+                                key_mappings = right_key_mappings
                             debouncer._activation_delay = new_config.activation_delay
                             debouncer._cooldown_duration = new_config.cooldown_duration
-                            debouncer._gesture_cooldowns = new_config.gesture_cooldowns
-                            debouncer._gesture_modes = new_config.gesture_modes
+                            # Update debouncer with hand-appropriate cooldowns/modes
+                            if prev_handedness == "Left" and new_config.left_gesture_cooldowns:
+                                merged_cooldowns = {**new_config.gesture_cooldowns, **new_config.left_gesture_cooldowns}
+                                merged_modes = {**new_config.gesture_modes, **new_config.left_gesture_modes}
+                            else:
+                                merged_cooldowns = new_config.gesture_cooldowns
+                                merged_modes = new_config.gesture_modes
+                            debouncer._gesture_cooldowns = merged_cooldowns
+                            debouncer._gesture_modes = merged_modes
                             debouncer._hold_release_delay = new_config.hold_release_delay
                             debouncer.reset()
                             smoother.reset()
@@ -332,13 +369,19 @@ class TrayApp:
                             swipe_detector._settling_frames_remaining = 0
                             distance_filter.enabled = new_config.distance_enabled
                             distance_filter.min_hand_size = new_config.min_hand_size
-                            # Swipe hot-reload
+                            # Swipe hot-reload (both hands)
                             swipe_detector.min_velocity = new_config.swipe_min_velocity
                             swipe_detector.min_displacement = new_config.swipe_min_displacement
                             swipe_detector.axis_ratio = new_config.swipe_axis_ratio
                             swipe_detector.cooldown_duration = new_config.swipe_cooldown
                             swipe_detector.enabled = new_config.swipe_enabled
-                            swipe_key_mappings = _parse_swipe_key_mappings(new_config.swipe_mappings) if new_config.swipe_enabled else {}
+                            right_swipe_key_mappings = _parse_swipe_key_mappings(new_config.swipe_mappings) if new_config.swipe_enabled else {}
+                            left_swipe_resolved = resolve_hand_swipe_mappings("Left", new_config)
+                            left_swipe_key_mappings = _parse_swipe_key_mappings(left_swipe_resolved) if new_config.swipe_enabled else {}
+                            if prev_handedness == "Left":
+                                swipe_key_mappings = left_swipe_key_mappings
+                            else:
+                                swipe_key_mappings = right_swipe_key_mappings
                             logger.info(
                                 "Config reloaded: %d gestures",
                                 len(new_config.gestures),
