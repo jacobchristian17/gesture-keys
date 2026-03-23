@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 10-tuned-defaults-and-config-surface
 source: [10-01-SUMMARY.md, 10-02-SUMMARY.md]
 started: 2026-03-23T10:30:00Z
@@ -54,7 +54,14 @@ skipped: 0
   reason: "User reported: Swipe fires first, activates the cooldown, theres a delay when static gesture is the main intent. Cooldown works good for others. I'll suggest that static gestures must fire first before detecting any swipes"
   severity: major
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Swipe detector runs before static classifier in main loop. Hand approach motion triggers swipe (IDLE->ARMED->COOLDOWN), is_swiping includes COOLDOWN state which resets smoother/debouncer and suppresses static detection for full swipe_cooldown (500ms). Two problems: (A) no priority feedback from debouncer ACTIVATING state to suppress swipe arming, (B) COOLDOWN treated same as ARMED for suppression."
+  artifacts:
+    - path: "gesture_keys/__main__.py"
+      issue: "Swipe detection at line 218 runs before static classifier at line 239, no priority gate"
+    - path: "gesture_keys/tray.py"
+      issue: "Same ordering issue as __main__.py"
+    - path: "gesture_keys/debounce.py"
+      issue: "No API to query ACTIVATING state for cross-detector priority"
+  missing:
+    - "Static gesture priority: check debouncer ACTIVATING state before allowing swipe to arm"
+    - "Stop treating swipe COOLDOWN as swiping for static gesture suppression"
