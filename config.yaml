@@ -3,8 +3,8 @@ camera:
 
 detection:
   smoothing_window: 2
-  activation_delay: 0.15
-  cooldown_duration: 0.3
+  activation_delay: 0.2
+  cooldown_duration: 0.1
 
 distance:
   enabled: true
@@ -18,28 +18,29 @@ gestures:
     threshold: 0.7
   fist: # close 5 fingers
     # key: space     
-    key: esc
+    key: space
+    mode: hold
     threshold: 0.7
 
   thumbs_up: 
     # key: space     
     key: enter 
     threshold: 0.9
-  pointing: # index
+  pointing: # 1 finger up: index
     # key: space     
     key: alt+tab
     threshold: 0.7
-  peace: # index + middle
+  peace: # 2 fingers up: index + middle
     # key: space     
     key: win+ctrl+left
     threshold: 0.7
-  scout: # index + middle + ring
+  scout: # 3 fingers up:  index + middle + ring
     # key: space     
     key: win+ctrl+right
     threshold: 0.7
  
  
-  pinch: # index + thumb together
+  pinch: # action: index + thumb together
     # key: space
     key: win+down
     threshold: 0.06
@@ -47,8 +48,8 @@ gestures:
 
       
 swipe:
-  settling_frames: 3
-  cooldown: 0.5
+  settling_frames: 2
+  cooldown: 0.1
   min_velocity: 0.15
   min_displacement: 0.03
   axis_ratio: 1.5
