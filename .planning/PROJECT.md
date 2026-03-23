@@ -22,20 +22,13 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Swipe gestures (left, right, up, down) — detect directional hand movement and fire mapped keyboard commands — v1.1
 - ✓ Preview overlays for distance value and swipe direction — v1.1
 
+- ✓ Direct gesture-to-gesture firing without returning to "none" state — v1.2
+- ✓ Faster swipe↔static transitions (reduced settling/cooldown lag) — v1.2
+- ✓ Tuned debounce/cooldown/threshold defaults based on real usage — v1.2
+
 ### Active
 
-- [ ] Direct gesture-to-gesture firing without returning to "none" state
-- [ ] Faster swipe↔static transitions (reduced settling/cooldown lag)
-- [ ] Tuned debounce/cooldown/threshold defaults based on real usage
-
-## Current Milestone: v1.2 Continuous and Seamless Commands
-
-**Goal:** Make gesture-to-keystroke firing seamless — direct transitions between gestures, faster swipe↔static switching, and tuned defaults.
-
-**Target features:**
-- Fire on gesture-to-gesture transition (no "none" required between static gestures)
-- Reduce swipe→static and static→swipe transition latency
-- Revisit debounce, cooldown, and threshold defaults for real-world usage
+(None yet — define in next milestone)
 
 ### Out of Scope
 
@@ -49,10 +42,11 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ## Context
 
-Shipped v1.0 MVP with 2,949 LOC Python.
+Shipped v1.2 with 6,661 LOC Python.
 Tech stack: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML.
 Platform: Windows 11, CPU inference (30+ FPS sufficient).
 Architecture: camera thread → MediaPipe landmarks → classifier → smoother → debouncer → keystroke sender, all wrapped in pystray tray app.
+Detection pipeline: static classification runs before swipe detection; debouncer.is_activating gates swipe arming. Per-gesture cooldowns and settling_frames are configurable via config.yaml.
 
 ## Constraints
 
@@ -72,6 +66,11 @@ Architecture: camera thread → MediaPipe landmarks → classifier → smoother 
 | Dropped GPU acceleration | MediaPipe Python on Windows is CPU-only, 30+ FPS sufficient | ✓ Good — simplified dependencies |
 | RGBA icon + visible=True for pystray | RGB icons invisible on some Windows 11 configs | ✓ Good — fixed tray icon visibility |
 | Lazy TrayApp import in __main__.py | Avoid loading pystray/Pillow when using --preview mode | ✓ Good — faster preview startup |
+| COOLDOWN→ACTIVATING for different gesture | Enables direct gesture transitions without "none" intermediate | ✓ Good — ~15 LOC change, clean state machine extension |
+| Swipe-exit reset (smoother+debouncer) | Fix latent bug where stale state carried over swipe→static | ✓ Good — prerequisite for settling frame reduction |
+| Settling frames 10→3 | Reduce post-swipe latency from ~330ms to ~100ms | ✓ Good — safe with exit reset flushing stale state |
+| Static-first priority gate | Prevent swipe arming while debouncer is activating a static gesture | ✓ Good — eliminates swipe-preempts-static bug |
+| Per-gesture cooldowns via config.yaml | Different gestures need different cooldowns (e.g., pinch longer than fist) | ✓ Good — simple gesture.value string key lookup |
 
 ---
-*Last updated: 2026-03-22 after v1.2 milestone start*
+*Last updated: 2026-03-24 after v1.2 milestone*
