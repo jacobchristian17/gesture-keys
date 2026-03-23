@@ -220,6 +220,10 @@ def run_preview_mode(args):
             # --- Static gesture classification (runs FIRST for priority) ---
             # Classify even during swipe cooldown (is_swiping is now ARMED-only)
             swiping = config.swipe_enabled and swipe_detector.is_swiping
+            if swiping and not was_swiping:
+                sender.release_all()
+                smoother.reset()
+                debouncer.reset()
             if was_swiping and not swiping:
                 sender.release_all()
                 smoother.reset()
