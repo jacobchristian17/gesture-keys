@@ -76,6 +76,43 @@ class TestPriorityOrder:
         assert result == Gesture.FIST
 
 
+class TestLeftHandClassification:
+    """Test left-hand gesture classification parity with right hand.
+
+    Left-hand fixtures mirror right-hand fixtures with thumb x-positions
+    reflected. Since the classifier uses abs() for thumb extension and
+    y-axis only for finger extension, classification should be identical.
+    """
+
+    def test_left_open_palm(self, classifier, mock_landmarks_left_open_palm):
+        result = classifier.classify(mock_landmarks_left_open_palm)
+        assert result == Gesture.OPEN_PALM
+
+    def test_left_fist(self, classifier, mock_landmarks_left_fist):
+        result = classifier.classify(mock_landmarks_left_fist)
+        assert result == Gesture.FIST
+
+    def test_left_thumbs_up(self, classifier, mock_landmarks_left_thumbs_up):
+        result = classifier.classify(mock_landmarks_left_thumbs_up)
+        assert result == Gesture.THUMBS_UP
+
+    def test_left_peace(self, classifier, mock_landmarks_left_peace):
+        result = classifier.classify(mock_landmarks_left_peace)
+        assert result == Gesture.PEACE
+
+    def test_left_pointing(self, classifier, mock_landmarks_left_pointing):
+        result = classifier.classify(mock_landmarks_left_pointing)
+        assert result == Gesture.POINTING
+
+    def test_left_pinch(self, classifier, mock_landmarks_left_pinch):
+        result = classifier.classify(mock_landmarks_left_pinch)
+        assert result == Gesture.PINCH
+
+    def test_left_scout(self, classifier, mock_landmarks_left_scout):
+        result = classifier.classify(mock_landmarks_left_scout)
+        assert result == Gesture.SCOUT
+
+
 class TestCustomThresholds:
     """Test classifier with custom threshold values."""
 

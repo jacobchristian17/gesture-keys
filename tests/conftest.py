@@ -206,6 +206,156 @@ def mock_landmarks_far_hand():
 
 
 @pytest.fixture
+def mock_landmarks_left_open_palm():
+    """Left-hand open palm: thumb on RIGHT side (higher x), all fingers extended.
+
+    Mirror of mock_landmarks_open_palm with thumb x-positions reflected
+    around wrist x=0.5 (thumb tip at 0.8 instead of 0.2).
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST (bottom)
+        3: (0.7, 0.6, 0.0),    # THUMB_IP (mirrored: was 0.3)
+        4: (0.8, 0.55, 0.0),   # THUMB_TIP (mirrored: was 0.2, further from wrist = extended)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.4, 0.2, 0.0),    # INDEX_TIP (above PIP)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.2, 0.0),   # MIDDLE_TIP (above PIP)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.2, 0.0),   # RING_TIP (above PIP)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.2, 0.0),   # PINKY_TIP (above PIP)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_left_fist():
+    """Left-hand fist: all fingers curled, thumb curled on right side.
+
+    Mirror of mock_landmarks_fist with thumb x-positions reflected.
+    Thumb tip at 0.52 (close to wrist x=0.5 = curled).
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.55, 0.6, 0.0),   # THUMB_IP (mirrored: was 0.45)
+        4: (0.52, 0.65, 0.0),  # THUMB_TIP (mirrored: was 0.48, closer to wrist = curled)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.4, 0.7, 0.0),    # INDEX_TIP (below PIP)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.7, 0.0),   # MIDDLE_TIP (below PIP)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.7, 0.0),   # RING_TIP (below PIP)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (below PIP)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_left_thumbs_up():
+    """Left-hand thumbs up: thumb extended on right side, all 4 fingers curled.
+
+    Mirror of mock_landmarks_thumbs_up with thumb x-positions reflected.
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.7, 0.6, 0.0),    # THUMB_IP (mirrored: was 0.3)
+        4: (0.8, 0.55, 0.0),   # THUMB_TIP (mirrored: was 0.2, far from wrist = extended)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.4, 0.7, 0.0),    # INDEX_TIP (below PIP = curled)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.7, 0.0),   # MIDDLE_TIP (below PIP = curled)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.7, 0.0),   # RING_TIP (below PIP = curled)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (below PIP = curled)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_left_peace():
+    """Left-hand peace: index + middle extended, ring + pinky curled, thumb curled on right side.
+
+    Mirror of mock_landmarks_peace with thumb x-positions reflected.
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.55, 0.6, 0.0),   # THUMB_IP (mirrored: was 0.45)
+        4: (0.52, 0.65, 0.0),  # THUMB_TIP (mirrored: was 0.48, curled)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.4, 0.2, 0.0),    # INDEX_TIP (extended)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.2, 0.0),   # MIDDLE_TIP (extended)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.7, 0.0),   # RING_TIP (curled)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (curled)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_left_pointing():
+    """Left-hand pointing: index extended, others curled, thumb curled on right side.
+
+    Mirror of mock_landmarks_pointing with thumb x-positions reflected.
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.55, 0.6, 0.0),   # THUMB_IP (mirrored: was 0.45)
+        4: (0.52, 0.65, 0.0),  # THUMB_TIP (mirrored: was 0.48, curled)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.4, 0.2, 0.0),    # INDEX_TIP (extended)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.7, 0.0),   # MIDDLE_TIP (curled)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.7, 0.0),   # RING_TIP (curled)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (curled)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_left_pinch():
+    """Left-hand pinch: thumb tip close to index tip, thumb extended on right side.
+
+    Mirror of mock_landmarks_pinch. Thumb IP at 0.62, thumb tip at 0.65
+    (further from wrist x=0.5 on the right side = extended).
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.62, 0.5, 0.0),   # THUMB_IP (mirrored: was 0.38)
+        4: (0.65, 0.45, 0.0),  # THUMB_TIP (mirrored: was 0.35, further from wrist = extended)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.64, 0.45, 0.0),  # INDEX_TIP (very close to thumb tip)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.7, 0.0),   # MIDDLE_TIP (curled)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.7, 0.0),   # RING_TIP (curled)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (curled)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_left_scout():
+    """Left-hand scout: index + middle + ring extended, pinky curled, thumb curled on right side.
+
+    Mirror of mock_landmarks_scout with thumb x-positions reflected.
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.55, 0.6, 0.0),   # THUMB_IP (mirrored: was 0.45)
+        4: (0.52, 0.65, 0.0),  # THUMB_TIP (mirrored: was 0.48, curled)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.4, 0.2, 0.0),    # INDEX_TIP (extended)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.2, 0.0),   # MIDDLE_TIP (extended)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.2, 0.0),   # RING_TIP (extended)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.7, 0.0),   # PINKY_TIP (curled)
+    })
+
+
+@pytest.fixture
 def mock_landmarks_none():
     """Ambiguous hand pose that should not match any gesture.
 
