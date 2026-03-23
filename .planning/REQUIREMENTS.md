@@ -9,9 +9,9 @@ Requirements for left-hand support with 1:1 right-hand parity.
 
 ### Detection
 
-- [ ] **DET-01**: App detects left hand landmarks via MediaPipe when left hand is in frame
-- [ ] **DET-02**: App selects one active hand when only one hand is visible
-- [ ] **DET-03**: App prioritizes one hand when both are briefly visible during hand-switch transitions
+- [x] **DET-01**: App detects left hand landmarks via MediaPipe when left hand is in frame
+- [x] **DET-02**: App selects one active hand when only one hand is visible
+- [x] **DET-03**: App prioritizes one hand when both are briefly visible during hand-switch transitions
 
 ### Classification
 
@@ -47,9 +47,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DET-01 | Phase 11 | Pending |
-| DET-02 | Phase 11 | Pending |
-| DET-03 | Phase 11 | Pending |
+| DET-01 | Phase 11 | Complete |
+| DET-02 | Phase 11 | Complete |
+| DET-03 | Phase 11 | Complete |
 | CLS-01 | Phase 11 | Pending |
 | CLS-02 | Phase 11 | Pending |
 | CLS-03 | Phase 11 | Pending |
