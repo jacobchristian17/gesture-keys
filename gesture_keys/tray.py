@@ -159,7 +159,8 @@ class TrayApp:
             classifier = GestureClassifier(thresholds)
             smoother = GestureSmoother(config.smoothing_window)
             debouncer = GestureDebouncer(
-                config.activation_delay, config.cooldown_duration
+                config.activation_delay, config.cooldown_duration,
+                gesture_cooldowns=config.gesture_cooldowns,
             )
             sender = KeystrokeSender()
             distance_filter = DistanceFilter(
@@ -259,6 +260,7 @@ class TrayApp:
                             key_mappings = _parse_key_mappings(new_config.gestures)
                             debouncer._activation_delay = new_config.activation_delay
                             debouncer._cooldown_duration = new_config.cooldown_duration
+                            debouncer._gesture_cooldowns = new_config.gesture_cooldowns
                             debouncer.reset()
                             smoother.reset()
                             swipe_detector.settling_frames = new_config.swipe_settling_frames
