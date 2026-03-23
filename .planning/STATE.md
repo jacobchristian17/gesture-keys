@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Continuous and Seamless Commands
 status: completed
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-23T10:21:26.478Z"
+last_activity: 2026-03-23 -- Completed 10-01 tuned defaults and settling_frames config surface
+progress:
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 6
+  completed_plans: 6
+  percent: 100
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.2
+milestone_name: Continuous and Seamless Commands
+status: completed
 stopped_at: Phase 10 context gathered
 last_updated: "2026-03-23T10:02:52.157Z"
 last_activity: 2026-03-23 -- Completed 09-02 settling frame reduction (LAT-03)
 progress:
-  total_phases: 3
+  [██████████] 100%
   completed_phases: 2
   total_plans: 6
   completed_plans: 4
@@ -89,6 +105,7 @@ Progress: [█████████░] 90%
 | Phase 09 P01 | 5min | 2 tasks | 3 files |
 | Phase 09 P02 | 4min | 1 tasks | 3 files |
 | Phase 10 P01 | 4min | 2 tasks | 7 files |
+| Phase 10 P02 | 3min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -109,6 +126,7 @@ Recent decisions affecting current work:
 - [Phase 09]: Latency budget test validates full pipeline (smoother refill + activation_delay) within 700ms
 - [Phase 10]: Config.yaml smoothing_window 30->2 (was experimental/accidental), activation_delay 0.2->0.15
 - [Phase 10]: settling_frames exposed as swipe.settling_frames in config.yaml with hot-reload support
+- [Phase 10]: Per-gesture cooldowns use gesture.value string as dict key for config simplicity
 
 ### Pending Todos
 
@@ -122,6 +140,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T10:14:21Z
-Stopped at: Completed 10-01-PLAN.md
-Resume file: .planning/phases/10-tuned-defaults-and-config-surface/10-01-SUMMARY.md
+Last session: 2026-03-23T10:21:26.475Z
+Stopped at: Completed 10-02-PLAN.md
+Resume file: None

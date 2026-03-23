@@ -24,7 +24,7 @@ Requirements for seamless gesture transitions, reduced mode-switching latency, a
 
 - [x] **TUNE-01**: Code defaults updated to match proven real-usage values (activation_delay ~0.15s, cooldown ~0.3s, smoothing_window ~2)
 - [x] **TUNE-02**: Settling frames are configurable in config.yaml swipe section
-- [ ] **TUNE-03**: Per-gesture cooldown overrides are configurable in config.yaml (e.g., pinch gets longer cooldown than fist)
+- [x] **TUNE-03**: Per-gesture cooldown overrides are configurable in config.yaml (e.g., pinch gets longer cooldown than fist)
 
 ## v1.1 Requirements (Shipped)
 
@@ -84,7 +84,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LAT-03 | Phase 9 | Complete |
 | TUNE-01 | Phase 10 | Complete |
 | TUNE-02 | Phase 10 | Complete |
-| TUNE-03 | Phase 10 | Pending |
+| TUNE-03 | Phase 10 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 9 total
