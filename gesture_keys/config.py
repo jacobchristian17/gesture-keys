@@ -34,6 +34,10 @@ class AppConfig:
     hold_release_delay: float = 0.1
     hold_repeat_interval: float = 0.03
     preferred_hand: str = "left"
+    left_gestures: dict[str, dict[str, Any]] = field(default_factory=dict)
+    left_swipe_mappings: dict[str, str] = field(default_factory=dict)
+    left_gesture_cooldowns: dict[str, float] = field(default_factory=dict)
+    left_gesture_modes: dict[str, str] = field(default_factory=dict)
 
 
 class ConfigWatcher:
@@ -118,6 +122,56 @@ def _extract_gesture_modes(gestures: dict) -> dict[str, str]:
     return modes
 
 
+def resolve_hand_gestures(handedness: str, config: AppConfig) -> dict:
+    """Return the gesture dict for the given hand.
+
+    When handedness is "Right" or left_gestures is empty, returns
+    config.gestures unchanged (mirroring). When "Left" and left_gestures
+    has entries, deep-merges left overrides onto right-hand defaults so
+    that only explicitly overridden per-gesture settings change.
+
+    Args:
+        handedness: "Left" or "Right" (MediaPipe format).
+        config: The loaded AppConfig.
+
+    Returns:
+        Gesture config dict for the active hand.
+    """
+    if handedness != "Left" or not config.left_gestures:
+        return config.gestures
+
+    import copy
+
+    merged = copy.deepcopy(config.gestures)
+    for gesture_name, left_settings in config.left_gestures.items():
+        if gesture_name in merged:
+            merged[gesture_name].update(left_settings)
+        else:
+            merged[gesture_name] = dict(left_settings)
+    return merged
+
+
+def resolve_hand_swipe_mappings(
+    handedness: str, config: AppConfig
+) -> dict[str, str]:
+    """Return the swipe mappings for the given hand.
+
+    When handedness is "Right" or left_swipe_mappings is empty, returns
+    config.swipe_mappings. When "Left" and left_swipe_mappings has entries,
+    returns left_swipe_mappings (full replacement, not merged).
+
+    Args:
+        handedness: "Left" or "Right" (MediaPipe format).
+        config: The loaded AppConfig.
+
+    Returns:
+        Swipe mappings dict for the active hand.
+    """
+    if handedness != "Left" or not config.left_swipe_mappings:
+        return config.swipe_mappings
+    return config.left_swipe_mappings
+
+
 def load_config(path: str = "config.yaml") -> AppConfig:
     """Load configuration from a YAML file.
 
@@ -180,6 +234,15 @@ def load_config(path: str = "config.yaml") -> AppConfig:
             f"preferred_hand must be 'left' or 'right', got '{preferred_hand}'"
         )
 
+    # Parse optional left-hand override sections
+    left_gestures = raw.get("left_gestures", {}) or {}
+    left_swipe_raw = raw.get("left_swipe", {}) or {}
+    left_swipe_mappings: dict[str, str] = {}
+    for direction in swipe_directions:
+        mapping = left_swipe_raw.get(direction)
+        if isinstance(mapping, dict) and "key" in mapping:
+            left_swipe_mappings[direction] = mapping["key"]
+
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
         smoothing_window=int(detection.get("smoothing_window", 2)),
@@ -201,4 +264,8 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         hold_release_delay=float(detection.get("hold_release_delay", 0.1)),
         hold_repeat_interval=float(detection.get("hold_repeat_interval", 0.03)),
         preferred_hand=preferred_hand,
+        left_gestures=left_gestures,
+        left_swipe_mappings=left_swipe_mappings,
+        left_gesture_cooldowns=_extract_gesture_cooldowns(left_gestures),
+        left_gesture_modes=_extract_gesture_modes(left_gestures),
     )
