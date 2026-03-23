@@ -171,6 +171,7 @@ class TrayApp:
                 min_displacement=config.swipe_min_displacement,
                 axis_ratio=config.swipe_axis_ratio,
                 cooldown_duration=config.swipe_cooldown,
+                settling_frames=config.swipe_settling_frames,
             )
             swipe_detector.enabled = config.swipe_enabled
             watcher = ConfigWatcher(self._config_path)
@@ -260,6 +261,7 @@ class TrayApp:
                             debouncer._cooldown_duration = new_config.cooldown_duration
                             debouncer.reset()
                             smoother.reset()
+                            swipe_detector.settling_frames = new_config.swipe_settling_frames
                             swipe_detector._settling_frames_remaining = 0
                             distance_filter.enabled = new_config.distance_enabled
                             distance_filter.min_hand_size = new_config.min_hand_size

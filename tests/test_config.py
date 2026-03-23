@@ -386,3 +386,38 @@ class TestSwipeConfig:
         assert config.distance_enabled is True
         assert config.min_hand_size == 0.20
         assert config.swipe_enabled is False
+
+
+class TestSettlingFramesConfig:
+    """Test swipe_settling_frames config parsing."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    def test_appconfig_default_settling_frames(self):
+        config = AppConfig()
+        assert config.swipe_settling_frames == 3
+
+    def test_load_config_settling_frames_default_when_missing(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.swipe_settling_frames == 3
+
+    def test_load_config_parses_settling_frames(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "swipe:\n"
+            "  settling_frames: 5\n"
+            "  swipe_left:\n    key: left\n"
+        )
+        config = load_config(str(cfg))
+        assert config.swipe_settling_frames == 5
+
+    def test_load_config_settling_frames_from_default_config(self):
+        config = load_config(DEFAULT_CONFIG)
+        assert config.swipe_settling_frames == 3

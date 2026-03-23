@@ -46,8 +46,7 @@ gestures:
 
       
 swipe:
-
-
+  settling_frames: 3
   cooldown: 0.5
   min_velocity: 0.15
   min_displacement: 0.03

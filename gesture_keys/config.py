@@ -28,6 +28,7 @@ class AppConfig:
     swipe_min_displacement: float = 0.08
     swipe_axis_ratio: float = 2.0
     swipe_mappings: dict[str, str] = field(default_factory=dict)
+    swipe_settling_frames: int = 3
 
 
 class ConfigWatcher:
@@ -139,4 +140,5 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         swipe_min_displacement=float(swipe.get("min_displacement", 0.08)),
         swipe_axis_ratio=float(swipe.get("axis_ratio", 2.0)),
         swipe_mappings=swipe_mappings,
+        swipe_settling_frames=int(swipe.get("settling_frames", 3)),
     )
