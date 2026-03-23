@@ -14,11 +14,26 @@ remains blocked until released to None.
 
 import logging
 from enum import Enum
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from gesture_keys.classifier import Gesture
 
 logger = logging.getLogger("gesture_keys")
+
+
+class DebounceAction(Enum):
+    """Actions emitted by the debounce state machine."""
+
+    FIRE = "fire"
+    HOLD_START = "hold_start"
+    HOLD_END = "hold_end"
+
+
+class DebounceSignal(NamedTuple):
+    """Signal emitted by debouncer update()."""
+
+    action: DebounceAction
+    gesture: Gesture
 
 
 class DebounceState(Enum):

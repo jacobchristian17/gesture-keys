@@ -5,7 +5,7 @@ import logging
 import pytest
 
 from gesture_keys.classifier import Gesture
-from gesture_keys.debounce import DebounceState, GestureDebouncer
+from gesture_keys.debounce import DebounceAction, DebounceSignal, DebounceState, GestureDebouncer
 
 
 class TestDebounceStateTransitions:
@@ -260,6 +260,26 @@ class TestIsActivatingProperty:
         d.update(Gesture.FIST, 0.6)  # -> cooldown
         assert d.state == DebounceState.COOLDOWN
         assert d.is_activating is False
+
+
+class TestDebounceSignal:
+    """Test DebounceSignal and DebounceAction types."""
+
+    def test_debounce_action_values(self):
+        assert DebounceAction.FIRE.value == "fire"
+        assert DebounceAction.HOLD_START.value == "hold_start"
+        assert DebounceAction.HOLD_END.value == "hold_end"
+
+    def test_debounce_signal_creation(self):
+        signal = DebounceSignal(DebounceAction.FIRE, Gesture.FIST)
+        assert signal.action == DebounceAction.FIRE
+        assert signal.gesture == Gesture.FIST
+
+    def test_debounce_signal_unpacking(self):
+        signal = DebounceSignal(DebounceAction.HOLD_START, Gesture.PEACE)
+        action, gesture = signal
+        assert action == DebounceAction.HOLD_START
+        assert gesture == Gesture.PEACE
 
 
 class TestPerGestureCooldowns:
