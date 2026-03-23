@@ -94,7 +94,7 @@ class GestureDebouncer:
 
     def update(
         self, gesture: Optional[Gesture], timestamp: float
-    ) -> Optional[Gesture]:
+    ) -> Optional[DebounceSignal]:
         """Process a smoothed gesture and return fire signal.
 
         Args:
@@ -102,7 +102,7 @@ class GestureDebouncer:
             timestamp: Current time (e.g. from time.perf_counter()).
 
         Returns:
-            Gesture to fire, or None if no fire this frame.
+            DebounceSignal to act on, or None if no signal this frame.
         """
         if self._state == DebounceState.IDLE:
             return self._handle_idle(gesture, timestamp)
@@ -116,7 +116,7 @@ class GestureDebouncer:
 
     def _handle_idle(
         self, gesture: Optional[Gesture], timestamp: float
-    ) -> Optional[Gesture]:
+    ) -> Optional[DebounceSignal]:
         if gesture is not None:
             self._state = DebounceState.ACTIVATING
             self._activating_gesture = gesture
@@ -126,7 +126,7 @@ class GestureDebouncer:
 
     def _handle_activating(
         self, gesture: Optional[Gesture], timestamp: float
-    ) -> Optional[Gesture]:
+    ) -> Optional[DebounceSignal]:
         if gesture is None:
             self._state = DebounceState.IDLE
             self._activating_gesture = None
@@ -142,13 +142,13 @@ class GestureDebouncer:
         if timestamp - self._activation_start >= self._activation_delay:
             self._state = DebounceState.FIRED
             logger.debug("ACTIVATING -> FIRED: %s", gesture.value)
-            return gesture
+            return DebounceSignal(DebounceAction.FIRE, gesture)
 
         return None
 
     def _handle_fired(
         self, gesture: Optional[Gesture], timestamp: float
-    ) -> Optional[Gesture]:
+    ) -> Optional[DebounceSignal]:
         self._state = DebounceState.COOLDOWN
         self._cooldown_start = timestamp
         fired_gesture = self._activating_gesture
@@ -162,7 +162,7 @@ class GestureDebouncer:
 
     def _handle_cooldown(
         self, gesture: Optional[Gesture], timestamp: float
-    ) -> Optional[Gesture]:
+    ) -> Optional[DebounceSignal]:
         # Different gesture during cooldown -> start activating immediately
         if gesture is not None and gesture != self._cooldown_gesture:
             self._state = DebounceState.ACTIVATING

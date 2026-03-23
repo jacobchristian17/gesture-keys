@@ -31,7 +31,7 @@ class TestDebounceStateTransitions:
         d = GestureDebouncer(activation_delay=0.4)
         d.update(Gesture.FIST, 0.0)
         result = d.update(Gesture.FIST, 0.5)
-        assert result == Gesture.FIST
+        assert result == DebounceSignal(DebounceAction.FIRE, Gesture.FIST)
         assert d.state == DebounceState.FIRED
 
     def test_activating_no_fire_before_delay(self):
@@ -51,7 +51,7 @@ class TestDebounceStateTransitions:
         assert d.state == DebounceState.ACTIVATING
         # Now it should fire (0.3 + 0.4 = 0.7)
         result = d.update(Gesture.PEACE, 0.8)
-        assert result == Gesture.PEACE
+        assert result == DebounceSignal(DebounceAction.FIRE, Gesture.PEACE)
 
     def test_activating_to_idle_on_none(self):
         d = GestureDebouncer()
@@ -112,7 +112,7 @@ class TestDebounceStateTransitions:
         d = GestureDebouncer(activation_delay=0.4, cooldown_duration=0.8)
         d.update(Gesture.FIST, 0.0)
         fire1 = d.update(Gesture.FIST, 0.5)  # fires
-        assert fire1 == Gesture.FIST
+        assert fire1 == DebounceSignal(DebounceAction.FIRE, Gesture.FIST)
         # All subsequent updates should return None (cooldown)
         fire2 = d.update(Gesture.FIST, 0.6)
         fire3 = d.update(Gesture.FIST, 0.7)
@@ -146,7 +146,7 @@ class TestDirectTransitions:
         assert d.state == DebounceState.ACTIVATING
         # Hold PEACE for activation_delay (0.7 + 0.4 = 1.1)
         result = d.update(Gesture.PEACE, 1.2)
-        assert result == Gesture.PEACE
+        assert result == DebounceSignal(DebounceAction.FIRE, Gesture.PEACE)
 
     def test_same_gesture_during_cooldown_stays_blocked(self):
         d = GestureDebouncer(activation_delay=0.4, cooldown_duration=0.8)
@@ -172,7 +172,7 @@ class TestDirectTransitions:
         assert d.state == DebounceState.ACTIVATING
         # Hold POINTING for activation_delay (0.8 + 0.4 = 1.2)
         result = d.update(Gesture.POINTING, 1.3)
-        assert result == Gesture.POINTING
+        assert result == DebounceSignal(DebounceAction.FIRE, Gesture.POINTING)
 
     def test_cooldown_gesture_cleared_on_transition_to_activating(self):
         d = GestureDebouncer(activation_delay=0.4, cooldown_duration=0.8)
