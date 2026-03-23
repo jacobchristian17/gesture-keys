@@ -5,7 +5,13 @@ import time
 
 import pytest
 
-from gesture_keys.config import AppConfig, ConfigWatcher, load_config
+from gesture_keys.config import (
+    AppConfig,
+    ConfigWatcher,
+    load_config,
+    resolve_hand_gestures,
+    resolve_hand_swipe_mappings,
+)
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -601,3 +607,165 @@ class TestGestureModesConfig:
             "open_palm": "tap",
             "pinch": "tap",
         }
+
+
+class TestLeftHandConfig:
+    """Tests for left-hand config fields, parsing, and resolution functions."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    # --- AppConfig default fields ---
+
+    def test_appconfig_default_left_gestures_empty(self):
+        config = AppConfig()
+        assert config.left_gestures == {}
+
+    def test_appconfig_default_left_swipe_mappings_empty(self):
+        config = AppConfig()
+        assert config.left_swipe_mappings == {}
+
+    def test_appconfig_default_left_gesture_cooldowns_empty(self):
+        config = AppConfig()
+        assert config.left_gesture_cooldowns == {}
+
+    def test_appconfig_default_left_gesture_modes_empty(self):
+        config = AppConfig()
+        assert config.left_gesture_modes == {}
+
+    # --- load_config parsing ---
+
+    def test_load_config_parses_left_gestures(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "left_gestures:\n"
+            "  open_palm:\n    key: ctrl+w\n    threshold: 0.8\n"
+        )
+        config = load_config(str(cfg))
+        assert config.left_gestures == {
+            "open_palm": {"key": "ctrl+w", "threshold": 0.8}
+        }
+
+    def test_load_config_parses_left_swipe(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "left_swipe:\n"
+            "  swipe_left:\n    key: alt+right\n"
+            "  swipe_right:\n    key: alt+left\n"
+        )
+        config = load_config(str(cfg))
+        assert config.left_swipe_mappings == {
+            "swipe_left": "alt+right",
+            "swipe_right": "alt+left",
+        }
+
+    def test_no_left_gestures_section_leaves_empty(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.left_gestures == {}
+
+    def test_left_gesture_cooldowns_extracted(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "left_gestures:\n"
+            "  open_palm:\n    key: ctrl+w\n    threshold: 0.8\n    cooldown: 0.5\n"
+        )
+        config = load_config(str(cfg))
+        assert config.left_gesture_cooldowns == {"open_palm": 0.5}
+
+    def test_left_gesture_modes_extracted(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "left_gestures:\n"
+            "  open_palm:\n    key: ctrl+w\n    threshold: 0.8\n    mode: hold\n"
+        )
+        config = load_config(str(cfg))
+        assert config.left_gesture_modes == {"open_palm": "hold"}
+
+    # --- resolve_hand_gestures ---
+
+    def test_resolve_right_hand_returns_gestures(self):
+        config = AppConfig(gestures={"fist": {"key": "esc", "threshold": 0.7}})
+        result = resolve_hand_gestures("Right", config)
+        assert result == {"fist": {"key": "esc", "threshold": 0.7}}
+
+    def test_resolve_left_hand_mirrors_when_no_overrides(self):
+        config = AppConfig(gestures={"fist": {"key": "esc", "threshold": 0.7}})
+        result = resolve_hand_gestures("Left", config)
+        assert result == {"fist": {"key": "esc", "threshold": 0.7}}
+
+    def test_resolve_left_hand_merges_overrides(self):
+        config = AppConfig(
+            gestures={
+                "fist": {"key": "esc", "threshold": 0.7},
+                "open_palm": {"key": "space", "threshold": 0.8},
+            },
+            left_gestures={
+                "fist": {"key": "ctrl+z"},
+            },
+        )
+        result = resolve_hand_gestures("Left", config)
+        # fist overridden key, threshold inherited
+        assert result["fist"] == {"key": "ctrl+z", "threshold": 0.7}
+        # open_palm unchanged
+        assert result["open_palm"] == {"key": "space", "threshold": 0.8}
+
+    def test_resolve_left_merges_all_settings(self):
+        """Left override only changes key; threshold, cooldown, mode inherited."""
+        config = AppConfig(
+            gestures={
+                "fist": {
+                    "key": "esc",
+                    "threshold": 0.7,
+                    "cooldown": 0.5,
+                    "mode": "hold",
+                },
+            },
+            left_gestures={
+                "fist": {"key": "ctrl+z"},
+            },
+        )
+        result = resolve_hand_gestures("Left", config)
+        assert result["fist"] == {
+            "key": "ctrl+z",
+            "threshold": 0.7,
+            "cooldown": 0.5,
+            "mode": "hold",
+        }
+
+    def test_resolve_does_not_mutate_original(self):
+        """Resolution should not modify the original config.gestures."""
+        config = AppConfig(
+            gestures={"fist": {"key": "esc", "threshold": 0.7}},
+            left_gestures={"fist": {"key": "ctrl+z"}},
+        )
+        resolve_hand_gestures("Left", config)
+        assert config.gestures["fist"]["key"] == "esc"
+
+    # --- resolve_hand_swipe_mappings ---
+
+    def test_resolve_swipe_right_returns_swipe_mappings(self):
+        config = AppConfig(swipe_mappings={"swipe_left": "alt+left"})
+        result = resolve_hand_swipe_mappings("Right", config)
+        assert result == {"swipe_left": "alt+left"}
+
+    def test_resolve_swipe_left_mirrors_when_no_overrides(self):
+        config = AppConfig(swipe_mappings={"swipe_left": "alt+left"})
+        result = resolve_hand_swipe_mappings("Left", config)
+        assert result == {"swipe_left": "alt+left"}
+
+    def test_resolve_swipe_left_returns_left_when_defined(self):
+        config = AppConfig(
+            swipe_mappings={"swipe_left": "alt+left"},
+            left_swipe_mappings={"swipe_left": "alt+right"},
+        )
+        result = resolve_hand_swipe_mappings("Left", config)
+        assert result == {"swipe_left": "alt+right"}
