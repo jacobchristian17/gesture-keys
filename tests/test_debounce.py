@@ -340,3 +340,193 @@ class TestPerGestureCooldowns:
         # 0.7s elapsed (t=1.0), cooldown over
         d.update(None, 1.0)
         assert d.state == DebounceState.IDLE
+
+
+class TestHoldModeBasic:
+    """Test HOLDING state for hold-mode gestures."""
+
+    def test_hold_mode_activating_to_holding(self):
+        """Hold gesture transitions ACTIVATING -> HOLDING (not FIRED)."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)  # IDLE -> ACTIVATING
+        result = d.update(Gesture.FIST, 0.5)  # ACTIVATING -> HOLDING
+        assert result == DebounceSignal(DebounceAction.HOLD_START, Gesture.FIST)
+        assert d.state == DebounceState.HOLDING
+
+    def test_hold_mode_stays_holding_while_gesture_continues(self):
+        """While gesture is maintained, stay in HOLDING and return None."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        result = d.update(Gesture.FIST, 0.6)
+        assert result is None
+        assert d.state == DebounceState.HOLDING
+
+    def test_hold_mode_release_delay_absorbs_flicker(self):
+        """Gesture drops briefly but returns within release delay -> stays HOLDING."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            hold_release_delay=0.1,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        result = d.update(None, 0.55)  # gesture lost, release delay starts
+        assert result is None
+        assert d.state == DebounceState.HOLDING
+        # Gesture returns within 0.1s
+        result = d.update(Gesture.FIST, 0.6)
+        assert result is None
+        assert d.state == DebounceState.HOLDING
+
+    def test_hold_mode_release_after_delay_expires(self):
+        """Gesture lost and release delay expires -> emit hold_end, COOLDOWN."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            hold_release_delay=0.1,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        d.update(None, 0.55)  # gesture lost
+        result = d.update(None, 0.7)  # release delay expired (0.55 + 0.1 < 0.7)
+        assert result == DebounceSignal(DebounceAction.HOLD_END, Gesture.FIST)
+        assert d.state == DebounceState.COOLDOWN
+
+    def test_hold_mode_emits_hold_end_exactly_once(self):
+        """After hold_end is emitted, subsequent updates return None."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            cooldown_duration=0.3,
+            hold_release_delay=0.1,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        d.update(None, 0.55)  # gesture lost
+        d.update(None, 0.7)  # hold_end emitted
+        result = d.update(None, 0.8)  # should be None (in COOLDOWN)
+        assert result is None
+
+    def test_tap_mode_unchanged_when_hold_modes_exist(self):
+        """Tap-mode gestures still use FIRED path even when hold modes configured."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            gesture_modes={"fist": "hold", "peace": "tap"},
+        )
+        d.update(Gesture.PEACE, 0.0)
+        result = d.update(Gesture.PEACE, 0.5)
+        assert result == DebounceSignal(DebounceAction.FIRE, Gesture.PEACE)
+        assert d.state == DebounceState.FIRED
+
+    def test_multiple_rapid_drops_within_delay(self):
+        """Rapid flicker: gesture drops and returns multiple times within delay."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            hold_release_delay=0.1,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        # Rapid flicker
+        assert d.update(None, 0.55) is None         # drop 1
+        assert d.update(Gesture.FIST, 0.57) is None # return 1
+        assert d.update(None, 0.59) is None         # drop 2
+        assert d.update(Gesture.FIST, 0.61) is None # return 2
+        assert d.state == DebounceState.HOLDING
+
+    def test_is_activating_false_in_holding(self):
+        """is_activating property returns False during HOLDING state."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        assert d.is_activating is False
+
+
+class TestHoldModeGestureChange:
+    """Test gesture changes during HOLDING state."""
+
+    def test_different_gesture_during_holding_emits_hold_end(self):
+        """Different gesture while HOLDING -> hold_end for current."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        result = d.update(Gesture.PEACE, 0.6)
+        assert result == DebounceSignal(DebounceAction.HOLD_END, Gesture.FIST)
+        assert d.state == DebounceState.ACTIVATING
+
+    def test_different_gesture_during_holding_starts_activating_new(self):
+        """After hold_end from gesture change, new gesture is activating."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        d.update(Gesture.PEACE, 0.6)  # -> hold_end + ACTIVATING(PEACE)
+        # Now hold PEACE for activation_delay
+        result = d.update(Gesture.PEACE, 1.1)
+        assert result == DebounceSignal(DebounceAction.FIRE, Gesture.PEACE)
+
+    def test_different_gesture_during_release_delay(self):
+        """Different gesture appears during release delay -> hold_end + ACTIVATING."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            hold_release_delay=0.1,
+            gesture_modes={"fist": "hold"},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # -> HOLDING
+        d.update(None, 0.55)  # gesture lost, release delay starts
+        result = d.update(Gesture.PEACE, 0.58)  # different gesture within delay
+        assert result == DebounceSignal(DebounceAction.HOLD_END, Gesture.FIST)
+        assert d.state == DebounceState.ACTIVATING
+
+
+class TestHoldModeCooldownCycle:
+    """Test full hold cycle including cooldown."""
+
+    def test_full_hold_cycle(self):
+        """IDLE -> ACTIVATING -> HOLDING -> COOLDOWN -> IDLE."""
+        d = GestureDebouncer(
+            activation_delay=0.4,
+            cooldown_duration=0.3,
+            hold_release_delay=0.1,
+            gesture_modes={"fist": "hold"},
+        )
+        # IDLE -> ACTIVATING
+        d.update(Gesture.FIST, 0.0)
+        assert d.state == DebounceState.ACTIVATING
+
+        # ACTIVATING -> HOLDING
+        result = d.update(Gesture.FIST, 0.5)
+        assert result == DebounceSignal(DebounceAction.HOLD_START, Gesture.FIST)
+        assert d.state == DebounceState.HOLDING
+
+        # Stay HOLDING
+        assert d.update(Gesture.FIST, 0.6) is None
+
+        # Gesture lost
+        d.update(None, 0.7)
+        assert d.state == DebounceState.HOLDING  # release delay
+
+        # Release delay expires -> COOLDOWN
+        result = d.update(None, 0.85)
+        assert result == DebounceSignal(DebounceAction.HOLD_END, Gesture.FIST)
+        assert d.state == DebounceState.COOLDOWN
+
+        # Cooldown expires + release -> IDLE
+        d.update(None, 1.2)
+        assert d.state == DebounceState.IDLE

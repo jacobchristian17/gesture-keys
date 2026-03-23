@@ -1,8 +1,9 @@
 """Debounce state machine for gesture activation.
 
 Prevents false fires from flickering gestures and held poses.
-State machine: IDLE -> ACTIVATING -> FIRED -> COOLDOWN -> IDLE
-                                               COOLDOWN -> ACTIVATING (different gesture)
+State machine (tap):  IDLE -> ACTIVATING -> FIRED -> COOLDOWN -> IDLE
+State machine (hold): IDLE -> ACTIVATING -> HOLDING -> COOLDOWN -> IDLE
+                                            COOLDOWN -> ACTIVATING (different gesture)
 
 The debouncer sits between the smoother output and keystroke firing.
 It requires a gesture to be held continuously for activation_delay
@@ -43,6 +44,7 @@ class DebounceState(Enum):
     ACTIVATING = "ACTIVATING"
     FIRED = "FIRED"
     COOLDOWN = "COOLDOWN"
+    HOLDING = "HOLDING"
 
 
 class GestureDebouncer:
@@ -52,6 +54,9 @@ class GestureDebouncer:
         activation_delay: Seconds a gesture must be held before firing.
         cooldown_duration: Seconds after firing during which all gestures
                           are blocked.
+        gesture_cooldowns: Per-gesture cooldown overrides (gesture name -> seconds).
+        gesture_modes: Per-gesture mode overrides (gesture name -> "tap" or "hold").
+        hold_release_delay: Seconds to wait after gesture loss before releasing hold.
     """
 
     def __init__(
@@ -59,16 +64,22 @@ class GestureDebouncer:
         activation_delay: float = 0.15,
         cooldown_duration: float = 0.3,
         gesture_cooldowns: dict[str, float] | None = None,
+        gesture_modes: dict[str, str] | None = None,
+        hold_release_delay: float = 0.1,
     ) -> None:
         self._activation_delay = activation_delay
         self._cooldown_duration = cooldown_duration
         self._gesture_cooldowns = gesture_cooldowns or {}
+        self._gesture_modes = gesture_modes or {}
+        self._hold_release_delay = hold_release_delay
         self._cooldown_duration_active = cooldown_duration
         self._state = DebounceState.IDLE
         self._activating_gesture: Optional[Gesture] = None
         self._activation_start: float = 0.0
         self._cooldown_start: float = 0.0
         self._cooldown_gesture: Optional[Gesture] = None
+        self._holding_gesture: Optional[Gesture] = None
+        self._release_delay_start: Optional[float] = None
 
     @property
     def state(self) -> DebounceState:
@@ -91,6 +102,8 @@ class GestureDebouncer:
         self._cooldown_start = 0.0
         self._cooldown_gesture = None
         self._cooldown_duration_active = self._cooldown_duration
+        self._holding_gesture = None
+        self._release_delay_start = None
 
     def update(
         self, gesture: Optional[Gesture], timestamp: float
@@ -112,6 +125,8 @@ class GestureDebouncer:
             return self._handle_fired(gesture, timestamp)
         elif self._state == DebounceState.COOLDOWN:
             return self._handle_cooldown(gesture, timestamp)
+        elif self._state == DebounceState.HOLDING:
+            return self._handle_holding(gesture, timestamp)
         return None
 
     def _handle_idle(
@@ -140,9 +155,18 @@ class GestureDebouncer:
             return None
 
         if timestamp - self._activation_start >= self._activation_delay:
-            self._state = DebounceState.FIRED
-            logger.debug("ACTIVATING -> FIRED: %s", gesture.value)
-            return DebounceSignal(DebounceAction.FIRE, gesture)
+            mode = self._gesture_modes.get(gesture.value, "tap")
+            if mode == "hold":
+                self._state = DebounceState.HOLDING
+                self._holding_gesture = gesture
+                self._release_delay_start = None
+                self._activating_gesture = None
+                logger.debug("ACTIVATING -> HOLDING: %s", gesture.value)
+                return DebounceSignal(DebounceAction.HOLD_START, gesture)
+            else:
+                self._state = DebounceState.FIRED
+                logger.debug("ACTIVATING -> FIRED: %s", gesture.value)
+                return DebounceSignal(DebounceAction.FIRE, gesture)
 
         return None
 
@@ -184,3 +208,49 @@ class GestureDebouncer:
             logger.debug("COOLDOWN -> IDLE: released")
 
         return None
+
+    def _handle_holding(
+        self, gesture: Optional[Gesture], timestamp: float
+    ) -> Optional[DebounceSignal]:
+        held = self._holding_gesture
+
+        # Same gesture still active -> stay holding, cancel any release delay
+        if gesture == held:
+            self._release_delay_start = None
+            return None
+
+        # Different gesture -> release current, start activating new
+        if gesture is not None and gesture != held:
+            self._state = DebounceState.ACTIVATING
+            self._activating_gesture = gesture
+            self._activation_start = timestamp
+            self._holding_gesture = None
+            self._release_delay_start = None
+            logger.debug(
+                "HOLDING -> ACTIVATING: %s released, switching to %s",
+                held.value, gesture.value,
+            )
+            return DebounceSignal(DebounceAction.HOLD_END, held)
+
+        # Gesture lost (None) -> manage release delay
+        if self._release_delay_start is None:
+            # Start release delay timer
+            self._release_delay_start = timestamp
+            logger.debug("HOLDING: release delay started")
+            return None
+
+        # Release delay not yet expired
+        if timestamp - self._release_delay_start < self._hold_release_delay:
+            return None
+
+        # Release delay expired -> release and cooldown
+        self._state = DebounceState.COOLDOWN
+        self._cooldown_start = timestamp
+        self._cooldown_duration_active = self._gesture_cooldowns.get(
+            held.value, self._cooldown_duration
+        )
+        self._cooldown_gesture = held
+        self._holding_gesture = None
+        self._release_delay_start = None
+        logger.debug("HOLDING -> COOLDOWN: %s released", held.value)
+        return DebounceSignal(DebounceAction.HOLD_END, held)
