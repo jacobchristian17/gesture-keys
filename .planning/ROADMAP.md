@@ -102,6 +102,6 @@ Plans:
 | 8. Direct Gesture Transitions | v1.2 | 2/2 | Complete | 2026-03-22 |
 | 9. Swipe/Static Transition Latency | v1.2 | 2/2 | Complete | 2026-03-23 |
 | 10. Tuned Defaults and Config Surface | v1.2 | 4/4 | Complete | 2026-03-23 |
-| 11. Left Hand Detection and Classification | 2/2 | Complete   | 2026-03-23 | - |
+| 11. Left Hand Detection and Classification | 2/2 | Complete    | 2026-03-23 | - |
 | 12. Left Hand Configuration | v1.3 | 0/? | Not started | - |
 | 13. Preview and Polish | v1.3 | 0/? | Not started | - |
