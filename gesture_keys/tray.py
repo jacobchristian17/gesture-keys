@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw
 
 from gesture_keys.classifier import GestureClassifier
 from gesture_keys.config import ConfigWatcher, load_config
-from gesture_keys.debounce import DebounceAction, GestureDebouncer
+from gesture_keys.debounce import DebounceAction, DebounceState, GestureDebouncer
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.distance import DistanceFilter
@@ -190,6 +190,7 @@ class TrayApp:
             swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
             hand_was_in_range = True
             was_swiping = False
+            pre_swipe_gesture = None
 
             # Hold-mode repeat state
             hold_active = False
@@ -230,6 +231,7 @@ class TrayApp:
                     # Classify even during swipe cooldown (is_swiping is now ARMED-only)
                     swiping = config.swipe_enabled and swipe_detector.is_swiping
                     if swiping and not was_swiping:
+                        pre_swipe_gesture = gesture
                         hold_active = False
                         sender.release_all()
                         smoother.reset()
@@ -239,7 +241,16 @@ class TrayApp:
                         sender.release_all()
                         smoother.reset()
                         debouncer.reset()
-                        logger.debug("Swipe exiting: smoother/debouncer reset")
+                        # Suppress the pre-swipe gesture from re-firing after swipe
+                        if pre_swipe_gesture is not None:
+                            debouncer._state = DebounceState.COOLDOWN
+                            debouncer._cooldown_gesture = pre_swipe_gesture
+                            debouncer._cooldown_start = current_time
+                            logger.debug(
+                                "Swipe exit: suppressing %s re-fire",
+                                pre_swipe_gesture.value,
+                            )
+                        pre_swipe_gesture = None
                     was_swiping = swiping
                     if landmarks and not swiping:
                         raw_gesture = classifier.classify(landmarks)

@@ -11,7 +11,7 @@ import cv2
 from gesture_keys import __version__
 from gesture_keys.classifier import GestureClassifier
 from gesture_keys.config import ConfigWatcher, load_config
-from gesture_keys.debounce import DebounceAction, GestureDebouncer
+from gesture_keys.debounce import DebounceAction, DebounceState, GestureDebouncer
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.preview import draw_hand_landmarks, render_preview
@@ -179,6 +179,7 @@ def run_preview_mode(args):
     watcher = ConfigWatcher(args.config)
 
     prev_gesture = None
+    pre_swipe_gesture = None
     hand_was_in_range = True
     was_swiping = False
     prev_time = time.perf_counter()
@@ -230,6 +231,7 @@ def run_preview_mode(args):
             # Classify even during swipe cooldown (is_swiping is now ARMED-only)
             swiping = config.swipe_enabled and swipe_detector.is_swiping
             if swiping and not was_swiping:
+                pre_swipe_gesture = prev_gesture
                 hold_active = False
                 sender.release_all()
                 smoother.reset()
@@ -239,7 +241,16 @@ def run_preview_mode(args):
                 sender.release_all()
                 smoother.reset()
                 debouncer.reset()
-                logger.debug("Swipe exiting: smoother/debouncer reset")
+                # Suppress the pre-swipe gesture from re-firing after swipe
+                if pre_swipe_gesture is not None:
+                    debouncer._state = DebounceState.COOLDOWN
+                    debouncer._cooldown_gesture = pre_swipe_gesture
+                    debouncer._cooldown_start = current_time
+                    logger.debug(
+                        "Swipe exit: suppressing %s re-fire",
+                        pre_swipe_gesture.value,
+                    )
+                pre_swipe_gesture = None
             was_swiping = swiping
             if landmarks and not swiping:
                 raw_gesture = classifier.classify(landmarks)
