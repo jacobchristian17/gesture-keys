@@ -268,10 +268,13 @@ class TestSwipeIsSwiping:
     def test_armed_is_swiping(self):
         """After entering ARMED state, is_swiping should be True."""
         det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
-        # Feed first 5 positions of a fast swipe to enter ARMED (before deceleration)
+        # Burn through initial hand-entry settling with stable position
+        for i in range(4):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
+        # Feed fast swipe positions to enter ARMED (before deceleration)
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        t = 0.0
-        for x, y in positions[:5]:
+        t = 0.2
+        for x, y in positions:
             det.update(_make_wrist_landmarks(x, y), t)
             t += 0.033
             if det._state == _SwipeState.ARMED:
@@ -293,7 +296,7 @@ class TestSwipeIsSwiping:
         """After cooldown expires, is_swiping should be False."""
         det = SwipeDetector(
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
-            cooldown_duration=0.1,
+            cooldown_duration=0.1, settling_frames=0,
         )
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
         _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
@@ -320,9 +323,12 @@ class TestSwipeReset:
     def test_reset_returns_to_idle(self):
         """When in ARMED state, reset() transitions to IDLE."""
         det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        # Burn through initial hand-entry settling
+        for i in range(4):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        t = 0.0
-        for x, y in positions[:5]:
+        t = 0.2
+        for x, y in positions:
             det.update(_make_wrist_landmarks(x, y), t)
             t += 0.033
             if det._state == _SwipeState.ARMED:
@@ -344,9 +350,12 @@ class TestSwipeReset:
     def test_reset_clears_armed_direction(self):
         """After entering ARMED, reset() clears _armed_direction to None."""
         det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
+        # Burn through initial hand-entry settling
+        for i in range(4):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        t = 0.0
-        for x, y in positions[:5]:
+        t = 0.2
+        for x, y in positions:
             det.update(_make_wrist_landmarks(x, y), t)
             t += 0.033
             if det._state == _SwipeState.ARMED:
@@ -366,9 +375,12 @@ class TestSwipeSettlingGuard:
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
             cooldown_duration=0.1, settling_frames=5,
         )
+        # Pre-establish hand presence (burn initial hand-entry settling)
+        for i in range(6):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
         # Complete a swipe
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        results = _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
+        results = _swipe_sequence(det, positions, start_time=0.3, dt=0.033)
         assert any(r is not None for r in results), "Setup: swipe should fire"
         assert det._state == _SwipeState.COOLDOWN
 
@@ -393,9 +405,12 @@ class TestSwipeSettlingGuard:
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
             cooldown_duration=0.1, settling_frames=3,
         )
+        # Pre-establish hand presence (burn initial hand-entry settling)
+        for i in range(4):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
         # Complete a swipe
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
+        _swipe_sequence(det, positions, start_time=0.2, dt=0.033)
 
         # Advance past cooldown
         det.update(_make_wrist_landmarks(0.3, 0.5), 1.0)
@@ -423,9 +438,12 @@ class TestSwipeSettlingGuard:
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
             cooldown_duration=0.1, settling_frames=3,
         )
+        # Pre-establish hand presence (burn initial hand-entry settling)
+        for i in range(4):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
         # First swipe cycle
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
+        _swipe_sequence(det, positions, start_time=0.2, dt=0.033)
         det.update(_make_wrist_landmarks(0.3, 0.5), 1.0)  # COOLDOWN->IDLE
         assert det._settling_frames_remaining == 3
 
@@ -452,7 +470,8 @@ class TestSwipeSettlingGuard:
         assert detector._settling_frames == 3
 
     def test_no_settling_without_recent_cooldown(self):
-        """Settling guard does not affect normal IDLE->ARMED when no recent cooldown."""
+        """Post-cooldown settling guard does not affect normal IDLE->ARMED when no recent cooldown.
+        Note: initial hand-entry settling still applies on first appearance."""
         det = SwipeDetector(
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
             cooldown_duration=0.5, settling_frames=10,
@@ -460,11 +479,15 @@ class TestSwipeSettlingGuard:
         # Fresh detector: settling_frames_remaining should be 0
         assert det._settling_frames_remaining == 0
 
-        # Normal swipe should arm and fire without settling interference
+        # Pre-establish hand presence (burn initial hand-entry settling of 10 frames)
+        for i in range(11):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
+
+        # Normal swipe should arm and fire without post-cooldown settling interference
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        results = _swipe_sequence(det, positions, dt=0.033)
+        results = _swipe_sequence(det, positions, start_time=0.5, dt=0.033)
         fired = [r for r in results if r is not None]
-        assert len(fired) >= 1, "Normal swipe should fire without settling guard"
+        assert len(fired) >= 1, "Normal swipe should fire without post-cooldown settling guard"
 
 
 class TestHandEntrySettling:
@@ -561,21 +584,21 @@ class TestHandEntrySettling:
         )
 
     def test_suppressed_prevents_arming(self):
-        """suppressed=True prevents arming even with buffer pre-loaded."""
+        """suppressed=True prevents arming -- no buffer accumulation occurs."""
         det = SwipeDetector(
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
             settling_frames=0,  # No settling to isolate suppressed behavior
         )
-        # Build up buffer with fast motion
-        fast_positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=6)
-        t = 0.0
-        for x, y in fast_positions[:4]:
-            det.update(_make_wrist_landmarks(x, y), t)
-            t += 0.033
+        # Establish hand presence with stable position (burn initial settling)
+        for i in range(3):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
+        assert det._state == _SwipeState.IDLE
 
-        # Now call with suppressed=True -- should not arm or fire
-        for x, y in fast_positions[4:]:
+        # Feed all fast motion frames with suppressed=True -- nothing should happen
+        fast_positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
+        t = 0.1
+        for x, y in fast_positions:
             result = det.update(_make_wrist_landmarks(x, y), t, suppressed=True)
             assert result is None, "suppressed=True should prevent arming/firing"
             t += 0.033
-        assert det._state != _SwipeState.ARMED, "Should not be ARMED during suppression"
+        assert det._state == _SwipeState.IDLE, "Should remain IDLE during suppression"

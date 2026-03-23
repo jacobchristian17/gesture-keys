@@ -74,6 +74,7 @@ class SwipeDetector:
         self._cooldown_start: float = 0.0
         self._armed_direction: Optional[SwipeDirection] = None
         self._settling_frames_remaining: int = 0
+        self._hand_present: bool = False
 
     # --- Property setters for hot-reload ---
 
@@ -144,9 +145,11 @@ class SwipeDetector:
             self._state = _SwipeState.IDLE
         self._prev_speed = 0.0
         self._armed_direction = None
+        self._hand_present = False
 
     def update(
-        self, landmarks: Optional[list[Any]], timestamp: float
+        self, landmarks: Optional[list[Any]], timestamp: float,
+        *, suppressed: bool = False,
     ) -> Optional[SwipeDirection]:
         """Process a frame of landmarks and return swipe direction if fired.
 
@@ -154,6 +157,9 @@ class SwipeDetector:
             landmarks: Hand landmarks list (only index 0 / WRIST is read),
                        or None if hand is lost.
             timestamp: Current time in seconds.
+            suppressed: If True, hand is physically present but swipe is
+                deprioritized (e.g., debouncer is_activating). Skips all
+                processing without clearing _hand_present state.
 
         Returns:
             SwipeDirection if a swipe fires this frame, None otherwise.
@@ -161,8 +167,14 @@ class SwipeDetector:
         if not self._enabled:
             return None
 
+        # Suppressed mode: hand is physically present but swipe is deprioritized
+        # (e.g., debouncer is_activating). Do NOT update _hand_present or buffer.
+        if suppressed:
+            return None
+
         # Hand lost: clear buffer, reset to IDLE
         if landmarks is None:
+            self._hand_present = False
             self._buffer.clear()
             if self._state != _SwipeState.COOLDOWN:
                 if self._state != _SwipeState.IDLE:
@@ -171,6 +183,14 @@ class SwipeDetector:
             self._prev_speed = 0.0
             self._armed_direction = None
             return None
+
+        # Hand-entry settling: suppress swipe when hand first appears
+        if not self._hand_present:
+            self._hand_present = True
+            self._settling_frames_remaining = self._settling_frames
+            self._buffer.clear()
+            self._prev_speed = 0.0
+            logger.debug("Hand entry detected: settling for %d frames", self._settling_frames)
 
         # Extract wrist position
         wrist = landmarks[WRIST]

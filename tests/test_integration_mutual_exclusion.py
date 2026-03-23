@@ -106,10 +106,13 @@ class TestMutualExclusionIntegration:
     def test_distance_reset_clears_swipe(self):
         """reset() clears ARMED state; subsequent frames don't false-fire."""
         det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
-        # Feed 5 frames of fast swipe to enter ARMED
+        # Burn through initial hand-entry settling with stable position
+        for i in range(4):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
+        # Feed frames of fast swipe to enter ARMED
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
-        t = 0.0
-        for x, y in positions[:5]:
+        t = 0.2
+        for x, y in positions:
             det.update(_make_wrist_landmarks(x, y), t)
             t += 0.033
             if det._state == _SwipeState.ARMED:
