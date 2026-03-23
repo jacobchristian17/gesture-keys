@@ -92,4 +92,4 @@ Plans:
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Complete | 2026-03-21 |
 | 8. Direct Gesture Transitions | v1.2 | 0/2 | Planning | - |
 | 9. Swipe/Static Transition Latency | v1.2 | 0/2 | Planning | - |
-| 10. Tuned Defaults and Config Surface | 2/2 | Complete   | 2026-03-23 | - |
+| 10. Tuned Defaults and Config Surface | 2/2 | Complete    | 2026-03-23 | - |
