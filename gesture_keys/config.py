@@ -29,6 +29,7 @@ class AppConfig:
     swipe_axis_ratio: float = 2.0
     swipe_mappings: dict[str, str] = field(default_factory=dict)
     swipe_settling_frames: int = 3
+    gesture_cooldowns: dict[str, float] = field(default_factory=dict)
 
 
 class ConfigWatcher:
@@ -69,6 +70,22 @@ class ConfigWatcher:
             self._last_mtime = mtime
             return True
         return False
+
+
+def _extract_gesture_cooldowns(gestures: dict) -> dict[str, float]:
+    """Extract per-gesture cooldown overrides from gesture config entries.
+
+    Args:
+        gestures: Gesture config dict {name: {key: ..., cooldown: ...}}.
+
+    Returns:
+        Dict mapping gesture_name -> cooldown_duration for gestures with overrides.
+    """
+    cooldowns: dict[str, float] = {}
+    for name, settings in gestures.items():
+        if isinstance(settings, dict) and "cooldown" in settings:
+            cooldowns[name] = float(settings["cooldown"])
+    return cooldowns
 
 
 def load_config(path: str = "config.yaml") -> AppConfig:
@@ -141,4 +158,5 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         swipe_axis_ratio=float(swipe.get("axis_ratio", 2.0)),
         swipe_mappings=swipe_mappings,
         swipe_settling_frames=int(swipe.get("settling_frames", 3)),
+        gesture_cooldowns=_extract_gesture_cooldowns(gestures),
     )

@@ -231,3 +231,63 @@ class TestDebounceLogging:
         with caplog.at_level(logging.DEBUG, logger="gesture_keys"):
             d.update(Gesture.FIST, 0.5)
         assert "FIRED" in caplog.text
+
+
+class TestPerGestureCooldowns:
+    """Test per-gesture cooldown override behavior."""
+
+    def test_per_gesture_cooldown_used_for_matching_gesture(self):
+        """Debouncer with gesture_cooldowns uses per-gesture cooldown."""
+        d = GestureDebouncer(
+            activation_delay=0.1, cooldown_duration=0.3,
+            gesture_cooldowns={"fist": 0.5},
+        )
+        d.update(Gesture.FIST, 0.0)       # IDLE -> ACTIVATING
+        d.update(Gesture.FIST, 0.2)       # ACTIVATING -> FIRED
+        d.update(Gesture.FIST, 0.3)       # FIRED -> COOLDOWN at t=0.3
+        assert d.state == DebounceState.COOLDOWN
+        # At t=0.7 (0.4s elapsed), still in cooldown (0.5s per-gesture)
+        d.update(None, 0.7)
+        assert d.state == DebounceState.COOLDOWN
+        # At t=0.9 (0.6s elapsed > 0.5s), should transition to IDLE
+        d.update(None, 0.9)
+        assert d.state == DebounceState.IDLE
+
+    def test_no_gesture_cooldowns_uses_global(self):
+        """Debouncer without gesture_cooldowns uses global cooldown_duration."""
+        d = GestureDebouncer(activation_delay=0.1, cooldown_duration=0.3)
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.2)       # fires
+        d.update(Gesture.FIST, 0.3)       # -> cooldown at t=0.3
+        # At t=0.7 (0.4s > 0.3s global), should be IDLE
+        d.update(None, 0.7)
+        assert d.state == DebounceState.IDLE
+
+    def test_gesture_not_in_cooldowns_uses_global(self):
+        """Gesture not in gesture_cooldowns dict falls back to global."""
+        d = GestureDebouncer(
+            activation_delay=0.1, cooldown_duration=0.3,
+            gesture_cooldowns={"pinch": 0.6},
+        )
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.2)       # fires
+        d.update(Gesture.FIST, 0.3)       # -> cooldown at t=0.3
+        # FIST not in gesture_cooldowns, uses global 0.3s
+        d.update(None, 0.7)
+        assert d.state == DebounceState.IDLE
+
+    def test_per_gesture_cooldown_timing_boundary(self):
+        """Per-gesture cooldown: fire pinch (0.6s) -> 0.5s still cooldown, 0.7s idle."""
+        d = GestureDebouncer(
+            activation_delay=0.1, cooldown_duration=0.3,
+            gesture_cooldowns={"pinch": 0.6},
+        )
+        d.update(Gesture.PINCH, 0.0)
+        d.update(Gesture.PINCH, 0.2)      # fires
+        d.update(Gesture.PINCH, 0.3)      # -> cooldown at t=0.3
+        # 0.5s elapsed (t=0.8), still in cooldown
+        d.update(None, 0.8)
+        assert d.state == DebounceState.COOLDOWN
+        # 0.7s elapsed (t=1.0), cooldown over
+        d.update(None, 1.0)
+        assert d.state == DebounceState.IDLE

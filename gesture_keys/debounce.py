@@ -43,9 +43,12 @@ class GestureDebouncer:
         self,
         activation_delay: float = 0.15,
         cooldown_duration: float = 0.3,
+        gesture_cooldowns: dict[str, float] | None = None,
     ) -> None:
         self._activation_delay = activation_delay
         self._cooldown_duration = cooldown_duration
+        self._gesture_cooldowns = gesture_cooldowns or {}
+        self._cooldown_duration_active = cooldown_duration
         self._state = DebounceState.IDLE
         self._activating_gesture: Optional[Gesture] = None
         self._activation_start: float = 0.0
@@ -64,6 +67,7 @@ class GestureDebouncer:
         self._activation_start = 0.0
         self._cooldown_start = 0.0
         self._cooldown_gesture = None
+        self._cooldown_duration_active = self._cooldown_duration
 
     def update(
         self, gesture: Optional[Gesture], timestamp: float
@@ -124,7 +128,11 @@ class GestureDebouncer:
     ) -> Optional[Gesture]:
         self._state = DebounceState.COOLDOWN
         self._cooldown_start = timestamp
-        self._cooldown_gesture = self._activating_gesture
+        fired_gesture = self._activating_gesture
+        self._cooldown_duration_active = self._gesture_cooldowns.get(
+            fired_gesture.value, self._cooldown_duration
+        )
+        self._cooldown_gesture = fired_gesture
         self._activating_gesture = None
         logger.debug("FIRED -> COOLDOWN")
         return None
@@ -145,7 +153,7 @@ class GestureDebouncer:
 
         # Cooldown elapsed + hand released -> return to idle
         if (
-            timestamp - self._cooldown_start >= self._cooldown_duration
+            timestamp - self._cooldown_start >= self._cooldown_duration_active
             and gesture is None
         ):
             self._state = DebounceState.IDLE

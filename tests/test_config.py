@@ -421,3 +421,55 @@ class TestSettlingFramesConfig:
     def test_load_config_settling_frames_from_default_config(self):
         config = load_config(DEFAULT_CONFIG)
         assert config.swipe_settling_frames == 3
+
+
+class TestGestureCooldownsConfig:
+    """Test per-gesture cooldown config parsing."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    def test_appconfig_default_gesture_cooldowns_empty(self):
+        config = AppConfig()
+        assert config.gesture_cooldowns == {}
+
+    def test_load_config_extracts_per_gesture_cooldown(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  pinch:\n    key: win+down\n    threshold: 0.06\n    cooldown: 0.6\n"
+        )
+        config = load_config(str(cfg))
+        assert config.gesture_cooldowns == {"pinch": 0.6}
+
+    def test_load_config_ignores_gestures_without_cooldown(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  fist:\n    key: esc\n    threshold: 0.7\n"
+            "  pinch:\n    key: win+down\n    threshold: 0.06\n"
+        )
+        config = load_config(str(cfg))
+        assert config.gesture_cooldowns == {}
+
+    def test_load_config_mixed_cooldown_overrides(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  fist:\n    key: esc\n    threshold: 0.7\n"
+            "  pinch:\n    key: win+down\n    threshold: 0.06\n    cooldown: 0.6\n"
+            "  peace:\n    key: ctrl+c\n    threshold: 0.7\n    cooldown: 0.4\n"
+        )
+        config = load_config(str(cfg))
+        assert config.gesture_cooldowns == {"pinch": 0.6, "peace": 0.4}
+
+    def test_default_config_yaml_no_gesture_cooldowns(self):
+        """Default config.yaml should have no per-gesture cooldown overrides."""
+        config = load_config(DEFAULT_CONFIG)
+        assert config.gesture_cooldowns == {}
