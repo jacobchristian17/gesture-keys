@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw
 
 from gesture_keys.classifier import GestureClassifier
 from gesture_keys.config import ConfigWatcher, load_config
-from gesture_keys.debounce import GestureDebouncer
+from gesture_keys.debounce import DebounceAction, GestureDebouncer
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.distance import DistanceFilter
@@ -161,6 +161,8 @@ class TrayApp:
             debouncer = GestureDebouncer(
                 config.activation_delay, config.cooldown_duration,
                 gesture_cooldowns=config.gesture_cooldowns,
+                gesture_modes=config.gesture_modes,
+                hold_release_delay=config.hold_release_delay,
             )
             sender = KeystrokeSender()
             distance_filter = DistanceFilter(
@@ -204,6 +206,7 @@ class TrayApp:
                         in_range = distance_filter.check(landmarks)
                         if not in_range:
                             if hand_was_in_range:
+                                sender.release_all()
                                 smoother.reset()
                                 debouncer.reset()
                                 swipe_detector.reset()
@@ -218,6 +221,7 @@ class TrayApp:
                     # Classify even during swipe cooldown (is_swiping is now ARMED-only)
                     swiping = config.swipe_enabled and swipe_detector.is_swiping
                     if was_swiping and not swiping:
+                        sender.release_all()
                         smoother.reset()
                         debouncer.reset()
                         logger.debug("Swipe exiting: smoother/debouncer reset")
@@ -229,15 +233,22 @@ class TrayApp:
                         gesture = smoother.update(None)
 
                     if not swiping:
-                        fire_gesture = debouncer.update(gesture, current_time)
+                        debounce_signal = debouncer.update(gesture, current_time)
                     else:
-                        fire_gesture = None
-                    if fire_gesture is not None:
-                        gesture_name = fire_gesture.value
+                        debounce_signal = None
+                    if debounce_signal is not None:
+                        gesture_name = debounce_signal.gesture.value
                         if gesture_name in key_mappings:
                             modifiers, key, key_string = key_mappings[gesture_name]
-                            sender.send(modifiers, key)
-                            logger.info("FIRED: %s -> %s", gesture_name, key_string)
+                            if debounce_signal.action == DebounceAction.FIRE:
+                                sender.send(modifiers, key)
+                                logger.info("FIRED: %s -> %s", gesture_name, key_string)
+                            elif debounce_signal.action == DebounceAction.HOLD_START:
+                                sender.press_and_hold(modifiers, key)
+                                logger.info("HOLD START: %s -> %s", gesture_name, key_string)
+                            elif debounce_signal.action == DebounceAction.HOLD_END:
+                                sender.release_held()
+                                logger.info("HOLD END: %s -> %s", gesture_name, key_string)
 
                     # --- Swipe detection (runs AFTER static, gated by debouncer priority) ---
                     if config.swipe_enabled:
@@ -258,10 +269,13 @@ class TrayApp:
                     if watcher.check(current_time):
                         try:
                             new_config = load_config(self._config_path)
+                            sender.release_all()
                             key_mappings = _parse_key_mappings(new_config.gestures)
                             debouncer._activation_delay = new_config.activation_delay
                             debouncer._cooldown_duration = new_config.cooldown_duration
                             debouncer._gesture_cooldowns = new_config.gesture_cooldowns
+                            debouncer._gesture_modes = new_config.gesture_modes
+                            debouncer._hold_release_delay = new_config.hold_release_delay
                             debouncer.reset()
                             smoother.reset()
                             swipe_detector.settling_frames = new_config.swipe_settling_frames
@@ -282,6 +296,7 @@ class TrayApp:
                         except Exception as e:
                             logger.warning("Config reload failed: %s", e)
             finally:
+                sender.release_all()
                 camera.stop()
                 detector.close()
 
