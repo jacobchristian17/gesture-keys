@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Left Hand Support
-status: defining_requirements
-stopped_at: Milestone v1.3 started
+status: ready_to_plan
+stopped_at: Roadmap created for v1.3
 last_updated: "2026-03-24"
-last_activity: 2026-03-24 -- Milestone v1.3 started
+last_activity: 2026-03-24 -- Roadmap created with 3 phases, 10 requirements mapped
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Defining requirements for v1.3 Left Hand Support
+**Current focus:** Phase 11 - Left Hand Detection and Classification
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-24 — Milestone v1.3 started
+Phase: 11 (first of 3 in v1.3) — Left Hand Detection and Classification
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-24 — Roadmap created for v1.3 Left Hand Support
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -49,9 +51,10 @@ None.
 
 - Confusable gesture pairs (PEACE<->SCOUT, POINTING<->PEACE, FIST<->THUMBS_UP) need testing with direct transitions enabled
 - Both __main__.py and tray.py have duplicated loop code — consider refactoring in next milestone
+- Left hand classifier may need mirrored landmark logic for thumb-based gestures (thumbs up, pinch)
 
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Milestone v1.3 started
+Stopped at: Roadmap created for v1.3 Left Hand Support
 Resume file: None

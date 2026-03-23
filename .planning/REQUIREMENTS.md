@@ -47,22 +47,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DET-01 | — | Pending |
-| DET-02 | — | Pending |
-| DET-03 | — | Pending |
-| CLS-01 | — | Pending |
-| CLS-02 | — | Pending |
-| CLS-03 | — | Pending |
-| CFG-01 | — | Pending |
-| CFG-02 | — | Pending |
-| CFG-03 | — | Pending |
-| PRV-01 | — | Pending |
+| DET-01 | Phase 11 | Pending |
+| DET-02 | Phase 11 | Pending |
+| DET-03 | Phase 11 | Pending |
+| CLS-01 | Phase 11 | Pending |
+| CLS-02 | Phase 11 | Pending |
+| CLS-03 | Phase 11 | Pending |
+| CFG-01 | Phase 12 | Pending |
+| CFG-02 | Phase 12 | Pending |
+| CFG-03 | Phase 12 | Pending |
+| PRV-01 | Phase 13 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after initial definition*
+*Last updated: 2026-03-24 after roadmap creation*
