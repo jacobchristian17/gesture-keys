@@ -15,9 +15,9 @@ Requirements for left-hand support with 1:1 right-hand parity.
 
 ### Classification
 
-- [ ] **CLS-01**: Left hand correctly classifies all 6 static gestures (open palm, fist, thumbs up, peace, pointing, pinch)
-- [ ] **CLS-02**: Left hand correctly detects all 4 swipe directions (left, right, up, down)
-- [ ] **CLS-03**: Left hand uses same debounce/cooldown/pipeline as right hand
+- [x] **CLS-01**: Left hand correctly classifies all 6 static gestures (open palm, fist, thumbs up, peace, pointing, pinch)
+- [x] **CLS-02**: Left hand correctly detects all 4 swipe directions (left, right, up, down)
+- [x] **CLS-03**: Left hand uses same debounce/cooldown/pipeline as right hand
 
 ### Configuration
 
@@ -50,9 +50,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DET-01 | Phase 11 | Complete |
 | DET-02 | Phase 11 | Complete |
 | DET-03 | Phase 11 | Complete |
-| CLS-01 | Phase 11 | Pending |
-| CLS-02 | Phase 11 | Pending |
-| CLS-03 | Phase 11 | Pending |
+| CLS-01 | Phase 11 | Complete |
+| CLS-02 | Phase 11 | Complete |
+| CLS-03 | Phase 11 | Complete |
 | CFG-01 | Phase 12 | Pending |
 | CFG-02 | Phase 12 | Pending |
 | CFG-03 | Phase 12 | Pending |
