@@ -113,3 +113,85 @@ class TestKeystrokeSender:
 
         mock_ctrl.press.assert_called_once_with(Key.space)
         mock_ctrl.release.assert_called_once_with(Key.space)
+
+
+class TestKeystrokeSenderHold:
+    """Test hold-mode keystroke methods."""
+
+    def test_press_and_hold_single_key(self):
+        sender = KeystrokeSender()
+        mock_ctrl = MagicMock()
+        sender._controller = mock_ctrl
+
+        sender.press_and_hold([], Key.space)
+
+        mock_ctrl.press.assert_called_once_with(Key.space)
+        mock_ctrl.release.assert_not_called()
+
+    def test_press_and_hold_with_modifiers(self):
+        sender = KeystrokeSender()
+        mock_ctrl = MagicMock()
+        sender._controller = mock_ctrl
+
+        sender.press_and_hold([Key.ctrl, Key.shift], "a")
+
+        expected_presses = [call(Key.ctrl), call(Key.shift), call("a")]
+        assert mock_ctrl.press.call_args_list == expected_presses
+        mock_ctrl.release.assert_not_called()
+
+    def test_press_and_hold_tracks_held_keys(self):
+        sender = KeystrokeSender()
+        mock_ctrl = MagicMock()
+        sender._controller = mock_ctrl
+
+        sender.press_and_hold([Key.ctrl], "z")
+
+        assert len(sender._held_keys) == 2
+        assert sender._held_keys == [Key.ctrl, "z"]
+
+    def test_release_held_releases_in_reverse(self):
+        sender = KeystrokeSender()
+        mock_ctrl = MagicMock()
+        sender._controller = mock_ctrl
+
+        sender.press_and_hold([Key.ctrl, Key.shift], "s")
+        mock_ctrl.reset_mock()
+
+        sender.release_held()
+
+        expected_releases = [call("s"), call(Key.shift), call(Key.ctrl)]
+        assert mock_ctrl.release.call_args_list == expected_releases
+        assert sender._held_keys == []
+
+    def test_release_held_noop_when_empty(self):
+        sender = KeystrokeSender()
+        mock_ctrl = MagicMock()
+        sender._controller = mock_ctrl
+
+        sender.release_held()  # should not raise
+
+        mock_ctrl.release.assert_not_called()
+
+    def test_release_all_releases_everything(self):
+        sender = KeystrokeSender()
+        mock_ctrl = MagicMock()
+        sender._controller = mock_ctrl
+
+        sender.press_and_hold([Key.alt], Key.tab)
+        mock_ctrl.reset_mock()
+
+        sender.release_all()
+
+        expected_releases = [call(Key.tab), call(Key.alt)]
+        assert mock_ctrl.release.call_args_list == expected_releases
+        assert sender._held_keys == []
+
+    def test_release_all_idempotent(self):
+        sender = KeystrokeSender()
+        mock_ctrl = MagicMock()
+        sender._controller = mock_ctrl
+
+        sender.release_all()
+        sender.release_all()
+
+        mock_ctrl.release.assert_not_called()

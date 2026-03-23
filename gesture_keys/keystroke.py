@@ -93,6 +93,7 @@ class KeystrokeSender:
 
     def __init__(self) -> None:
         self._controller = Controller()
+        self._held_keys: list[Union[Key, str]] = []
 
     def send(
         self, modifiers: list[Key], key: Union[Key, str]
@@ -116,3 +117,35 @@ class KeystrokeSender:
         finally:
             for mod in reversed(pressed_modifiers):
                 self._controller.release(mod)
+
+    def press_and_hold(
+        self, modifiers: list[Key], key: Union[Key, str]
+    ) -> None:
+        """Press modifiers and key without releasing. Tracks held keys.
+
+        Args:
+            modifiers: List of modifier Key objects to press.
+            key: Final key to press (Key enum or single character str).
+
+        Raises:
+            Any exception from pynput, after releasing all pressed keys.
+        """
+        try:
+            for mod in modifiers:
+                self._controller.press(mod)
+                self._held_keys.append(mod)
+            self._controller.press(key)
+            self._held_keys.append(key)
+        except Exception:
+            self.release_held()
+            raise
+
+    def release_held(self) -> None:
+        """Release all currently held keys in reverse order."""
+        for k in reversed(self._held_keys):
+            self._controller.release(k)
+        self._held_keys.clear()
+
+    def release_all(self) -> None:
+        """Force-release all held keys. Idempotent safety mechanism."""
+        self.release_held()
