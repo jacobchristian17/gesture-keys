@@ -475,6 +475,47 @@ class TestGestureCooldownsConfig:
         assert config.gesture_cooldowns == {}
 
 
+class TestPreferredHandConfig:
+    """Test preferred_hand config field."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    def test_appconfig_default_preferred_hand_is_left(self):
+        config = AppConfig()
+        assert config.preferred_hand == "left"
+
+    def test_preferred_hand_parsed_from_yaml(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML + "preferred_hand: right\n"
+        )
+        config = load_config(str(cfg))
+        assert config.preferred_hand == "right"
+
+    def test_preferred_hand_defaults_to_left_when_missing(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.preferred_hand == "left"
+
+    def test_invalid_preferred_hand_raises_valueerror(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML + "preferred_hand: both\n"
+        )
+        with pytest.raises(ValueError, match="preferred_hand"):
+            load_config(str(cfg))
+
+    def test_default_config_yaml_preferred_hand(self):
+        """Default config.yaml should have preferred_hand defaulting to left."""
+        config = load_config(DEFAULT_CONFIG)
+        assert config.preferred_hand == "left"
+
+
 class TestGestureModesConfig:
     """Test gesture mode config parsing."""
 
