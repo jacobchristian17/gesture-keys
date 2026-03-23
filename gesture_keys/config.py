@@ -30,6 +30,8 @@ class AppConfig:
     swipe_mappings: dict[str, str] = field(default_factory=dict)
     swipe_settling_frames: int = 3
     gesture_cooldowns: dict[str, float] = field(default_factory=dict)
+    gesture_modes: dict[str, str] = field(default_factory=dict)
+    hold_release_delay: float = 0.1
 
 
 class ConfigWatcher:
@@ -88,6 +90,32 @@ def _extract_gesture_cooldowns(gestures: dict) -> dict[str, float]:
     return cooldowns
 
 
+def _extract_gesture_modes(gestures: dict) -> dict[str, str]:
+    """Extract per-gesture mode from gesture config entries.
+
+    Args:
+        gestures: Gesture config dict {name: {key: ..., mode: ...}}.
+
+    Returns:
+        Dict mapping gesture_name -> "tap" or "hold" for all gestures.
+
+    Raises:
+        ValueError: If a gesture has an invalid mode value.
+    """
+    valid_modes = {"tap", "hold"}
+    modes: dict[str, str] = {}
+    for name, settings in gestures.items():
+        if isinstance(settings, dict):
+            mode = str(settings.get("mode", "tap")).lower()
+            if mode not in valid_modes:
+                raise ValueError(
+                    f"Gesture '{name}' has invalid mode '{mode}'. "
+                    f"Valid modes: {valid_modes}"
+                )
+            modes[name] = mode
+    return modes
+
+
 def load_config(path: str = "config.yaml") -> AppConfig:
     """Load configuration from a YAML file.
 
@@ -142,6 +170,8 @@ def load_config(path: str = "config.yaml") -> AppConfig:
             swipe_mappings[direction] = mapping["key"]
     swipe_enabled = bool(swipe) and len(swipe_mappings) > 0
 
+    gesture_modes = _extract_gesture_modes(gestures)
+
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
         smoothing_window=int(detection.get("smoothing_window", 2)),
@@ -159,4 +189,6 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         swipe_mappings=swipe_mappings,
         swipe_settling_frames=int(swipe.get("settling_frames", 3)),
         gesture_cooldowns=_extract_gesture_cooldowns(gestures),
+        gesture_modes=gesture_modes,
+        hold_release_delay=float(detection.get("hold_release_delay", 0.1)),
     )

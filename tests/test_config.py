@@ -473,3 +473,90 @@ class TestGestureCooldownsConfig:
         """Default config.yaml should have no per-gesture cooldown overrides."""
         config = load_config(DEFAULT_CONFIG)
         assert config.gesture_cooldowns == {}
+
+
+class TestGestureModesConfig:
+    """Test gesture mode config parsing."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "gestures:\n"
+        "  open_palm:\n    key: space\n    threshold: 0.7\n"
+    )
+
+    def test_appconfig_default_gesture_modes_empty(self):
+        config = AppConfig()
+        assert config.gesture_modes == {}
+
+    def test_appconfig_default_hold_release_delay(self):
+        config = AppConfig()
+        assert config.hold_release_delay == 0.1
+
+    def test_mode_hold_parsed(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  fist:\n    key: space\n    threshold: 0.7\n    mode: hold\n"
+        )
+        config = load_config(str(cfg))
+        assert config.gesture_modes == {"fist": "hold"}
+
+    def test_mode_tap_parsed(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  fist:\n    key: space\n    threshold: 0.7\n    mode: tap\n"
+        )
+        config = load_config(str(cfg))
+        assert config.gesture_modes == {"fist": "tap"}
+
+    def test_mode_defaults_to_tap_when_missing(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.gesture_modes == {"open_palm": "tap"}
+
+    def test_invalid_mode_raises_valueerror(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  fist:\n    key: space\n    threshold: 0.7\n    mode: toggle\n"
+        )
+        with pytest.raises(ValueError, match="mode"):
+            load_config(str(cfg))
+
+    def test_hold_release_delay_from_config(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "detection:\n  hold_release_delay: 0.2\n"
+            "gestures:\n"
+            "  open_palm:\n    key: space\n    threshold: 0.7\n"
+        )
+        config = load_config(str(cfg))
+        assert config.hold_release_delay == 0.2
+
+    def test_hold_release_delay_default_when_missing(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.hold_release_delay == 0.1
+
+    def test_mixed_modes(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  fist:\n    key: space\n    threshold: 0.7\n    mode: hold\n"
+            "  open_palm:\n    key: enter\n    threshold: 0.7\n"
+            "  pinch:\n    key: tab\n    threshold: 0.06\n    mode: tap\n"
+        )
+        config = load_config(str(cfg))
+        assert config.gesture_modes == {
+            "fist": "hold",
+            "open_palm": "tap",
+            "pinch": "tap",
+        }
