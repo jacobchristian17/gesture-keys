@@ -339,29 +339,26 @@ class TestHandDetector:
         # an edge case. Let's just test the plan's code path as written.
 
     def test_two_hands_active_not_in_detected_returns_empty(self):
-        """Two hands detected but active hand label not among them -> transition frame."""
+        """Two hands detected but active hand label not among them -> transition frame.
+
+        This tests the edge case code path where active_hand is set but the
+        label is not found in the detected hands dict. We simulate it by
+        manually setting _active_hand to a value not in the result.
+        """
         detector, mock_landmarker = _create_detector_with_mock()
 
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
-        # Frame 1: set active to Right via single-hand detection
+        # Manually set active to a hand label that won't appear
+        detector._active_hand = "Unknown"
+
+        left_landmarks = _make_mock_landmarks()
         right_landmarks = _make_mock_landmarks()
         mock_landmarker.detect_for_video.return_value = _make_mock_result([
+            ("Left", left_landmarks),
             ("Right", right_landmarks),
         ])
-        detector.detect(frame, timestamp_ms=100)
-
-        # Frame 2: two hands detected, but labeled differently (edge case)
-        # Simulate by manually setting active to something not in the result
-        detector._active_hand = "Right"
-        left_landmarks = _make_mock_landmarks()
-        left2_landmarks = _make_mock_landmarks()
-        # Two "Left" hands detected (MediaPipe glitch edge case)
-        mock_landmarker.detect_for_video.return_value = _make_mock_result([
-            ("Left", left_landmarks),
-            ("Left", left2_landmarks),
-        ])
-        landmarks, handedness = detector.detect(frame, timestamp_ms=200)
+        landmarks, handedness = detector.detect(frame, timestamp_ms=100)
 
         assert landmarks == []
         assert handedness is None

@@ -5,6 +5,7 @@ import os
 import sys
 import threading
 import urllib.request
+from typing import Optional
 
 import cv2
 import mediapipe as mp
@@ -73,13 +74,18 @@ class CameraCapture:
 
 
 class HandDetector:
-    """MediaPipe HandLandmarker wrapper with right-hand filtering.
+    """MediaPipe HandLandmarker wrapper with active hand selection.
 
-    Uses the Task API in VIDEO running mode. Only right-hand landmarks
-    are returned; left hands are silently ignored.
+    Uses the Task API in VIDEO running mode. Tracks which hand is active
+    and returns landmarks for that hand. Supports configurable preferred
+    hand for startup selection when both hands are visible.
     """
 
-    def __init__(self, model_path: str = "models/hand_landmarker.task"):
+    def __init__(
+        self,
+        model_path: str = "models/hand_landmarker.task",
+        preferred_hand: str = "left",
+    ):
         # Resolve relative to exe directory when frozen (PyInstaller)
         if not os.path.isabs(model_path):
             base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(sys.argv[0])))
@@ -96,6 +102,8 @@ class HandDetector:
         )
         self._landmarker = HandLandmarker.create_from_options(options)
         self._last_timestamp_ms = -1
+        self._preferred_hand = preferred_hand.capitalize()  # "Left" or "Right"
+        self._active_hand: Optional[str] = None
 
     @staticmethod
     def _ensure_model(model_path: str) -> None:
@@ -118,15 +126,17 @@ class HandDetector:
         urllib.request.urlretrieve(MODEL_URL, model_path, reporthook=_progress)
         logger.info("Model downloaded successfully.")
 
-    def detect(self, frame, timestamp_ms: int) -> list:
-        """Detect right-hand landmarks from a BGR frame.
+    def detect(self, frame, timestamp_ms: int) -> tuple[list, Optional[str]]:
+        """Detect hand landmarks with active hand selection.
 
         Args:
             frame: BGR numpy array from OpenCV.
             timestamp_ms: Strictly monotonic timestamp in milliseconds.
 
         Returns:
-            List of 21 landmarks for the first right hand, or empty list.
+            Tuple of (landmarks, handedness_label) where landmarks is a list
+            of 21 landmarks and handedness_label is "Left", "Right", or None.
+            Returns ([], None) when no hands are detected or during transition.
 
         Raises:
             ValueError: If timestamp_ms is not strictly greater than the previous call.
@@ -144,12 +154,40 @@ class HandDetector:
         result = self._landmarker.detect_for_video(mp_image, timestamp_ms)
         self._last_timestamp_ms = timestamp_ms
 
-        # Filter for right hand only
+        # Build dict of detected hands: {label: landmarks}
+        detected: dict[str, list] = {}
         for i, handedness in enumerate(result.handedness):
-            if handedness[0].category_name == "Right":
-                return result.hand_landmarks[i]
+            label = handedness[0].category_name
+            detected[label] = result.hand_landmarks[i]
 
-        return []
+        num_detected = len(detected)
+
+        if num_detected == 0:
+            self._active_hand = None
+            return ([], None)
+
+        if num_detected == 1:
+            label = next(iter(detected))
+            self._active_hand = label
+            return (detected[label], label)
+
+        # Two hands detected
+        if self._active_hand is not None and self._active_hand in detected:
+            # Sticky: keep current active hand
+            return (detected[self._active_hand], self._active_hand)
+
+        if self._active_hand is None:
+            # Startup: select preferred hand
+            self._active_hand = self._preferred_hand
+            return (detected[self._active_hand], self._active_hand)
+
+        # Active hand set but NOT in detected hands (transition)
+        self._active_hand = None
+        return ([], None)
+
+    def reset(self):
+        """Reset active hand tracking state."""
+        self._active_hand = None
 
     def close(self):
         """Release the HandLandmarker resource."""

@@ -33,6 +33,7 @@ class AppConfig:
     gesture_modes: dict[str, str] = field(default_factory=dict)
     hold_release_delay: float = 0.1
     hold_repeat_interval: float = 0.03
+    preferred_hand: str = "left"
 
 
 class ConfigWatcher:
@@ -173,6 +174,12 @@ def load_config(path: str = "config.yaml") -> AppConfig:
 
     gesture_modes = _extract_gesture_modes(gestures)
 
+    preferred_hand = str(raw.get("preferred_hand", "left")).lower()
+    if preferred_hand not in ("left", "right"):
+        raise ValueError(
+            f"preferred_hand must be 'left' or 'right', got '{preferred_hand}'"
+        )
+
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
         smoothing_window=int(detection.get("smoothing_window", 2)),
@@ -193,4 +200,5 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         gesture_modes=gesture_modes,
         hold_release_delay=float(detection.get("hold_release_delay", 0.1)),
         hold_repeat_interval=float(detection.get("hold_repeat_interval", 0.03)),
+        preferred_hand=preferred_hand,
     )

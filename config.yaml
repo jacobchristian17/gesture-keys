@@ -1,3 +1,5 @@
+# preferred_hand: left  # Which hand to prefer when both are visible at startup ("left" or "right")
+
 camera:
   index: 0
 
