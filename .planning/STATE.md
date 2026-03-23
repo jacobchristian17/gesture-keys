@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Continuous and Seamless Commands
 status: completed
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-03-23T10:24:08.982Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-03-23T11:12:26.972Z"
 last_activity: 2026-03-23 -- Completed 10-01 tuned defaults and settling_frames config surface
 progress:
   total_phases: 3
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 7
+  completed_plans: 7
   percent: 100
 ---
 
@@ -106,6 +106,7 @@ Progress: [█████████░] 90%
 | Phase 09 P02 | 4min | 1 tasks | 3 files |
 | Phase 10 P01 | 4min | 2 tasks | 7 files |
 | Phase 10 P02 | 3min | 2 tasks | 7 files |
+| Phase 10 P03 | 4min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,8 @@ Recent decisions affecting current work:
 - [Phase 10]: Config.yaml smoothing_window 30->2 (was experimental/accidental), activation_delay 0.2->0.15
 - [Phase 10]: settling_frames exposed as swipe.settling_frames in config.yaml with hot-reload support
 - [Phase 10]: Per-gesture cooldowns use gesture.value string as dict key for config simplicity
+- [Phase 10]: is_swiping scoped to ARMED-only so COOLDOWN does not suppress static gestures
+- [Phase 10]: Static classification runs before swipe detection; debouncer.is_activating gates swipe arming
 
 ### Pending Todos
 
@@ -140,6 +143,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T10:21:26.475Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-03-23T11:12:26.969Z
+Stopped at: Completed 10-03-PLAN.md
 Resume file: None

@@ -35,7 +35,7 @@
 - [ ] **Phase 9: Swipe/Static Transition Latency** - 2 plans
   - [ ] 09-01-PLAN.md -- Fix swipe-exit reset bug + hot-reload smoother reset (LAT-02)
   - [ ] 09-02-PLAN.md -- Reduce settling frames to 3 + latency budget verification (LAT-03, LAT-01)
-- [ ] **Phase 10: Tuned Defaults and Config Surface** - 3 plans
+- [x] **Phase 10: Tuned Defaults and Config Surface** - 3 plans (completed 2026-03-23)
   - [x] 10-01-PLAN.md -- Update code defaults to tuned values + settling_frames config surface (TUNE-01, TUNE-02)
   - [x] 10-02-PLAN.md -- Per-gesture cooldown overrides in config.yaml (TUNE-03)
   - [ ] 10-03-PLAN.md -- Gap closure: static gesture priority over swipe detection (UAT fix)
@@ -68,7 +68,7 @@
 **Goal**: New users get a responsive out-of-box experience with proven timing defaults, and power users can fine-tune settling frames and per-gesture cooldowns via config.yaml
 **Depends on**: Phase 8, Phase 9 (structural changes must be stable before tuning)
 **Requirements**: TUNE-01, TUNE-02, TUNE-03
-**Plans:** 3 plans (2 complete, 1 gap closure)
+**Plans:** 3/3 plans complete
 **Success Criteria** (what must be TRUE):
   1. A fresh install with no config.yaml customization uses tuned defaults (activation ~0.15s, cooldown ~0.3s, smoothing window ~2) that feel responsive without false fires
   2. User can set `settling_frames` (or equivalent) in the swipe section of config.yaml to control how long the system waits after a swipe before accepting static gestures
@@ -94,4 +94,4 @@ Plans:
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Complete | 2026-03-21 |
 | 8. Direct Gesture Transitions | v1.2 | 0/2 | Planning | - |
 | 9. Swipe/Static Transition Latency | v1.2 | 0/2 | Planning | - |
-| 10. Tuned Defaults and Config Surface | v1.2 | 2/3 | Gap Closure | - |
+| 10. Tuned Defaults and Config Surface | 3/3 | Complete   | 2026-03-23 | - |
