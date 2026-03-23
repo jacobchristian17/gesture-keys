@@ -279,14 +279,15 @@ class TestSwipeIsSwiping:
         assert det._state == _SwipeState.ARMED, "Setup failed: detector not in ARMED state"
         assert det.is_swiping is True
 
-    def test_cooldown_is_swiping(self):
-        """After a swipe fires (COOLDOWN), is_swiping should be True."""
+    def test_cooldown_not_swiping(self):
+        """After a swipe fires (COOLDOWN), is_swiping should be False.
+        COOLDOWN no longer suppresses static gesture detection."""
         det = SwipeDetector(buffer_size=6, min_velocity=0.3, min_displacement=0.05)
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
         results = _swipe_sequence(det, positions, dt=0.033)
         assert any(r is not None for r in results), "Setup failed: swipe did not fire"
         assert det._state == _SwipeState.COOLDOWN
-        assert det.is_swiping is True
+        assert det.is_swiping is False
 
     def test_back_to_idle_not_swiping(self):
         """After cooldown expires, is_swiping should be False."""

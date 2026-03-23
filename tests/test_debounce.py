@@ -233,6 +233,35 @@ class TestDebounceLogging:
         assert "FIRED" in caplog.text
 
 
+class TestIsActivatingProperty:
+    """Tests for the is_activating read-only property."""
+
+    def test_is_activating_false_in_idle(self):
+        d = GestureDebouncer()
+        assert d.is_activating is False
+
+    def test_is_activating_true_in_activating(self):
+        d = GestureDebouncer()
+        d.update(Gesture.FIST, 0.0)
+        assert d.state == DebounceState.ACTIVATING
+        assert d.is_activating is True
+
+    def test_is_activating_false_in_fired(self):
+        d = GestureDebouncer(activation_delay=0.4)
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # fires
+        assert d.state == DebounceState.FIRED
+        assert d.is_activating is False
+
+    def test_is_activating_false_in_cooldown(self):
+        d = GestureDebouncer(activation_delay=0.4)
+        d.update(Gesture.FIST, 0.0)
+        d.update(Gesture.FIST, 0.5)  # fires
+        d.update(Gesture.FIST, 0.6)  # -> cooldown
+        assert d.state == DebounceState.COOLDOWN
+        assert d.is_activating is False
+
+
 class TestPerGestureCooldowns:
     """Test per-gesture cooldown override behavior."""
 
