@@ -191,6 +191,14 @@ class TrayApp:
             hand_was_in_range = True
             was_swiping = False
 
+            # Hold-mode repeat state
+            hold_active = False
+            hold_modifiers = None
+            hold_key = None
+            hold_key_string = None
+            hold_gesture_name = None
+            hold_last_repeat = 0.0
+
             try:
                 while self._active.is_set() and not self._shutdown.is_set():
                     ret, frame = camera.read()
@@ -206,6 +214,7 @@ class TrayApp:
                         in_range = distance_filter.check(landmarks)
                         if not in_range:
                             if hand_was_in_range:
+                                hold_active = False
                                 sender.release_all()
                                 smoother.reset()
                                 debouncer.reset()
@@ -221,10 +230,12 @@ class TrayApp:
                     # Classify even during swipe cooldown (is_swiping is now ARMED-only)
                     swiping = config.swipe_enabled and swipe_detector.is_swiping
                     if swiping and not was_swiping:
+                        hold_active = False
                         sender.release_all()
                         smoother.reset()
                         debouncer.reset()
                     if was_swiping and not swiping:
+                        hold_active = False
                         sender.release_all()
                         smoother.reset()
                         debouncer.reset()
@@ -241,18 +252,29 @@ class TrayApp:
                     else:
                         debounce_signal = None
                     if debounce_signal is not None:
-                        gesture_name = debounce_signal.gesture.value
-                        if gesture_name in key_mappings:
-                            modifiers, key, key_string = key_mappings[gesture_name]
+                        sig_gesture_name = debounce_signal.gesture.value
+                        if sig_gesture_name in key_mappings:
+                            sig_mods, sig_key, sig_key_string = key_mappings[sig_gesture_name]
                             if debounce_signal.action == DebounceAction.FIRE:
-                                sender.send(modifiers, key)
-                                logger.info("FIRED: %s -> %s", gesture_name, key_string)
+                                sender.send(sig_mods, sig_key)
+                                logger.info("FIRED: %s -> %s", sig_gesture_name, sig_key_string)
                             elif debounce_signal.action == DebounceAction.HOLD_START:
-                                sender.press_and_hold(modifiers, key)
-                                logger.info("HOLD START: %s -> %s", gesture_name, key_string)
+                                sender.send(sig_mods, sig_key)
+                                hold_active = True
+                                hold_modifiers = sig_mods
+                                hold_key = sig_key
+                                hold_key_string = sig_key_string
+                                hold_gesture_name = sig_gesture_name
+                                hold_last_repeat = current_time
+                                logger.info("HOLD START: %s -> %s", sig_gesture_name, sig_key_string)
                             elif debounce_signal.action == DebounceAction.HOLD_END:
-                                sender.release_held()
-                                logger.info("HOLD END: %s -> %s", gesture_name, key_string)
+                                hold_active = False
+                                logger.info("HOLD END: %s -> %s", sig_gesture_name, sig_key_string)
+
+                    # Hold-mode key repeat: send key at repeat interval while holding
+                    if hold_active and current_time - hold_last_repeat >= config.hold_repeat_interval:
+                        sender.send(hold_modifiers, hold_key)
+                        hold_last_repeat = current_time
 
                     # --- Swipe detection (runs AFTER static, gated by debouncer priority) ---
                     if config.swipe_enabled:
@@ -273,6 +295,7 @@ class TrayApp:
                     if watcher.check(current_time):
                         try:
                             new_config = load_config(self._config_path)
+                            hold_active = False
                             sender.release_all()
                             key_mappings = _parse_key_mappings(new_config.gestures)
                             debouncer._activation_delay = new_config.activation_delay

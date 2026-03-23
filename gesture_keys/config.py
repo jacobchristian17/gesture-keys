@@ -32,6 +32,7 @@ class AppConfig:
     gesture_cooldowns: dict[str, float] = field(default_factory=dict)
     gesture_modes: dict[str, str] = field(default_factory=dict)
     hold_release_delay: float = 0.1
+    hold_repeat_interval: float = 0.03
 
 
 class ConfigWatcher:
@@ -191,4 +192,5 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         gesture_cooldowns=_extract_gesture_cooldowns(gestures),
         gesture_modes=gesture_modes,
         hold_release_delay=float(detection.get("hold_release_delay", 0.1)),
+        hold_repeat_interval=float(detection.get("hold_repeat_interval", 0.03)),
     )
