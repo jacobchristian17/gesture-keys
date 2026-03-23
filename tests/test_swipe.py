@@ -465,3 +465,117 @@ class TestSwipeSettlingGuard:
         results = _swipe_sequence(det, positions, dt=0.033)
         fired = [r for r in results if r is not None]
         assert len(fired) >= 1, "Normal swipe should fire without settling guard"
+
+
+class TestHandEntrySettling:
+    """Tests for hand-entry settling guard that suppresses swipe on hand appearance."""
+
+    def test_hand_entry_settling_suppresses_swipe(self):
+        """When hand appears after absence, swipe is suppressed for settling_frames frames."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            settling_frames=3,
+        )
+        # Hand absent for a frame
+        det.update(None, 0.0)
+
+        # Hand appears with fast motion -- should be suppressed during settling
+        fast_positions = _generate_swipe_positions((0.2, 0.5), (0.7, 0.5), steps=8)
+        t = 0.033
+        results = []
+        for x, y in fast_positions:
+            results.append(det.update(_make_wrist_landmarks(x, y), t))
+            t += 0.033
+
+        # First 3 frames should all be None (settling guard)
+        # After settling, swipe CAN fire
+        assert results[0] is None, "Frame 1 should be suppressed by settling"
+        assert results[1] is None, "Frame 2 should be suppressed by settling"
+        assert results[2] is None, "Frame 3 should be suppressed by settling"
+
+    def test_hand_continuously_present_no_settling(self):
+        """Hand continuously present (never lost) does NOT trigger settling after initial entry."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            settling_frames=3,
+        )
+        # First call establishes hand presence -- triggers initial settling
+        det.update(_make_wrist_landmarks(0.5, 0.5), 0.0)
+        det.update(_make_wrist_landmarks(0.5, 0.5), 0.033)
+        det.update(_make_wrist_landmarks(0.5, 0.5), 0.066)
+        # Settling should be expired by now (3 frames consumed)
+        det.update(_make_wrist_landmarks(0.5, 0.5), 0.099)
+
+        # Now a real swipe should fire without settling interference
+        fast_positions = _generate_swipe_positions((0.5, 0.5), (0.1, 0.5), steps=8)
+        t = 0.132
+        results = []
+        for x, y in fast_positions:
+            results.append(det.update(_make_wrist_landmarks(x, y), t))
+            t += 0.033
+        fired = [r for r in results if r is not None]
+        assert len(fired) >= 1, "Continuous hand presence should not re-trigger settling"
+
+    def test_hand_reentry_triggers_settling(self):
+        """Hand lost briefly then returns triggers settling guard again."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            settling_frames=3,
+        )
+        # Establish hand presence and burn through initial settling
+        for i in range(5):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
+
+        # Hand lost
+        det.update(None, 0.2)
+
+        # Hand reappears -- should trigger settling again
+        assert det._hand_present is False
+        det.update(_make_wrist_landmarks(0.5, 0.5), 0.233)
+        assert det._settling_frames_remaining == 3, "Re-entry should trigger settling"
+
+    def test_suppressed_preserves_hand_present(self):
+        """suppressed=True preserves _hand_present -- no false settling on resume."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            settling_frames=3,
+        )
+        # Establish hand presence and burn through initial settling
+        for i in range(5):
+            det.update(_make_wrist_landmarks(0.5, 0.5), i * 0.033)
+        assert det._hand_present is True
+
+        # Simulate is_activating gate: suppressed=True with None landmarks
+        t = 0.2
+        for _ in range(5):
+            det.update(None, t, suppressed=True)
+            t += 0.033
+        # _hand_present should still be True (suppressed preserves it)
+        assert det._hand_present is True
+
+        # Now resume with real landmarks, suppressed=False
+        # Should NOT trigger settling (hand was never truly absent)
+        result = det.update(_make_wrist_landmarks(0.5, 0.5), t)
+        assert det._settling_frames_remaining == 0, (
+            "Settling should NOT trigger after suppressed period"
+        )
+
+    def test_suppressed_prevents_arming(self):
+        """suppressed=True prevents arming even with buffer pre-loaded."""
+        det = SwipeDetector(
+            buffer_size=6, min_velocity=0.3, min_displacement=0.05,
+            settling_frames=0,  # No settling to isolate suppressed behavior
+        )
+        # Build up buffer with fast motion
+        fast_positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=6)
+        t = 0.0
+        for x, y in fast_positions[:4]:
+            det.update(_make_wrist_landmarks(x, y), t)
+            t += 0.033
+
+        # Now call with suppressed=True -- should not arm or fire
+        for x, y in fast_positions[4:]:
+            result = det.update(_make_wrist_landmarks(x, y), t, suppressed=True)
+            assert result is None, "suppressed=True should prevent arming/firing"
+            t += 0.033
+        assert det._state != _SwipeState.ARMED, "Should not be ARMED during suppression"
