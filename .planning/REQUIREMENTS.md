@@ -1,0 +1,68 @@
+# Requirements: Gesture Keys
+
+**Defined:** 2026-03-24
+**Core Value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
+
+## v1.3 Requirements
+
+Requirements for left-hand support with 1:1 right-hand parity.
+
+### Detection
+
+- [ ] **DET-01**: App detects left hand landmarks via MediaPipe when left hand is in frame
+- [ ] **DET-02**: App selects one active hand when only one hand is visible
+- [ ] **DET-03**: App prioritizes one hand when both are briefly visible during hand-switch transitions
+
+### Classification
+
+- [ ] **CLS-01**: Left hand correctly classifies all 6 static gestures (open palm, fist, thumbs up, peace, pointing, pinch)
+- [ ] **CLS-02**: Left hand correctly detects all 4 swipe directions (left, right, up, down)
+- [ ] **CLS-03**: Left hand uses same debounce/cooldown/pipeline as right hand
+
+### Configuration
+
+- [ ] **CFG-01**: Left hand mirrors right-hand key mappings by default (no config changes needed)
+- [ ] **CFG-02**: User can define optional separate left-hand gesture-to-key mappings in config.yaml
+- [ ] **CFG-03**: Config hot-reload applies to left-hand mappings
+
+### Preview
+
+- [ ] **PRV-01**: Preview overlay indicates which hand is currently active
+
+## Future Requirements
+
+None deferred for this milestone.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Simultaneous two-hand detection | One hand at a time for v1.3; complexity deferred |
+| Mirrored swipe directions | Swipe directions are absolute, not flipped for left hand |
+| Per-hand debounce/cooldown tuning | Same pipeline behavior for both hands in v1.3 |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DET-01 | — | Pending |
+| DET-02 | — | Pending |
+| DET-03 | — | Pending |
+| CLS-01 | — | Pending |
+| CLS-02 | — | Pending |
+| CLS-03 | — | Pending |
+| CFG-01 | — | Pending |
+| CFG-02 | — | Pending |
+| CFG-03 | — | Pending |
+| PRV-01 | — | Pending |
+
+**Coverage:**
+- v1.3 requirements: 10 total
+- Mapped to phases: 0
+- Unmapped: 10 ⚠️
+
+---
+*Requirements defined: 2026-03-24*
+*Last updated: 2026-03-24 after initial definition*
