@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Left Hand Support
-status: completed
-stopped_at: Phase 12 context gathered
-last_updated: "2026-03-23T23:33:12.940Z"
-last_activity: 2026-03-24 — Completed Plan 11-02 (left hand classification parity and hand-switch)
+status: in-progress
+stopped_at: Completed 12-01 (left-hand config fields and resolution)
+last_updated: "2026-03-23T23:51:46Z"
+last_activity: 2026-03-24 — Completed Plan 12-01 (left-hand config fields and resolution)
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 100
+  total_plans: 4
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 11 - Left Hand Detection and Classification
+**Current focus:** Phase 12 - Left Hand Configuration
 
 ## Current Position
 
-Phase: 11 (first of 3 in v1.3) — Left Hand Detection and Classification
-Plan: 02 of 02 complete
-Status: Phase 11 Complete
-Last activity: 2026-03-24 — Completed Plan 11-02 (left hand classification parity and hand-switch)
+Phase: 12 (second of 3 in v1.3) — Left Hand Configuration
+Plan: 01 of 02 complete
+Status: In Progress
+Last activity: 2026-03-24 — Completed Plan 12-01 (left-hand config fields and resolution)
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 75%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 25 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 2)
+- Total plans completed: 26 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 3)
 
 ## Accumulated Context
 
@@ -47,6 +47,9 @@ Progress: [██████████] 100%
 - [11-02] Classifier confirmed hand-agnostic -- no code changes needed for left-hand classification
 - [11-02] Hand-switch resets all pipeline state for clean L<->R transitions
 - [11-02] prev_handedness only updated when hand visible to avoid false switches
+- [12-01] left_gestures top-level YAML section mirrors gestures structure for user familiarity
+- [12-01] resolve_hand_gestures deep-merges left overrides onto right defaults (partial override support)
+- [12-01] resolve_hand_swipe_mappings does full replacement not merge (swipe directions are atomic)
 
 ### Pending Todos
 
@@ -60,6 +63,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T23:33:12.930Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-left-hand-configuration/12-CONTEXT.md
+Last session: 2026-03-23T23:51:46Z
+Stopped at: Completed 12-01 (left-hand config fields and resolution)
+Resume file: .planning/phases/12-left-hand-configuration/12-01-SUMMARY.md

@@ -21,8 +21,8 @@ Requirements for left-hand support with 1:1 right-hand parity.
 
 ### Configuration
 
-- [ ] **CFG-01**: Left hand mirrors right-hand key mappings by default (no config changes needed)
-- [ ] **CFG-02**: User can define optional separate left-hand gesture-to-key mappings in config.yaml
+- [x] **CFG-01**: Left hand mirrors right-hand key mappings by default (no config changes needed)
+- [x] **CFG-02**: User can define optional separate left-hand gesture-to-key mappings in config.yaml
 - [ ] **CFG-03**: Config hot-reload applies to left-hand mappings
 
 ### Preview
@@ -53,8 +53,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLS-01 | Phase 11 | Complete |
 | CLS-02 | Phase 11 | Complete |
 | CLS-03 | Phase 11 | Complete |
-| CFG-01 | Phase 12 | Pending |
-| CFG-02 | Phase 12 | Pending |
+| CFG-01 | Phase 12 | Complete |
+| CFG-02 | Phase 12 | Complete |
 | CFG-03 | Phase 12 | Pending |
 | PRV-01 | Phase 13 | Pending |
 
