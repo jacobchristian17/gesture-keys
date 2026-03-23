@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 10-tuned-defaults-and-config-surface
 source: [10-01-SUMMARY.md, 10-02-SUMMARY.md, 10-03-SUMMARY.md]
 started: 2026-03-23T10:30:00Z
@@ -62,7 +62,18 @@ skipped: 0
   reason: "User reported: swipe still gets fired first before static gesture"
   severity: major
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Three interacting problems: (1) TIMING GAP - is_activating is reactive, only True after smoother outputs consistent gesture (2+ frames). Hand approach motion triggers swipe BEFORE any gesture is classified, so is_activating is False and swipe arms freely. (2) EXTREME THRESHOLD SENSITIVITY - user config has min_velocity=0.15, min_displacement=0.03 (~2.5x more sensitive than defaults), making natural approach motion indistinguishable from swipe. (3) PIPELINE RESET - smoother.reset() and debouncer.reset() called on swipe arm, destroying any in-progress static classification."
+  artifacts:
+    - path: "gesture_keys/swipe.py"
+      issue: "IDLE->ARMED fires on very low thresholds, no hand-entry settling period"
+    - path: "gesture_keys/tray.py"
+      issue: "smoother.reset()/debouncer.reset() on swipe arm destroys static gesture progress"
+    - path: "gesture_keys/__main__.py"
+      issue: "Same reset issue as tray.py"
+    - path: "config.yaml"
+      issue: "Swipe thresholds (0.15/0.03) too sensitive for approach motion"
+  missing:
+    - "Hand entry settling period — suppress swipe for N frames when landmarks first appear"
+    - "Stop resetting smoother/debouncer on swipe arm"
+    - "Require static gesture classified at least once before swipe can arm"
+  debug_session: ".planning/debug/swipe-preempts-static.md"
