@@ -51,16 +51,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** v1.2 Phase 9 -- Swipe/Static Transition Latency
+**Current focus:** v1.2 Phase 10 -- Tuned Defaults and Config Surface
 
 ## Current Position
 
-Phase: 9 of 10 (Swipe/Static Transition Latency)
-Plan: 2 of 2 complete
-Status: Phase 9 complete
-Last activity: 2026-03-23 -- Completed 09-02 settling frame reduction (LAT-03)
+Phase: 10 of 10 (Tuned Defaults and Config Surface)
+Plan: 1 of 2 complete
+Status: executing
+Last activity: 2026-03-23 -- Completed 10-01 tuned defaults and settling_frames config surface
 
-Progress: [██████████] 100%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -88,6 +88,7 @@ Progress: [██████████] 100%
 | Phase 08 P02 | 2min | 2 tasks | 2 files |
 | Phase 09 P01 | 5min | 2 tasks | 3 files |
 | Phase 09 P02 | 4min | 1 tasks | 3 files |
+| Phase 10 P01 | 4min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Recent decisions affecting current work:
 - [Phase 08]: Used optional kwarg with None default for backward-compatible preview state indicator
 - [Phase 09]: Settling frames 10->3 safe with LAT-02 exit reset flushing stale state
 - [Phase 09]: Latency budget test validates full pipeline (smoother refill + activation_delay) within 700ms
+- [Phase 10]: Config.yaml smoothing_window 30->2 (was experimental/accidental), activation_delay 0.2->0.15
+- [Phase 10]: settling_frames exposed as swipe.settling_frames in config.yaml with hot-reload support
 
 ### Pending Todos
 
@@ -119,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-23T10:02:52.154Z
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-tuned-defaults-and-config-surface/10-CONTEXT.md
+Last session: 2026-03-23T10:14:21Z
+Stopped at: Completed 10-01-PLAN.md
+Resume file: .planning/phases/10-tuned-defaults-and-config-surface/10-01-SUMMARY.md

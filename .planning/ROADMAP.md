@@ -67,7 +67,7 @@
 **Goal**: New users get a responsive out-of-box experience with proven timing defaults, and power users can fine-tune settling frames and per-gesture cooldowns via config.yaml
 **Depends on**: Phase 8, Phase 9 (structural changes must be stable before tuning)
 **Requirements**: TUNE-01, TUNE-02, TUNE-03
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 **Success Criteria** (what must be TRUE):
   1. A fresh install with no config.yaml customization uses tuned defaults (activation ~0.15s, cooldown ~0.3s, smoothing window ~2) that feel responsive without false fires
   2. User can set `settling_frames` (or equivalent) in the swipe section of config.yaml to control how long the system waits after a swipe before accepting static gestures
@@ -92,4 +92,4 @@ Plans:
 | 7. Preview Overlays and Calibration | v1.1 | 0/? | Complete | 2026-03-21 |
 | 8. Direct Gesture Transitions | v1.2 | 0/2 | Planning | - |
 | 9. Swipe/Static Transition Latency | v1.2 | 0/2 | Planning | - |
-| 10. Tuned Defaults and Config Surface | v1.2 | 0/2 | Not started | - |
+| 10. Tuned Defaults and Config Surface | 1/2 | In Progress|  | - |
