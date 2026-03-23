@@ -1,7 +1,8 @@
 """Integration tests for mutual exclusion between swipe and static gestures.
 
 These tests validate the contract that the main loop relies on:
-- is_swiping is True during active swipes (suppresses static pipeline)
+- is_swiping is True only during ARMED state (not COOLDOWN)
+- Static gestures have priority: debouncer.is_activating suppresses swipe arming
 - is_swiping is False during held poses (static pipeline runs normally)
 - reset() cleanly interrupts swipe state for distance gating
 - Swipe-to-pose transitions are clean (no stuck states)
@@ -60,7 +61,8 @@ class TestMutualExclusionIntegration:
     """Integration tests for swipe/static gesture mutual exclusion."""
 
     def test_swipe_suppresses_static(self):
-        """During ARMED/COOLDOWN, is_swiping is True; after cooldown, False."""
+        """During ARMED, is_swiping is True; during COOLDOWN and after, False.
+        COOLDOWN no longer suppresses static gesture detection."""
         det = SwipeDetector(
             buffer_size=6, min_velocity=0.3, min_displacement=0.05,
             cooldown_duration=0.2,
@@ -68,20 +70,24 @@ class TestMutualExclusionIntegration:
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
 
         # Track is_swiping through the full swipe lifecycle
-        swiping_during_motion = []
+        swiping_during_armed = []
+        swiping_during_cooldown = []
         t = 0.0
         fired = False
         for x, y in positions:
             result = det.update(_make_wrist_landmarks(x, y), t)
             if result is not None:
                 fired = True
-            if det._state in (_SwipeState.ARMED, _SwipeState.COOLDOWN):
-                swiping_during_motion.append(det.is_swiping)
+            if det._state == _SwipeState.ARMED:
+                swiping_during_armed.append(det.is_swiping)
+            elif det._state == _SwipeState.COOLDOWN:
+                swiping_during_cooldown.append(det.is_swiping)
             t += 0.033
 
         assert fired, "Swipe should have fired"
-        assert all(swiping_during_motion), "is_swiping should be True during ARMED/COOLDOWN"
-        assert det.is_swiping is True, "Should still be in COOLDOWN"
+        assert all(swiping_during_armed), "is_swiping should be True during ARMED"
+        assert not any(swiping_during_cooldown), "is_swiping should be False during COOLDOWN"
+        assert det.is_swiping is False, "Should be in COOLDOWN but is_swiping is False"
 
         # Advance past cooldown
         det.update(_make_wrist_landmarks(0.3, 0.5), 5.0)
@@ -130,7 +136,7 @@ class TestMutualExclusionIntegration:
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
         results = _swipe_sequence(det, positions, start_time=0.0, dt=0.033)
         assert any(r is not None for r in results), "Swipe should fire"
-        assert det.is_swiping is True, "Should be in COOLDOWN (swiping)"
+        assert det.is_swiping is False, "Should be in COOLDOWN (is_swiping now ARMED-only)"
 
         # Advance past cooldown with stable position (simulating held pose)
         det.update(_make_wrist_landmarks(0.3, 0.5), 5.0)
@@ -316,7 +322,7 @@ class TestTransitionLatency:
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
         results = _swipe_sequence(swipe_detector, positions, start_time=0.0, dt=fps_dt)
         assert any(r is not None for r in results), "Setup: swipe should fire"
-        assert swipe_detector.is_swiping is True
+        assert swipe_detector._state == _SwipeState.COOLDOWN
 
         # Phase 2: Advance past cooldown
         cooldown_end_time = 1.0  # Well past 0.5s cooldown

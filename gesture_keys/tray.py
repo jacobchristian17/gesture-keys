@@ -214,19 +214,8 @@ class TrayApp:
                     else:
                         hand_was_in_range = True
 
-                    # Swipe detection (runs FIRST -- needs raw landmarks before static pipeline)
-                    if config.swipe_enabled:
-                        swipe_result = swipe_detector.update(landmarks or None, current_time)
-                        if swipe_result is not None:
-                            swipe_name = swipe_result.value
-                            if swipe_name in swipe_key_mappings:
-                                modifiers, key, key_string = swipe_key_mappings[swipe_name]
-                                sender.send(modifiers, key)
-                                logger.info("SWIPE: %s -> %s", swipe_name, key_string)
-                    else:
-                        swipe_detector.update(None, current_time)  # Keep buffer clear when disabled
-
-                    # Classify and smooth (suppressed when swiping to prevent cross-fire)
+                    # --- Static gesture classification (runs FIRST for priority) ---
+                    # Classify even during swipe cooldown (is_swiping is now ARMED-only)
                     swiping = config.swipe_enabled and swipe_detector.is_swiping
                     if swiping and not was_swiping:
                         smoother.reset()
@@ -252,6 +241,22 @@ class TrayApp:
                             modifiers, key, key_string = key_mappings[gesture_name]
                             sender.send(modifiers, key)
                             logger.info("FIRED: %s -> %s", gesture_name, key_string)
+
+                    # --- Swipe detection (runs AFTER static, gated by debouncer priority) ---
+                    if config.swipe_enabled:
+                        # Suppress swipe arming when a static gesture is being confirmed
+                        if debouncer.is_activating:
+                            swipe_result = swipe_detector.update(None, current_time)
+                        else:
+                            swipe_result = swipe_detector.update(landmarks or None, current_time)
+                        if swipe_result is not None:
+                            swipe_name = swipe_result.value
+                            if swipe_name in swipe_key_mappings:
+                                modifiers, key, key_string = swipe_key_mappings[swipe_name]
+                                sender.send(modifiers, key)
+                                logger.info("SWIPE: %s -> %s", swipe_name, key_string)
+                    else:
+                        swipe_detector.update(None, current_time)
 
                     # Config hot-reload
                     if watcher.check(current_time):
