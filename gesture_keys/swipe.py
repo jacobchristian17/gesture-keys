@@ -127,11 +127,11 @@ class SwipeDetector:
 
     @property
     def is_swiping(self) -> bool:
-        """True when a swipe is in progress (ARMED or COOLDOWN state).
+        """True when a swipe is actively in progress (ARMED state only).
 
-        Used by the main loop to suppress static gesture detection during swipes.
+        COOLDOWN no longer suppresses static gesture detection.
         """
-        return self._state in (_SwipeState.ARMED, _SwipeState.COOLDOWN)
+        return self._state == _SwipeState.ARMED
 
     def reset(self) -> None:
         """Reset detector state for distance-gating transitions.

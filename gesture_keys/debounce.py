@@ -60,6 +60,14 @@ class GestureDebouncer:
         """Current state of the debounce machine."""
         return self._state
 
+    @property
+    def is_activating(self) -> bool:
+        """True when a static gesture is being confirmed (ACTIVATING state).
+
+        Used by main loop to give static gestures priority over swipe arming.
+        """
+        return self._state == DebounceState.ACTIVATING
+
     def reset(self) -> None:
         """Reset to IDLE state. Used for config reload."""
         self._state = DebounceState.IDLE
