@@ -15,9 +15,9 @@ class AppConfig:
     """Application configuration loaded from YAML."""
 
     camera_index: int = 0
-    smoothing_window: int = 3
-    activation_delay: float = 0.4
-    cooldown_duration: float = 0.8
+    smoothing_window: int = 2
+    activation_delay: float = 0.15
+    cooldown_duration: float = 0.3
     gestures: dict[str, dict[str, Any]] = field(default_factory=dict)
     distance_enabled: bool = False
     min_hand_size: float = 0.15
@@ -126,9 +126,9 @@ def load_config(path: str = "config.yaml") -> AppConfig:
 
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
-        smoothing_window=int(detection.get("smoothing_window", 3)),
-        activation_delay=float(detection.get("activation_delay", 0.4)),
-        cooldown_duration=float(detection.get("cooldown_duration", 0.8)),
+        smoothing_window=int(detection.get("smoothing_window", 2)),
+        activation_delay=float(detection.get("activation_delay", 0.15)),
+        cooldown_duration=float(detection.get("cooldown_duration", 0.3)),
         gestures=gestures,
         distance_enabled=bool(distance.get("enabled", False)),
         min_hand_size=float(distance.get("min_hand_size", 0.15)),

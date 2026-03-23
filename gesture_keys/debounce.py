@@ -41,8 +41,8 @@ class GestureDebouncer:
 
     def __init__(
         self,
-        activation_delay: float = 0.4,
-        cooldown_duration: float = 0.8,
+        activation_delay: float = 0.15,
+        cooldown_duration: float = 0.3,
     ) -> None:
         self._activation_delay = activation_delay
         self._cooldown_duration = cooldown_duration

@@ -12,7 +12,7 @@ class GestureSmoother:
     it is reported.
     """
 
-    def __init__(self, window_size: int = 3):
+    def __init__(self, window_size: int = 2):
         """Initialize smoother with a given window size.
 
         Args:

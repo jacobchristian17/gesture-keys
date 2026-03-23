@@ -2,8 +2,8 @@ camera:
   index: 0
 
 detection:
-  smoothing_window: 30
-  activation_delay: 0.2
+  smoothing_window: 2
+  activation_delay: 0.15
   cooldown_duration: 0.3
 
 distance:

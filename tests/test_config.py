@@ -25,7 +25,7 @@ class TestLoadConfigDefault:
 
     def test_smoothing_window_default(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.smoothing_window == 3
+        assert config.smoothing_window == 2
 
     def test_has_seven_gestures(self):
         config = load_config(DEFAULT_CONFIG)
@@ -54,10 +54,10 @@ class TestLoadConfigDefault:
         expected_thresholds = {
             "open_palm": 0.7,
             "fist": 0.7,
-            "thumbs_up": 0.7,
+            "thumbs_up": 0.9,
             "peace": 0.7,
             "pointing": 0.7,
-            "pinch": 0.05,
+            "pinch": 0.06,
             "scout": 0.7,
         }
         for name, gesture in config.gestures.items():
@@ -69,12 +69,12 @@ class TestLoadConfigDefault:
     def test_key_mappings(self):
         config = load_config(DEFAULT_CONFIG)
         expected_keys = {
-            "open_palm": "space",
-            "fist": "ctrl+z",
-            "thumbs_up": "ctrl+s",
-            "peace": "ctrl+c",
-            "pointing": "enter",
-            "pinch": "ctrl+v",
+            "open_palm": "win+tab",
+            "fist": "esc",
+            "thumbs_up": "enter",
+            "peace": "win+ctrl+left",
+            "pointing": "alt+tab",
+            "pinch": "win+down",
         }
         for name, expected_key in expected_keys.items():
             assert config.gestures[name]["key"] == expected_key
@@ -145,7 +145,7 @@ class TestAppConfigTimingFields:
 
     MINIMAL_YAML = (
         "camera:\n  index: 0\n"
-        "detection:\n  smoothing_window: 3\n"
+        "detection:\n  smoothing_window: 2\n"
         "gestures:\n"
         "  open_palm:\n    key: space\n    threshold: 0.7\n"
     )
@@ -176,18 +176,18 @@ class TestAppConfigTimingFields:
         cfg = tmp_path / "cfg.yaml"
         cfg.write_text(self.MINIMAL_YAML)
         config = load_config(str(cfg))
-        assert config.activation_delay == 0.4
+        assert config.activation_delay == 0.15
 
     def test_cooldown_duration_default_when_missing(self, tmp_path):
         cfg = tmp_path / "cfg.yaml"
         cfg.write_text(self.MINIMAL_YAML)
         config = load_config(str(cfg))
-        assert config.cooldown_duration == 0.8
+        assert config.cooldown_duration == 0.3
 
     def test_default_config_has_timing_fields(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.activation_delay == 0.4
-        assert config.cooldown_duration == 0.8
+        assert config.activation_delay == 0.15
+        assert config.cooldown_duration == 0.3
 
 
 class TestDistanceConfig:
@@ -229,7 +229,7 @@ class TestDistanceConfig:
     def test_default_config_yaml_has_distance_enabled(self):
         config = load_config(DEFAULT_CONFIG)
         assert config.distance_enabled is True
-        assert config.min_hand_size == 0.15
+        assert config.min_hand_size == 0.12
 
 
 class TestConfigWatcher:
