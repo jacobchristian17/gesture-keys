@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Continuous and Seamless Commands
-status: milestone_complete
-stopped_at: Milestone v1.2 archived
+milestone: v1.3
+milestone_name: Left Hand Support
+status: defining_requirements
+stopped_at: Milestone v1.3 started
 last_updated: "2026-03-24"
-last_activity: 2026-03-24 -- Milestone v1.2 archived
+last_activity: 2026-03-24 -- Milestone v1.3 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,27 +21,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Planning next milestone
+**Current focus:** Defining requirements for v1.3 Left Hand Support
 
 ## Current Position
 
-Milestone v1.2 complete. All 10 phases across 3 milestones shipped.
-Next: `/gsd:new-milestone` to define v1.3 or v2.0.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-24 — Milestone v1.3 started
 
 ## Performance Metrics
 
 **Velocity:**
 - Total plans completed: 23 (v1.0: 7, v1.1: 8, v1.2: 8)
-- v1.2 average duration: ~3.5min/plan
-- v1.2 total execution time: ~30min
-
-**v1.2 By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 8 - Direct Gesture Transitions | 2 | ~4min | ~2min |
-| 9 - Swipe/Static Transition Latency | 2 | ~9min | ~4.5min |
-| 10 - Tuned Defaults and Config Surface | 4 | ~17min | ~4.3min |
 
 ## Accumulated Context
 
@@ -61,5 +53,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Milestone v1.2 archived
+Stopped at: Milestone v1.3 started
 Resume file: None

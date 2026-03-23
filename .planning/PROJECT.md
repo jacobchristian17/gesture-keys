@@ -28,7 +28,17 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ### Active
 
-(None yet — define in next milestone)
+## Current Milestone: v1.3 Left Hand Support
+
+**Goal:** Add left-hand gesture detection with 1:1 feature parity to the right hand, one hand active at a time, with optional separate key mappings.
+
+**Target features:**
+- Left-hand detection with same 6 static gestures + 4 swipe directions
+- One-hand-at-a-time mode (whichever hand is in frame)
+- Left hand mirrors right-hand key mappings by default
+- Optional separate left-hand key mappings in config.yaml
+- Same debounce/cooldown/pipeline behavior for left hand
+- Swipe directions are absolute (no horizontal mirroring)
 
 ### Out of Scope
 
@@ -38,7 +48,7 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - Multiple camera support — single camera index from config
 - Gesture profiles / per-app mappings — single global config for now
 - GPU acceleration (onnxruntime-gpu) — MediaPipe Python on Windows is CPU-only; 30+ FPS on CPU is sufficient
-- Two-hand gestures — high complexity, defer until 6-gesture ceiling is hit
+- Simultaneous two-hand detection — one hand at a time for v1.3
 
 ## Context
 
@@ -73,4 +83,4 @@ Detection pipeline: static classification runs before swipe detection; debouncer
 | Per-gesture cooldowns via config.yaml | Different gestures need different cooldowns (e.g., pinch longer than fist) | ✓ Good — simple gesture.value string key lookup |
 
 ---
-*Last updated: 2026-03-24 after v1.2 milestone*
+*Last updated: 2026-03-24 after v1.3 milestone start*
