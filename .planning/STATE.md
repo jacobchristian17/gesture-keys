@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Left Hand Support
 status: in-progress
-stopped_at: Completed 12-01 (left-hand config fields and resolution)
-last_updated: "2026-03-23T23:51:46Z"
-last_activity: 2026-03-24 — Completed Plan 12-01 (left-hand config fields and resolution)
+stopped_at: Completed 12-02 (hand-aware mapping wiring)
+last_updated: "2026-03-23T23:57:00Z"
+last_activity: 2026-03-24 — Completed Plan 12-02 (hand-aware mapping wiring into both detection loops)
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 12 (second of 3 in v1.3) — Left Hand Configuration
-Plan: 01 of 02 complete
+Plan: 02 of 02 complete
 Status: In Progress
-Last activity: 2026-03-24 — Completed Plan 12-01 (left-hand config fields and resolution)
+Last activity: 2026-03-24 — Completed Plan 12-02 (hand-aware mapping wiring into both detection loops)
 
-Progress: [███████░░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 26 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 3)
+- Total plans completed: 27 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 4)
 
 ## Accumulated Context
 
@@ -50,6 +50,9 @@ Progress: [███████░░░] 75%
 - [12-01] left_gestures top-level YAML section mirrors gestures structure for user familiarity
 - [12-01] resolve_hand_gestures deep-merges left overrides onto right defaults (partial override support)
 - [12-01] resolve_hand_swipe_mappings does full replacement not merge (swipe directions are atomic)
+- [12-02] Pre-parse both left and right mappings at startup for instant hand-switch swap
+- [12-02] Initial hand detection sets mappings on first hand appearance (not just on switch)
+- [12-02] Hot-reload merges left_gesture_cooldowns onto right defaults for debouncer
 
 ### Pending Todos
 
@@ -63,6 +66,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-23T23:51:46Z
-Stopped at: Completed 12-01 (left-hand config fields and resolution)
-Resume file: .planning/phases/12-left-hand-configuration/12-01-SUMMARY.md
+Last session: 2026-03-23T23:57:00Z
+Stopped at: Completed 12-02 (hand-aware mapping wiring)
+Resume file: .planning/phases/12-left-hand-configuration/12-02-SUMMARY.md

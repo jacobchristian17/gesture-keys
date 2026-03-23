@@ -42,7 +42,7 @@
 **Milestone Goal:** Add left-hand gesture detection with 1:1 feature parity to the right hand, one hand active at a time, with optional separate key mappings.
 
 - [x] **Phase 11: Left Hand Detection and Classification** - 2 plans - Detect left hand via MediaPipe and classify all gestures with right-hand parity (completed 2026-03-23)
-- [ ] **Phase 12: Left Hand Configuration** - 2 plans - Mirror right-hand mappings by default with optional separate left-hand overrides
+- [x] **Phase 12: Left Hand Configuration** - 2 plans - Mirror right-hand mappings by default with optional separate left-hand overrides (completed 2026-03-23)
 - [ ] **Phase 13: Preview and Polish** - Show active hand in preview overlay and verify end-to-end left hand workflow
 
 ## Phase Details
@@ -104,5 +104,5 @@ Plans:
 | 9. Swipe/Static Transition Latency | v1.2 | 2/2 | Complete | 2026-03-23 |
 | 10. Tuned Defaults and Config Surface | v1.2 | 4/4 | Complete | 2026-03-23 |
 | 11. Left Hand Detection and Classification | v1.3 | 2/2 | Complete | 2026-03-23 |
-| 12. Left Hand Configuration | 1/2 | In Progress|  | - |
+| 12. Left Hand Configuration | 2/2 | Complete   | 2026-03-23 | - |
 | 13. Preview and Polish | v1.3 | 0/? | Not started | - |
