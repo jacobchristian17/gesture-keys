@@ -92,10 +92,10 @@ class TestConsoleOutput:
 
         def detect_side_effect(f, ts):
             detect_count[0] += 1
-            # Frames 4-6: return OPEN_PALM landmarks
+            # Frames 4-6: return OPEN_PALM landmarks with handedness
             if 4 <= detect_count[0] <= 6:
-                return open_palm_landmarks
-            return []
+                return (open_palm_landmarks, "Right")
+            return ([], None)
 
         mock_detector.detect.side_effect = detect_side_effect
         mock_detector_cls.return_value = mock_detector
@@ -199,9 +199,9 @@ class TestConsoleOutput:
             detect_count[0] += 1
             # Frames 1-3: OPEN_PALM landmarks (fills buffer, produces OPEN_PALM)
             if detect_count[0] <= 3:
-                return open_palm_landmarks
+                return (open_palm_landmarks, "Right")
             # Frames 4-9: no hand (eventually produces None)
-            return []
+            return ([], None)
 
         mock_detector.detect.side_effect = detect_side_effect
         mock_detector_cls.return_value = mock_detector

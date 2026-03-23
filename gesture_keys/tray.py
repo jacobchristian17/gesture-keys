@@ -149,7 +149,7 @@ class TrayApp:
                 continue
 
             camera = CameraCapture(config.camera_index).start()
-            detector = HandDetector()
+            detector = HandDetector(preferred_hand=config.preferred_hand)
 
             thresholds = {
                 name: settings.get("threshold", 0.7)
@@ -191,6 +191,7 @@ class TrayApp:
             hand_was_in_range = True
             was_swiping = False
             pre_swipe_gesture = None
+            prev_handedness = None
 
             # Hold-mode repeat state
             hold_active = False
@@ -208,7 +209,18 @@ class TrayApp:
 
                     current_time = time.perf_counter()
                     timestamp_ms = int(time.time() * 1000)
-                    landmarks = detector.detect(frame, timestamp_ms)
+                    landmarks, handedness = detector.detect(frame, timestamp_ms)
+
+                    # Hand switch detection: reset pipeline on hand change
+                    if handedness is not None and prev_handedness is not None and handedness != prev_handedness:
+                        # Instant switch: release holds, reset pipeline
+                        hold_active = False
+                        sender.release_all()
+                        smoother.reset()
+                        debouncer.reset()
+                        swipe_detector.reset()
+                        logger.info("Hand switch: %s -> %s", prev_handedness, handedness)
+                    prev_handedness = handedness if handedness is not None else prev_handedness
 
                     # Distance gating: suppress gestures when hand is too far
                     if landmarks:

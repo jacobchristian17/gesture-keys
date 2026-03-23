@@ -129,7 +129,7 @@ def run_preview_mode(args):
 
     # Create pipeline components
     camera = CameraCapture(config.camera_index).start()
-    detector = HandDetector()
+    detector = HandDetector(preferred_hand=config.preferred_hand)
 
     # Extract per-gesture thresholds from nested config structure
     # config.gestures has {name: {key: ..., threshold: ...}} -- classifier needs {name: float}
@@ -184,6 +184,7 @@ def run_preview_mode(args):
     was_swiping = False
     prev_time = time.perf_counter()
     fps = 0.0
+    prev_handedness = None
 
     # Hold-mode repeat state
     hold_active = False
@@ -206,9 +207,20 @@ def run_preview_mode(args):
                 fps = 1.0 / dt
             prev_time = current_time
 
-            # Detect right-hand landmarks
+            # Detect hand landmarks
             timestamp_ms = int(time.time() * 1000)
-            landmarks = detector.detect(frame, timestamp_ms)
+            landmarks, handedness = detector.detect(frame, timestamp_ms)
+
+            # Hand switch detection: reset pipeline on hand change
+            if handedness is not None and prev_handedness is not None and handedness != prev_handedness:
+                # Instant switch: release holds, reset pipeline
+                hold_active = False
+                sender.release_all()
+                smoother.reset()
+                debouncer.reset()
+                swipe_detector.reset()
+                logger.info("Hand switch: %s -> %s", prev_handedness, handedness)
+            prev_handedness = handedness if handedness is not None else prev_handedness
 
             # Distance gating: suppress gestures when hand is too far
             if landmarks:

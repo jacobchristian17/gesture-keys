@@ -162,7 +162,7 @@ class TestDetectionLoopPausesOnInactive:
         mock_camera_cls.return_value = mock_camera
 
         mock_detector = MagicMock()
-        mock_detector.detect.return_value = []
+        mock_detector.detect.return_value = ([], None)
         mock_detector_cls.return_value = mock_detector
 
         mock_watcher = MagicMock()
