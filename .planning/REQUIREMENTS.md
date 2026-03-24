@@ -27,7 +27,7 @@ Requirements for left-hand support with 1:1 right-hand parity.
 
 ### Preview
 
-- [ ] **PRV-01**: Preview overlay indicates which hand is currently active
+- [x] **PRV-01**: Preview overlay indicates which hand is currently active
 
 ## Future Requirements
 
@@ -56,7 +56,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-01 | Phase 12 | Complete |
 | CFG-02 | Phase 12 | Complete |
 | CFG-03 | Phase 12 | Complete |
-| PRV-01 | Phase 13 | Pending |
+| PRV-01 | Phase 13 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 10 total

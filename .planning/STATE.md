@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Left Hand Support
-status: executing
-stopped_at: Phase 13 context gathered
-last_updated: "2026-03-24T00:30:14.864Z"
-last_activity: 2026-03-24 — Completed Plan 12-02 (hand-aware mapping wiring into both detection loops)
+status: completed
+stopped_at: Completed 13-01-PLAN.md (v1.3 milestone complete)
+last_updated: "2026-03-24T00:43:19.420Z"
+last_activity: 2026-03-24 — Completed Plan 13-01 (preview hand indicator)
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
   percent: 100
 ---
 
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 12 - Left Hand Configuration
+**Current focus:** v1.3 Left Hand Support — Complete
 
 ## Current Position
 
-Phase: 12 (second of 3 in v1.3) — Left Hand Configuration
-Plan: 02 of 02 complete
-Status: In Progress
-Last activity: 2026-03-24 — Completed Plan 12-02 (hand-aware mapping wiring into both detection loops)
+Phase: 13 (third of 3 in v1.3) — Preview and Polish
+Plan: 01 of 01 complete
+Status: Milestone Complete
+Last activity: 2026-03-24 — Completed Plan 13-01 (preview hand indicator)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 27 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 4)
+- Total plans completed: 28 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5)
 
 ## Accumulated Context
 
@@ -53,6 +53,8 @@ Progress: [██████████] 100%
 - [12-02] Pre-parse both left and right mappings at startup for instant hand-switch swap
 - [12-02] Initial hand detection sets mappings on first hand appearance (not just on switch)
 - [12-02] Hot-reload merges left_gesture_cooldowns onto right defaults for debouncer
+- [13-01] Single-letter L/R hand indicator keeps preview bar uncluttered
+- [13-01] Distinct per-hand colors (cyan-blue Left, orange Right) differentiate from debounce state colors
 
 ### Pending Todos
 
@@ -66,6 +68,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T00:30:14.853Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-preview-and-polish/13-CONTEXT.md
+Last session: 2026-03-24T00:43:19.417Z
+Stopped at: Completed 13-01-PLAN.md (v1.3 milestone complete)
