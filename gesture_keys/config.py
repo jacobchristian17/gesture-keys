@@ -38,6 +38,8 @@ class AppConfig:
     left_swipe_mappings: dict[str, str] = field(default_factory=dict)
     left_gesture_cooldowns: dict[str, float] = field(default_factory=dict)
     left_gesture_modes: dict[str, str] = field(default_factory=dict)
+    swipe_window: float = 0.2
+    gesture_swipe_mappings: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 class ConfigWatcher:
@@ -120,6 +122,43 @@ def _extract_gesture_modes(gestures: dict) -> dict[str, str]:
                 )
             modes[name] = mode
     return modes
+
+
+def extract_gesture_swipe_mappings(gestures: dict, gesture_modes: dict[str, str]) -> dict[str, dict[str, str]]:
+    """Extract per-gesture swipe mappings from gesture config.
+
+    Args:
+        gestures: Gesture config dict.
+        gesture_modes: Gesture mode dict (to reject hold mode).
+
+    Returns:
+        Dict mapping gesture_name -> {direction_name: key_string}.
+
+    Raises:
+        ValueError: If a hold-mode gesture has a swipe block.
+    """
+    swipe_directions = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
+    mappings: dict[str, dict[str, str]] = {}
+    for name, settings in gestures.items():
+        if not isinstance(settings, dict) or "swipe" not in settings:
+            continue
+        swipe_block = settings["swipe"]
+        if not isinstance(swipe_block, dict):
+            continue
+        mode = gesture_modes.get(name, "tap")
+        if mode == "hold":
+            raise ValueError(
+                f"Gesture '{name}' uses hold mode and cannot have a swipe block. "
+                "Static-to-swipe is only supported for tap mode gestures."
+            )
+        direction_map: dict[str, str] = {}
+        for direction in swipe_directions:
+            entry = swipe_block.get(direction)
+            if isinstance(entry, dict) and "key" in entry:
+                direction_map[direction] = entry["key"]
+        if direction_map:
+            mappings[name] = direction_map
+    return mappings
 
 
 def resolve_hand_gestures(handedness: str, config: AppConfig) -> dict:
@@ -227,6 +266,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     swipe_enabled = bool(swipe) and len(swipe_mappings) > 0
 
     gesture_modes = _extract_gesture_modes(gestures)
+    gesture_swipe_mappings = extract_gesture_swipe_mappings(gestures, gesture_modes)
 
     preferred_hand = str(raw.get("preferred_hand", "left")).lower()
     if preferred_hand not in ("left", "right"):
@@ -268,4 +308,6 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         left_swipe_mappings=left_swipe_mappings,
         left_gesture_cooldowns=_extract_gesture_cooldowns(left_gestures),
         left_gesture_modes=_extract_gesture_modes(left_gestures),
+        swipe_window=float(detection.get("swipe_window", 0.2)),
+        gesture_swipe_mappings=gesture_swipe_mappings,
     )

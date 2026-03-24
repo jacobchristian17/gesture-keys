@@ -769,3 +769,93 @@ class TestLeftHandConfig:
         )
         result = resolve_hand_swipe_mappings("Left", config)
         assert result == {"swipe_left": "alt+right"}
+
+
+class TestSwipeWindowConfig:
+    """Test swipe_window and per-gesture swipe block parsing."""
+
+    def test_swipe_window_default(self):
+        config = load_config(DEFAULT_CONFIG)
+        assert config.swipe_window == 0.2
+
+    def test_swipe_window_from_detection(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+detection:
+  swipe_window: 0.3
+gestures:
+  peace:
+    key: ctrl+z
+    threshold: 0.7
+""")
+        config = load_config(str(cfg))
+        assert config.swipe_window == 0.3
+
+    def test_gesture_swipe_mappings_parsed(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+gestures:
+  peace:
+    key: ctrl+z
+    threshold: 0.7
+    swipe:
+      swipe_left:
+        key: ctrl+shift+left
+      swipe_right:
+        key: ctrl+shift+right
+""")
+        config = load_config(str(cfg))
+        assert "peace" in config.gesture_swipe_mappings
+        assert config.gesture_swipe_mappings["peace"]["swipe_left"] == "ctrl+shift+left"
+        assert config.gesture_swipe_mappings["peace"]["swipe_right"] == "ctrl+shift+right"
+
+    def test_gesture_swipe_mappings_empty_when_no_block(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+gestures:
+  peace:
+    key: ctrl+z
+    threshold: 0.7
+""")
+        config = load_config(str(cfg))
+        assert config.gesture_swipe_mappings == {}
+
+    def test_hold_mode_with_swipe_block_raises(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+gestures:
+  fist:
+    key: space
+    mode: hold
+    threshold: 0.7
+    swipe:
+      swipe_left:
+        key: ctrl+left
+""")
+        with pytest.raises(ValueError, match="hold.*swipe"):
+            load_config(str(cfg))
+
+    def test_partial_directions(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+gestures:
+  peace:
+    key: ctrl+z
+    threshold: 0.7
+    swipe:
+      swipe_left:
+        key: ctrl+shift+left
+""")
+        config = load_config(str(cfg))
+        assert "swipe_left" in config.gesture_swipe_mappings["peace"]
+        assert "swipe_right" not in config.gesture_swipe_mappings["peace"]
