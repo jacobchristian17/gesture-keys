@@ -106,13 +106,12 @@ class TestQuitSetsShutdownAndStopsIcon:
 
 
 class TestDetectionLoopExitsOnShutdown:
-    """When shutdown is set immediately, detection loop exits without creating camera."""
+    """When shutdown is set immediately, detection loop exits without creating Pipeline."""
 
-    @patch("gesture_keys.tray.CameraCapture")
-    @patch("gesture_keys.tray.HandDetector")
+    @patch("gesture_keys.tray.Pipeline")
     @patch("gesture_keys.tray.load_config")
     def test_detection_loop_exits_on_shutdown(
-        self, mock_load_config, mock_hand_detector, mock_camera_capture
+        self, mock_load_config, mock_pipeline_cls
     ):
         from gesture_keys.tray import TrayApp
 
@@ -121,31 +120,18 @@ class TestDetectionLoopExitsOnShutdown:
 
         app._detection_loop()
 
-        mock_camera_capture.assert_not_called()
-        mock_hand_detector.assert_not_called()
+        mock_pipeline_cls.assert_not_called()
 
 
 class TestDetectionLoopPausesOnInactive:
-    """When active is cleared then shutdown is set, loop releases camera and exits."""
+    """When active is cleared then shutdown is set, loop releases pipeline and exits."""
 
-    @patch("gesture_keys.tray.KeystrokeSender")
-    @patch("gesture_keys.tray.GestureDebouncer")
-    @patch("gesture_keys.tray.GestureSmoother")
-    @patch("gesture_keys.tray.GestureClassifier")
-    @patch("gesture_keys.tray.ConfigWatcher")
-    @patch("gesture_keys.tray.HandDetector")
-    @patch("gesture_keys.tray.CameraCapture")
+    @patch("gesture_keys.tray.Pipeline")
     @patch("gesture_keys.tray.load_config")
     def test_detection_loop_pauses_on_inactive(
         self,
         mock_load_config,
-        mock_camera_cls,
-        mock_detector_cls,
-        mock_watcher_cls,
-        mock_classifier_cls,
-        mock_smoother_cls,
-        mock_debouncer_cls,
-        mock_sender_cls,
+        mock_pipeline_cls,
     ):
         from gesture_keys.config import AppConfig
         from gesture_keys.tray import TrayApp
@@ -155,46 +141,27 @@ class TestDetectionLoopPausesOnInactive:
             gestures={"fist": {"key": "ctrl+z", "threshold": 0.7}}
         )
 
-        # Camera returns frames then we deactivate
-        mock_camera = MagicMock()
-        mock_camera.start.return_value = mock_camera
-        mock_camera.read.return_value = (True, MagicMock())
-        mock_camera_cls.return_value = mock_camera
-
-        mock_detector = MagicMock()
-        mock_detector.detect.return_value = ([], None)
-        mock_detector_cls.return_value = mock_detector
-
-        mock_watcher = MagicMock()
-        mock_watcher.check.return_value = False
-        mock_watcher_cls.return_value = mock_watcher
-
-        mock_smoother = MagicMock()
-        mock_smoother.update.return_value = None
-        mock_smoother_cls.return_value = mock_smoother
-
-        mock_debouncer = MagicMock()
-        mock_debouncer.update.return_value = None
-        mock_debouncer_cls.return_value = mock_debouncer
+        # Setup pipeline mock
+        mock_pipeline = MagicMock()
+        mock_pipeline_cls.return_value = mock_pipeline
 
         app = TrayApp(config_path="config.yaml")
 
-        # After a few reads, deactivate then shutdown
+        # After a few process_frame calls, deactivate then shutdown
         call_count = 0
-        original_read = mock_camera.read
 
-        def read_side_effect():
+        def process_frame_side_effect():
             nonlocal call_count
             call_count += 1
             if call_count >= 3:
                 app._active.clear()  # Go inactive
                 app._shutdown.set()  # Then shutdown
-            return (True, MagicMock())
+            return MagicMock()
 
-        mock_camera.read.side_effect = read_side_effect
+        mock_pipeline.process_frame.side_effect = process_frame_side_effect
 
         app._detection_loop()
 
-        # Camera and detector should have been cleaned up
-        mock_camera.stop.assert_called()
-        mock_detector.close.assert_called()
+        # Pipeline should have been started and stopped
+        mock_pipeline.start.assert_called()
+        mock_pipeline.stop.assert_called()
