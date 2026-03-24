@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
 status: executing
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-03-25T22:00:31.000Z"
-last_activity: 2026-03-25 — Plan 15-01 completed (GestureOrchestrator hierarchical FSM)
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-03-25T22:44:00.000Z"
+last_activity: 2026-03-25 — Plan 15-02 completed (Pipeline orchestrator integration, debounce.py deleted)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 92
+  total_plans: 5
+  completed_plans: 5
+  percent: 95
 ---
 
 # Project State
@@ -26,20 +26,21 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 15 of 17 (Gesture Orchestrator)
-Plan: 1 of 1 (Phase 15) -- Plan 15-01 complete
+Plan: 2 of 2 (Phase 15) -- Plan 15-02 complete
 Status: Executing
-Last activity: 2026-03-25 — Plan 15-01 completed (GestureOrchestrator hierarchical FSM)
+Last activity: 2026-03-25 — Plan 15-02 completed (Pipeline orchestrator integration, debounce.py deleted)
 
-Progress: [█████████░] 92%
+Progress: [█████████░] 95%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 29 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 1)
+- Total plans completed: 30 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 2)
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 15    | 01   | 17min    | 2     | 2     |
+| 15    | 02   | 41min    | 2     | 7     |
 
 ## Accumulated Context
 
@@ -54,6 +55,9 @@ Progress: [█████████░] 92%
 - [15-01] Tap mode fires and transitions to COOLDOWN in same frame (no transient ACTIVE(CONFIRMED))
 - [15-01] Swiping entry resets orchestrator to IDLE; swiping exit sets COOLDOWN with pre-swipe gesture
 - [15-01] flush_pending() returns OrchestratorResult with FIRE signal and resets to IDLE
+- [15-02] DebounceState enum placed in pipeline.py for backward compat (not orchestrator.py)
+- [15-02] Config reload uses flush_pending() signal iteration pattern
+- [15-02] Pipeline safety-net for swiping hold release (belt-and-suspenders with orchestrator HOLD_END)
 
 ### Pending Todos
 
@@ -67,5 +71,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T22:00:31.000Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-03-25T22:44:00.000Z
+Stopped at: Completed 15-02-PLAN.md
