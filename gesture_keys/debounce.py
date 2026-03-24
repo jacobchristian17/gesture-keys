@@ -121,13 +121,15 @@ class GestureDebouncer:
         self._swipe_window_start = 0.0
 
     def update(
-        self, gesture: Optional[Gesture], timestamp: float
+        self, gesture: Optional[Gesture], timestamp: float,
+        *, swipe_direction: Optional[SwipeDirection] = None,
     ) -> Optional[DebounceSignal]:
         """Process a smoothed gesture and return fire signal.
 
         Args:
             gesture: Gesture enum value or None (from smoother).
             timestamp: Current time (e.g. from time.perf_counter()).
+            swipe_direction: Optional swipe direction detected this frame.
 
         Returns:
             DebounceSignal to act on, or None if no signal this frame.
@@ -136,6 +138,8 @@ class GestureDebouncer:
             return self._handle_idle(gesture, timestamp)
         elif self._state == DebounceState.ACTIVATING:
             return self._handle_activating(gesture, timestamp)
+        elif self._state == DebounceState.SWIPE_WINDOW:
+            return self._handle_swipe_window(gesture, timestamp, swipe_direction)
         elif self._state == DebounceState.FIRED:
             return self._handle_fired(gesture, timestamp)
         elif self._state == DebounceState.COOLDOWN:
@@ -148,10 +152,16 @@ class GestureDebouncer:
         self, gesture: Optional[Gesture], timestamp: float
     ) -> Optional[DebounceSignal]:
         if gesture is not None:
-            self._state = DebounceState.ACTIVATING
-            self._activating_gesture = gesture
-            self._activation_start = timestamp
-            logger.debug("IDLE -> ACTIVATING: %s", gesture.value)
+            if gesture.value in self._swipe_gesture_directions:
+                self._state = DebounceState.SWIPE_WINDOW
+                self._activating_gesture = gesture
+                self._swipe_window_start = timestamp
+                logger.debug("IDLE -> SWIPE_WINDOW: %s", gesture.value)
+            else:
+                self._state = DebounceState.ACTIVATING
+                self._activating_gesture = gesture
+                self._activation_start = timestamp
+                logger.debug("IDLE -> ACTIVATING: %s", gesture.value)
         return None
 
     def _handle_activating(
@@ -185,6 +195,57 @@ class GestureDebouncer:
 
         return None
 
+    def _handle_swipe_window(
+        self, gesture: Optional[Gesture], timestamp: float,
+        swipe_direction: Optional[SwipeDirection],
+    ) -> Optional[DebounceSignal]:
+        # Gesture lost -> IDLE
+        if gesture is None:
+            self._state = DebounceState.IDLE
+            self._activating_gesture = None
+            logger.debug("SWIPE_WINDOW -> IDLE: gesture released")
+            return None
+
+        # Gesture changed -> restart for new gesture
+        if gesture != self._activating_gesture:
+            self._activating_gesture = gesture
+            if gesture.value in self._swipe_gesture_directions:
+                self._swipe_window_start = timestamp
+                logger.debug("SWIPE_WINDOW reset: switched to %s", gesture.value)
+            else:
+                self._state = DebounceState.ACTIVATING
+                self._activation_start = timestamp
+                logger.debug("SWIPE_WINDOW -> ACTIVATING: %s (no swipe mapping)", gesture.value)
+            return None
+
+        # Swipe detected and direction is mapped for this gesture -> COMPOUND_FIRE
+        if swipe_direction is not None:
+            mapped = self._swipe_gesture_directions.get(self._activating_gesture.value, set())
+            if swipe_direction.value in mapped:
+                fired_gesture = self._activating_gesture
+                self._state = DebounceState.COOLDOWN
+                self._cooldown_start = timestamp
+                self._cooldown_duration_active = self._gesture_cooldowns.get(
+                    fired_gesture.value, self._cooldown_duration
+                )
+                self._cooldown_gesture = fired_gesture
+                self._activating_gesture = None
+                logger.debug(
+                    "SWIPE_WINDOW -> COOLDOWN: compound %s + %s",
+                    fired_gesture.value, swipe_direction.value,
+                )
+                return DebounceSignal(DebounceAction.COMPOUND_FIRE, fired_gesture, swipe_direction)
+            # Unmapped direction: ignore, keep waiting
+            return None
+
+        # Window expired -> fire static gesture normally
+        if timestamp - self._swipe_window_start >= self._swipe_window:
+            self._state = DebounceState.FIRED
+            logger.debug("SWIPE_WINDOW -> FIRED: %s (window expired)", self._activating_gesture.value)
+            return DebounceSignal(DebounceAction.FIRE, self._activating_gesture)
+
+        return None
+
     def _handle_fired(
         self, gesture: Optional[Gesture], timestamp: float
     ) -> Optional[DebounceSignal]:
@@ -202,15 +263,22 @@ class GestureDebouncer:
     def _handle_cooldown(
         self, gesture: Optional[Gesture], timestamp: float
     ) -> Optional[DebounceSignal]:
-        # Different gesture during cooldown -> start activating immediately
+        # Different gesture during cooldown -> route to SWIPE_WINDOW or ACTIVATING
         if gesture is not None and gesture != self._cooldown_gesture:
-            self._state = DebounceState.ACTIVATING
-            self._activating_gesture = gesture
-            self._activation_start = timestamp
-            self._cooldown_gesture = None
-            logger.debug(
-                "COOLDOWN -> ACTIVATING: %s (direct transition)", gesture.value
-            )
+            if gesture.value in self._swipe_gesture_directions:
+                self._state = DebounceState.SWIPE_WINDOW
+                self._activating_gesture = gesture
+                self._swipe_window_start = timestamp
+                self._cooldown_gesture = None
+                logger.debug("COOLDOWN -> SWIPE_WINDOW: %s (direct transition)", gesture.value)
+            else:
+                self._state = DebounceState.ACTIVATING
+                self._activating_gesture = gesture
+                self._activation_start = timestamp
+                self._cooldown_gesture = None
+                logger.debug(
+                    "COOLDOWN -> ACTIVATING: %s (direct transition)", gesture.value
+                )
             return None
 
         # Cooldown elapsed + hand released -> return to idle

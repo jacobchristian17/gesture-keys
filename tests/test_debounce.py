@@ -568,3 +568,95 @@ class TestSwipeWindowState:
             swipe_window=0.2,
         )
         assert d.in_swipe_window is False
+
+
+class TestSwipeWindowTransitions:
+    """Test SWIPE_WINDOW state machine behavior."""
+
+    def _make_debouncer(self, directions=None, swipe_window=0.2, activation_delay=0.15):
+        """Helper: create debouncer with peace having swipe_left and swipe_right mapped."""
+        return GestureDebouncer(
+            activation_delay=activation_delay,
+            swipe_gesture_directions=directions or {"peace": {"swipe_left", "swipe_right"}},
+            swipe_window=swipe_window,
+        )
+
+    def test_gesture_with_swipe_mapping_enters_swipe_window(self):
+        d = self._make_debouncer()
+        d.update(Gesture.PEACE, 0.0)
+        assert d.state == DebounceState.SWIPE_WINDOW
+        assert d.in_swipe_window is True
+
+    def test_gesture_without_swipe_mapping_normal_activating(self):
+        d = self._make_debouncer()
+        d.update(Gesture.FIST, 0.0)
+        assert d.state == DebounceState.ACTIVATING
+
+    def test_compound_fire_on_mapped_swipe(self):
+        d = self._make_debouncer()
+        d.update(Gesture.PEACE, 0.0)
+        result = d.update(Gesture.PEACE, 0.05, swipe_direction=SwipeDirection.SWIPE_LEFT)
+        assert result is not None
+        assert result.action == DebounceAction.COMPOUND_FIRE
+        assert result.gesture == Gesture.PEACE
+        assert result.direction == SwipeDirection.SWIPE_LEFT
+        assert d.state == DebounceState.COOLDOWN
+
+    def test_unmapped_direction_ignored(self):
+        """Swipe in unmapped direction (UP) is ignored, window continues."""
+        d = self._make_debouncer()  # only left/right mapped
+        d.update(Gesture.PEACE, 0.0)
+        result = d.update(Gesture.PEACE, 0.05, swipe_direction=SwipeDirection.SWIPE_UP)
+        assert result is None
+        assert d.state == DebounceState.SWIPE_WINDOW
+
+    def test_fires_static_on_window_expiry(self):
+        d = self._make_debouncer(swipe_window=0.2)
+        d.update(Gesture.PEACE, 0.0)
+        result = d.update(Gesture.PEACE, 0.1)
+        assert result is None
+        result = d.update(Gesture.PEACE, 0.25)
+        assert result == DebounceSignal(DebounceAction.FIRE, Gesture.PEACE)
+        assert d.state == DebounceState.FIRED
+
+    def test_idle_on_gesture_lost(self):
+        d = self._make_debouncer()
+        d.update(Gesture.PEACE, 0.0)
+        result = d.update(None, 0.05)
+        assert result is None
+        assert d.state == DebounceState.IDLE
+
+    def test_gesture_switch_to_swipe_gesture(self):
+        d = self._make_debouncer(directions={"peace": {"swipe_left"}, "fist": {"swipe_right"}})
+        d.update(Gesture.PEACE, 0.0)
+        assert d.state == DebounceState.SWIPE_WINDOW
+        d.update(Gesture.FIST, 0.05)
+        assert d.state == DebounceState.SWIPE_WINDOW
+
+    def test_gesture_switch_to_non_swipe(self):
+        d = self._make_debouncer()
+        d.update(Gesture.PEACE, 0.0)
+        assert d.state == DebounceState.SWIPE_WINDOW
+        d.update(Gesture.THUMBS_UP, 0.05)
+        assert d.state == DebounceState.ACTIVATING
+
+    def test_is_activating_false_during_swipe_window(self):
+        d = self._make_debouncer()
+        d.update(Gesture.PEACE, 0.0)
+        assert d.is_activating is False
+        assert d.in_swipe_window is True
+
+    def test_cooldown_to_swipe_window_direct_transition(self):
+        """Different gesture with swipe mapping during cooldown -> SWIPE_WINDOW."""
+        d = GestureDebouncer(
+            activation_delay=0.1,
+            swipe_gesture_directions={"peace": {"swipe_left"}},
+            swipe_window=0.2,
+        )
+        d.update(Gesture.FIST, 0.0)  # ACTIVATING (no swipe mapping)
+        d.update(Gesture.FIST, 0.15)  # FIRED
+        d.update(Gesture.FIST, 0.16)  # COOLDOWN
+        assert d.state == DebounceState.COOLDOWN
+        # Now peace (with swipe mapping) during cooldown
+        d.update(Gesture.PEACE, 0.17)
+        assert d.state == DebounceState.SWIPE_WINDOW
