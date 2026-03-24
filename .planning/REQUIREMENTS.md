@@ -30,7 +30,7 @@ Requirements for structured gesture architecture rewrite. Each maps to roadmap p
 
 ### Action Dispatch
 
-- [ ] **ACTN-01**: Action resolver maps static gesture × temporal state to configured keyboard command
+- [ ] **ACTN-01**: Action resolver maps static gesture x temporal state to configured keyboard command
 - [ ] **ACTN-02**: Tap fire mode — press and release key once on action trigger
 - [ ] **ACTN-03**: Hold_key fire mode — key held down while gesture sustained, released on gesture change
 - [ ] **ACTN-04**: Centralized key lifecycle management preventing stuck keys across all exit paths (gate expiry, hand switch, distance out-of-range, app toggle)
@@ -63,29 +63,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PIPE-01 | — | Pending |
-| PIPE-02 | — | Pending |
-| PIPE-03 | — | Pending |
-| PIPE-04 | — | Pending |
-| ACTV-01 | — | Pending |
-| ACTV-02 | — | Pending |
-| ACTV-03 | — | Pending |
-| ORCH-01 | — | Pending |
-| ORCH-02 | — | Pending |
-| ORCH-03 | — | Pending |
-| ORCH-04 | — | Pending |
-| ORCH-05 | — | Pending |
-| ACTN-01 | — | Pending |
-| ACTN-02 | — | Pending |
-| ACTN-03 | — | Pending |
-| ACTN-04 | — | Pending |
-| ACTN-05 | — | Pending |
+| PIPE-01 | Phase 14 | Pending |
+| PIPE-02 | Phase 14 | Pending |
+| PIPE-03 | Phase 14 | Pending |
+| PIPE-04 | Phase 14 | Pending |
+| ACTV-01 | Phase 17 | Pending |
+| ACTV-02 | Phase 17 | Pending |
+| ACTV-03 | Phase 17 | Pending |
+| ORCH-01 | Phase 15 | Pending |
+| ORCH-02 | Phase 15 | Pending |
+| ORCH-03 | Phase 15 | Pending |
+| ORCH-04 | Phase 15 | Pending |
+| ORCH-05 | Phase 15 | Pending |
+| ACTN-01 | Phase 16 | Pending |
+| ACTN-02 | Phase 16 | Pending |
+| ACTN-03 | Phase 16 | Pending |
+| ACTN-04 | Phase 16 | Pending |
+| ACTN-05 | Phase 16 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17 ⚠️
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-24*
-*Last updated: 2026-03-24 after initial definition*
+*Last updated: 2026-03-24 after roadmap creation*

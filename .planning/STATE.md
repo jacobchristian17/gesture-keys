@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
-status: defining_requirements
+status: ready_to_plan
 stopped_at: null
 last_updated: "2026-03-24"
-last_activity: 2026-03-24 — Milestone v2.0 started
+last_activity: 2026-03-24 — Roadmap created for v2.0 (4 phases, 17 requirements)
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** v2.0 Structured Gesture Architecture
+**Current focus:** Phase 14 - Shared Types and Pipeline Unification
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 14 of 17 (Shared Types and Pipeline Unification)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-24 — Milestone v2.0 started
+Status: Ready to plan
+Last activity: 2026-03-24 — Roadmap created for v2.0
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -49,10 +49,11 @@ None.
 
 ### Blockers/Concerns
 
-- Clean rewrite — existing features (hands, distance, preview, overlays) need to be rebuilt as needed
-- Both __main__.py and tray.py have duplicated loop code (carried from v1.3)
+- Behavioral regressions: ~10 subtle edge-case behaviors from v1.0-v1.3 must be preserved (research pitfall 2)
+- Hold_key fire mode is safety-critical: stuck keys from incomplete lifecycle management (research pitfall 1)
+- Hold naming collision: "hold" means fire mode in v1.x config, temporal state in v2.0 — use hold_key for fire mode
 
 ## Session Continuity
 
 Last session: 2026-03-24
-Stopped at: Defining v2.0 requirements
+Stopped at: Roadmap created, ready to plan Phase 14
