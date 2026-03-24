@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
 status: executing
-stopped_at: Phase 15 context gathered
-last_updated: "2026-03-24T20:54:57.707Z"
-last_activity: 2026-03-24 — Plan 14-02 completed (Wrapper rewrite)
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-25T22:00:31.000Z"
+last_activity: 2026-03-25 — Plan 15-01 completed (GestureOrchestrator hierarchical FSM)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 20
+  total_plans: 4
+  completed_plans: 4
+  percent: 92
 ---
 
 # Project State
@@ -21,21 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 14 - Shared Types and Pipeline Unification
+**Current focus:** Phase 15 - Gesture Orchestrator
 
 ## Current Position
 
-Phase: 14 of 17 (Shared Types and Pipeline Unification)
-Plan: 2 of 3 (Phase 14) -- Plan 14-02 complete
+Phase: 15 of 17 (Gesture Orchestrator)
+Plan: 1 of 1 (Phase 15) -- Plan 15-01 complete
 Status: Executing
-Last activity: 2026-03-24 — Plan 14-02 completed (Wrapper rewrite)
+Last activity: 2026-03-25 — Plan 15-01 completed (GestureOrchestrator hierarchical FSM)
 
-Progress: [██░░░░░░░░] 20%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5)
+- Total plans completed: 29 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 1)
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 15    | 01   | 17min    | 2     | 2     |
 
 ## Accumulated Context
 
@@ -47,6 +51,9 @@ Progress: [██░░░░░░░░] 20%
 - [14-01] __main__.py used as source of truth for detection logic (not tray.py)
 - [14-02] Integration tests mock Pipeline as unit rather than individual components
 - [14-02] Tray _detection_loop keeps pre-Pipeline load_config() for error resilience
+- [15-01] Tap mode fires and transitions to COOLDOWN in same frame (no transient ACTIVE(CONFIRMED))
+- [15-01] Swiping entry resets orchestrator to IDLE; swiping exit sets COOLDOWN with pre-swipe gesture
+- [15-01] flush_pending() returns OrchestratorResult with FIRE signal and resets to IDLE
 
 ### Pending Todos
 
@@ -60,5 +67,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T20:54:57.689Z
-Stopped at: Phase 15 context gathered
+Last session: 2026-03-25T22:00:31.000Z
+Stopped at: Completed 15-01-PLAN.md

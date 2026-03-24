@@ -22,11 +22,11 @@ Requirements for structured gesture architecture rewrite. Each maps to roadmap p
 
 ### Gesture Orchestration
 
-- [ ] **ORCH-01**: Unified gesture orchestrator replacing debouncer + main-loop coordination as single state machine
-- [ ] **ORCH-02**: Static gesture as base layer in gesture hierarchy
-- [ ] **ORCH-03**: Hold temporal state — sustained static gesture detected over consecutive frames
-- [ ] **ORCH-04**: Swiping temporal state — directional movement modifier on current static gesture
-- [ ] **ORCH-05**: Gesture type prioritization and state transitions managed by orchestrator
+- [x] **ORCH-01**: Unified gesture orchestrator replacing debouncer + main-loop coordination as single state machine
+- [x] **ORCH-02**: Static gesture as base layer in gesture hierarchy
+- [x] **ORCH-03**: Hold temporal state — sustained static gesture detected over consecutive frames
+- [x] **ORCH-04**: Swiping temporal state — directional movement modifier on current static gesture
+- [x] **ORCH-05**: Gesture type prioritization and state transitions managed by orchestrator
 
 ### Action Dispatch
 
@@ -70,11 +70,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ACTV-01 | Phase 17 | Pending |
 | ACTV-02 | Phase 17 | Pending |
 | ACTV-03 | Phase 17 | Pending |
-| ORCH-01 | Phase 15 | Pending |
-| ORCH-02 | Phase 15 | Pending |
-| ORCH-03 | Phase 15 | Pending |
-| ORCH-04 | Phase 15 | Pending |
-| ORCH-05 | Phase 15 | Pending |
+| ORCH-01 | Phase 15 | Complete |
+| ORCH-02 | Phase 15 | Complete |
+| ORCH-03 | Phase 15 | Complete |
+| ORCH-04 | Phase 15 | Complete |
+| ORCH-05 | Phase 15 | Complete |
 | ACTN-01 | Phase 16 | Pending |
 | ACTN-02 | Phase 16 | Pending |
 | ACTN-03 | Phase 16 | Pending |
