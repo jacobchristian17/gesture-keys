@@ -76,7 +76,7 @@ class TestLoadConfigDefault:
         config = load_config(DEFAULT_CONFIG)
         expected_keys = {
             "open_palm": "win+tab",
-            "fist": "esc",
+            "fist": "space",
             "thumbs_up": "enter",
             "peace": "win+ctrl+left",
             "pointing": "alt+tab",
@@ -192,8 +192,8 @@ class TestAppConfigTimingFields:
 
     def test_default_config_has_timing_fields(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.activation_delay == 0.15
-        assert config.cooldown_duration == 0.3
+        assert config.activation_delay == 0.2
+        assert config.cooldown_duration == 0.1
 
 
 class TestDistanceConfig:
@@ -426,7 +426,7 @@ class TestSettlingFramesConfig:
 
     def test_load_config_settling_frames_from_default_config(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.swipe_settling_frames == 3
+        assert config.swipe_settling_frames == 2
 
 
 class TestGestureCooldownsConfig:
