@@ -270,6 +270,7 @@ class TestDebounceSignal:
         assert DebounceAction.FIRE.value == "fire"
         assert DebounceAction.HOLD_START.value == "hold_start"
         assert DebounceAction.HOLD_END.value == "hold_end"
+        assert DebounceAction.COMPOUND_FIRE.value == "compound_fire"
 
     def test_debounce_signal_creation(self):
         signal = DebounceSignal(DebounceAction.FIRE, Gesture.FIST)
