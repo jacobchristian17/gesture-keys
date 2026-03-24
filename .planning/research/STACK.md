@@ -1,149 +1,159 @@
-# Stack Research
+# Technology Stack
 
-**Domain:** Real-time gesture state machine refactoring (v1.2 -- seamless transitions)
-**Researched:** 2026-03-22
-**Confidence:** HIGH
+**Project:** gesture-keys v2.0 -- Structured Gesture Architecture
+**Researched:** 2026-03-24
+**Overall confidence:** HIGH
 
 ## Verdict: No New Dependencies
 
-The v1.2 features (gesture-to-gesture firing, faster swipe/static transitions, tuned defaults) are **pure state machine refactors** of existing code. No new libraries are needed. The existing stack is sufficient and adding dependencies would be counter-productive for a ~3K LOC synchronous-loop app running at 30+ FPS.
+The v2.0 structured gesture architecture (activation gate, gesture orchestrator, temporal state machine, action resolver, fire mode executor) is a **clean architectural decomposition** of the existing 572-line `__main__.py` monolith and 338-line `debounce.py`. All required patterns are implementable with Python stdlib. Adding a state machine library would cost more in integration overhead than it saves in boilerplate for this specific use case.
+
+**Rationale:** The existing codebase already hand-rolls a 6-state machine with hold mode, compound gestures, and swipe windows -- all running per-frame at 30+ FPS in a synchronous loop. The v2.0 rewrite decomposes this into smaller, focused state machines, each with 2-4 states. State machine libraries optimize for declarative transition definitions and introspection, but impose overhead (import time, stack trace depth, learning curve) that is not justified for machines this small running in a real-time loop.
 
 ## Recommended Stack
 
 ### Core Technologies
 
-No additions. Existing stack unchanged.
+No additions. Existing stack unchanged for v2.0.
 
-| Technology | Version | Purpose | Status for v1.2 |
-|------------|---------|---------|-----------------|
-| mediapipe | >=0.10.33 | Hand landmark detection | Unchanged -- classification layer not touched |
+| Technology | Version | Purpose | v2.0 Status |
+|------------|---------|---------|-------------|
+| mediapipe | >=0.10.33 | Hand landmark detection | Unchanged -- detector.py untouched |
 | opencv-python | >=4.8.0 | Camera capture, preview | Unchanged |
-| pynput | >=1.7.6 | Keystroke simulation | Unchanged |
-| PyYAML | >=6.0 | Config loading/hot-reload | Schema additions only (settling_frames) |
+| pynput | >=1.7.6 | Keystroke simulation (tap + hold) | Unchanged -- KeystrokeSender already has `send()`, `press_and_hold()`, `release_held()` |
+| PyYAML | >=6.0 | Config loading/hot-reload | Schema changes for activation gate + fire modes |
 | pystray | >=0.19.5 | System tray app | Unchanged |
 | Pillow | >=10.0 | Tray icon rendering | Unchanged |
-| Python stdlib `enum`, `collections.deque`, `time` | stdlib | State machine states, buffers, timestamps | Already used; no changes |
+
+### Python Stdlib Used for New Architecture
+
+| Module | Purpose | Why Sufficient |
+|--------|---------|----------------|
+| `enum.Enum` | States for activation gate, temporal states, fire modes | Already used in debounce.py and classifier.py. Enum states with `match`/`if-elif` handlers is the established pattern. |
+| `typing.NamedTuple` | Action descriptors from resolver (gesture, temporal state, fire mode, key mapping) | Already used for `DebounceSignal`. Immutable, typed, lightweight. |
+| `dataclasses.dataclass` | Orchestrator config, component state bundles | Already used for `AppConfig`. |
+| `time.perf_counter` | Timestamp-based transitions (hold duration, activation window) | Already used throughout. Microsecond resolution, monotonic. |
+| `collections.abc.Callable` | Callback-based fire mode executors (tap callback, hold start/end callbacks) | Avoids needing an event bus. Direct function references. |
+| `logging` | State transition tracing | Already instrumented. Each new component gets its own logger. |
 
 ### Supporting Libraries
 
 No new supporting libraries needed.
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| pytest | >=8.0 | Unit/integration testing | Test the refactored state machines -- new test cases for gesture-to-gesture transitions |
+| Library | Version | Purpose | v2.0 Notes |
+|---------|---------|---------|------------|
+| pytest | >=8.0 | Unit testing for each new component | Each component (gate, orchestrator, resolver, executor) gets isolated tests with deterministic timestamps |
 
-### Development Tools
+## What Changes (Architecture, Not Dependencies)
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `--preview` flag | Visual debugging of transitions | Already exists; useful for verifying gesture-to-gesture flow |
-| DEBUG logging | Trace state machine transitions | Already instrumented in debounce.py and swipe.py |
+### Component Mapping: Old to New
 
-## What Actually Changes (Code, Not Dependencies)
+| Old (v1.x) | New (v2.0) | What Changes |
+|-------------|-----------|--------------|
+| `ActivationGate` (activation.py) | **ActivationGate** (refined) | Already exists. Needs: configurable activation gesture, bypass mode (always-armed), integration with orchestrator |
+| `GestureDebouncer` (debounce.py, 338 lines) | **GestureOrchestrator** + **TemporalStateMachine** | Decomposed. Debouncer's activation/cooldown logic becomes orchestrator. Hold/swipe-window logic becomes temporal states. |
+| Procedural dispatch in `__main__.py` (lines 396-438) | **ActionResolver** | Lookup table: (gesture, temporal_state) -> Action. Replaces scattered if/elif chains. |
+| `KeystrokeSender` direct calls in `__main__.py` | **FireModeExecutor** | Wraps KeystrokeSender with fire mode logic (tap = send, hold_key = press_and_hold / release_held). Replaces hold_active/hold_modifiers/hold_key local variables. |
+| 20+ local variables in `run_preview_mode()` | Encapsulated in component state | `hold_active`, `hold_modifiers`, `hold_key`, `hold_gesture_name`, `was_swiping`, `pre_swipe_gesture`, `compound_swipe_suppress_until`, etc. all move into components. |
 
-### 1. GestureDebouncer -- Gesture-to-Gesture Transitions
+### New Enums (Python stdlib `enum`)
 
-**Current flow:** `IDLE -> ACTIVATING -> FIRED -> COOLDOWN -> IDLE`. The `_handle_cooldown` method (line 127-134 of debounce.py) requires `gesture is None` before transitioning back to IDLE. This forces users to drop their hand to "none" between every gesture.
+```python
+# Temporal states -- modifier on top of static gesture
+class TemporalState(Enum):
+    INSTANT = "instant"      # Static gesture just confirmed (tap fire)
+    HOLDING = "holding"      # Static gesture held beyond threshold
+    SWIPING = "swiping"      # Swipe detected during gesture
 
-**New flow:** After COOLDOWN expires, if a *different* gesture is being held, transition directly to ACTIVATING for the new gesture. Only require None if the *same* gesture is still held (prevents re-fire of held pose). This requires:
+# Fire modes -- how an action executes
+class FireMode(Enum):
+    TAP = "tap"              # press + release (existing send())
+    HOLD_KEY = "hold_key"    # press on start, release on end (existing press_and_hold/release_held)
 
-1. Add `_last_fired_gesture: Optional[Gesture]` field to track what fired
-2. Set it in `_handle_fired` when transitioning to COOLDOWN
-3. Modify `_handle_cooldown`: when cooldown expires AND gesture is not None AND gesture differs from `_last_fired_gesture`, go to ACTIVATING with the new gesture instead of staying in COOLDOWN
+# Action descriptor -- output of resolver
+class Action(NamedTuple):
+    gesture: Gesture
+    temporal: TemporalState
+    fire_mode: FireMode
+    modifiers: list  # pynput Key objects
+    key: object      # pynput Key or str
+    key_string: str  # original config string for logging
+```
 
-**Implementation size:** ~15 lines changed in a 134-line file. No new classes, no new imports.
+### Integration Points with Existing Code
 
-**Pattern:** This is a standard "transition-on-different-input" guard condition. No library needed -- it is a conditional check on a stored value.
-
-### 2. SwipeDetector -- Faster Swipe/Static Transitions
-
-**Current issue:** `settling_frames=10` (hardcoded default in swipe.py line 61) blocks static gesture detection for ~333ms at 30fps after swipe cooldown ends. The `settling_frames_remaining` counter (line 219) burns frames in IDLE state before allowing re-arm. Combined with 0.5s cooldown, total swipe-to-static dead time is ~833ms.
-
-**Fix:**
-- Reduce `settling_frames` default from 10 to 4 (~133ms at 30fps)
-- Wire `settling_frames` to YAML config (property setter already exists at line 125, just not connected to config loading)
-- Add to config schema in `config.py` and to hot-reload path in `__main__.py`
-
-**Static-to-swipe direction:** Currently works well. The `is_swiping` flag (line 129-134) suppresses static detection during swipes, and `smoother.reset()` + `debouncer.reset()` are called on swipe entry (main loop lines 229-231). No changes needed for static-to-swipe.
-
-### 3. Tuned Defaults
-
-The user has already tuned values in config.yaml through real-world usage. Code defaults should match proven values so new users get good defaults.
-
-| Parameter | Code Default | User config.yaml | New Code Default | Rationale |
-|-----------|-------------|-----------------|-----------------|-----------|
-| `activation_delay` | 0.4s | 0.1s | 0.15s | User proved 0.1s works; 0.15s adds minimal safety margin for new users |
-| `cooldown_duration` | 0.8s | 0.5s | 0.3s | With gesture-to-gesture support, cooldown can be much shorter since same-gesture re-fire is separately guarded |
-| `smoothing_window` | 3 | 1 | 1 | Window=1 effectively disables smoothing; user proved classifier output is stable enough without it |
-| `swipe.cooldown` | 0.5s | 0.5s | 0.3s | Reduce dead time after swipe; user may want to adjust |
-| `swipe.settling_frames` | 10 | (not exposed) | 4 | Reduce post-swipe settling from ~333ms to ~133ms; newly exposed in config |
-| `swipe.min_velocity` | 0.4 | 0.15 | 0.15 | User's real-world tuning is validated |
-| `swipe.min_displacement` | 0.08 | 0.03 | 0.03 | User's real-world tuning is validated |
-
-### Files That Change
-
-| File | Change |
-|------|--------|
-| `debounce.py` | Add `_last_fired_gesture` tracking, modify `_handle_cooldown` for gesture-to-gesture |
-| `swipe.py` | Update default values |
-| `config.py` | Add `settling_frames` to swipe config schema |
-| `__main__.py` | Wire `settling_frames` from config to SwipeDetector, update hot-reload path |
-| `config.yaml` | Update defaults, add `settling_frames` option |
-| `tests/test_debounce.py` | Add gesture-to-gesture transition test cases |
-
-### Files That Do NOT Change
-
-| File | Why Unchanged |
-|------|---------------|
-| `detector.py` | MediaPipe pipeline untouched |
-| `classifier.py` | Gesture classification untouched |
-| `smoother.py` | Already effectively disabled at window=1 |
-| `keystroke.py` | Keystroke sending untouched |
-| `distance.py` | Distance gating untouched |
-| `activation.py` | Activation gate untouched |
-| `preview.py` | Preview rendering untouched |
-| `tray.py` | Tray app untouched |
-| `requirements.txt` | No new dependencies |
+| Existing Component | Integration | Direction |
+|-------------------|-------------|-----------|
+| `HandDetector.detect()` | Feeds landmarks + handedness to orchestrator | Unchanged, orchestrator consumes output |
+| `GestureClassifier.classify()` | Feeds static gesture to orchestrator | Unchanged |
+| `SwipeDetector.update()` | Feeds swipe direction to orchestrator | Unchanged, orchestrator decides priority |
+| `GestureSmoother.update()` | Feeds smoothed gesture to orchestrator | Unchanged |
+| `DistanceFilter.check()` | Gates orchestrator input | Unchanged |
+| `KeystrokeSender` | FireModeExecutor wraps it | KeystrokeSender unchanged, executor owns the instance |
+| `ConfigWatcher` | Triggers orchestrator.reset() on config change | Unchanged mechanism |
+| `config.load_config()` | Schema additions for activation + fire modes | Additive changes only |
 
 ## Alternatives Considered
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Hand-rolled state machines (keep current) | `transitions` library (v0.9.2, [GitHub](https://github.com/pytransitions/transitions)) | Only if state machines grow beyond ~10 states with complex guard conditions and you need visualization/diagrams. Current machines have 3-4 states. |
-| Hand-rolled state machines (keep current) | `python-statemachine` (v3.0.0, [PyPI](https://pypi.org/project/python-statemachine/)) | Only if you need hierarchical states or auto-generated state diagrams. Not applicable here. |
-| Modify existing debouncer | New "ContinuousDebouncer" class | Only if the original debouncer needs to remain available for backward compatibility. Since this is the same app, modifying in place is simpler. |
-| Raw MediaPipe landmarks + custom classifier | MediaPipe Gesture Recognizer Task API | Only if dropping custom gestures (scout, pinch thresholds). Not applicable for v1.2. |
+### State Machine Libraries
 
-## What NOT to Use
+| Library | Version | Stars | Why NOT for v2.0 |
+|---------|---------|-------|-----------------|
+| `transitions` | 0.9.2 | 5.6k | Adds ~50ms import overhead per startup. HierarchicalMachine requires learning its DSL (states-as-dicts, trigger strings). Stack traces go through library internals. The v2.0 machines have 2-4 states each -- the DSL overhead exceeds the boilerplate it replaces. |
+| `python-statemachine` | 3.0.0 | 900+ | Class decorator DSL with `State.Compound` for hierarchy. More structured than `transitions`, but requires all transitions declared upfront. Real-time per-frame usage pattern (call `update()` 30x/sec) is not its design target. |
+| `hsm-py` | 0.3.0 | ~50 | Small library for hierarchical states. Low adoption, unclear maintenance. Not worth the dependency risk for 2-4 state machines. |
+
+**When a state machine library WOULD be justified:** If v2.0 grew beyond ~8 states per machine with complex guard conditions, or if state diagram visualization/export was required for documentation. Neither applies here.
+
+### Event Bus / Pub-Sub
+
+| Pattern | Why NOT |
+|---------|---------|
+| `blinker` / `pymitter` event bus | Pipeline is linear: camera -> detect -> classify -> smooth -> orchestrate -> resolve -> fire. No fan-out, no dynamic subscribers, no cross-cutting concerns. Direct method calls are simpler and debuggable. |
+| Observer pattern (manual) | Same reasoning. The orchestrator calls the resolver which calls the executor. Chain of responsibility, not pub-sub. |
+| RxPY reactive streams | Synchronous 30fps loop. Reactive operators add indirection and async complexity for zero benefit. |
+
+### Dependency Injection
+
+| Pattern | Why NOT |
+|---------|---------|
+| `inject` / `dependency-injector` | 7 components with clear constructor dependencies. Manual wiring in `__main__.py` is ~20 lines. DI framework overhead not justified. |
+
+## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| `transitions` library | Adds import-time overhead (~50ms) and stack trace complexity through library internals for two 50-line state machines. The DSL learning curve and debugging cost exceeds the 15-line modification needed. | Keep hand-rolled state machines with the surgical modifications described above |
-| `python-statemachine` | Same reasoning. Class decorator DSL is elegant but the abstraction adds complexity without reducing it for 3-4 state machines. | Keep hand-rolled state machines |
-| `asyncio` patterns | Main loop is synchronous `while True` at 30fps with threaded camera capture. Async would require rewriting the entire pipeline for zero benefit. State machine updates are microseconds. | Keep synchronous loop with `time.perf_counter()` |
-| Event bus / pub-sub libraries | The pipeline is a linear chain (camera -> detect -> classify -> smooth -> debounce -> fire). There is no fan-out or dynamic subscription. An event bus adds indirection for no benefit. | Keep direct method calls |
-| RxPY / reactive streams | Same reasoning as event bus. The pipeline processes one frame at a time, synchronously. Reactive streams are for async/concurrent data flows. | Keep synchronous loop |
-
-## Real-Time Gesture State Machine Patterns (From Research)
-
-No specialized libraries exist for "real-time gesture state machines" as a category. The standard approach across MediaPipe gesture projects is exactly what gesture-keys already does: hand-rolled state machines with enum states, timestamp-based transitions, and cooldown guards. The `transitions` library is the most popular general Python state machine library but is designed for application-level state management (workflows, protocols), not per-frame real-time processing.
-
-**Key pattern for gesture-to-gesture transitions** (used in multiple open-source gesture control projects): Track the "last fired gesture" separately from the "current gesture being held." Allow re-entry to the activation state when the held gesture differs from the last fired one. This is the exact pattern recommended for the debouncer modification above.
+| Any state machine library | 2-4 state machines, each 2-4 states. Library DSL learning curve exceeds hand-rolled boilerplate. Import overhead matters at 30fps startup. | `enum.Enum` states + `if/elif` handlers (existing pattern from debounce.py) |
+| Event bus / pub-sub library | Linear pipeline, no fan-out. Adds indirection that obscures data flow. | Direct method calls between components |
+| `asyncio` | Synchronous loop works. Camera capture is already threaded. No I/O-bound operations in the gesture pipeline. | Keep synchronous `while True` loop with `time.perf_counter()` |
+| `attrs` | `dataclasses` already used and sufficient. `attrs` adds marginal benefit (validators, converters) for this use case. | `dataclasses.dataclass` |
+| Type-checking runtime (pydantic) | Config validation is simple type coercion from YAML scalars. Pydantic model overhead not justified. | Manual validation in `load_config()` (existing pattern) |
+| Abstract base classes (`abc.ABC`) | Components have concrete implementations, no polymorphism needed. Orchestrator, resolver, executor are each one class. | Concrete classes with clear interfaces via type hints |
 
 ## Installation
 
 ```bash
 # No changes to installation:
 pip install -r requirements.txt
+
+# requirements.txt remains unchanged:
+# mediapipe>=0.10.33
+# opencv-python>=4.8.0
+# PyYAML>=6.0
+# pytest>=8.0
+# pynput>=1.7.6
+# pystray>=0.19.5
+# Pillow>=10.0
 ```
 
 ## Sources
 
-- [pytransitions/transitions GitHub](https://github.com/pytransitions/transitions) -- evaluated as state machine library, rejected for real-time per-frame use case (HIGH confidence)
-- [python-statemachine PyPI](https://pypi.org/project/python-statemachine/) -- evaluated as state machine library, rejected (HIGH confidence)
-- [MediaPipe Gesture Recognizer Python guide](https://developers.google.com/mediapipe/solutions/vision/gesture_recognizer/python) -- evaluated built-in gesture API, rejected for lacking custom gesture support (HIGH confidence)
-- Codebase analysis of `debounce.py`, `swipe.py`, `__main__.py`, `config.yaml`, `smoother.py` -- primary source for all recommendations (HIGH confidence)
+- Codebase analysis of `debounce.py` (338 lines, 6-state machine with hold mode), `__main__.py` (572 lines, 20+ state variables in main loop), `activation.py` (67 lines, simple arm/disarm gate), `keystroke.py` (send + press_and_hold + release_held already implemented) -- primary source for all recommendations (HIGH confidence)
+- [pytransitions/transitions GitHub](https://github.com/pytransitions/transitions) -- evaluated for hierarchical state machine support, rejected for real-time per-frame use case (HIGH confidence)
+- [python-statemachine 3.0.0 docs](https://python-statemachine.readthedocs.io/en/latest/) -- evaluated for declarative state machine DSL, rejected (HIGH confidence)
+- [hsm-py GitHub](https://github.com/artcom/hsm-py) -- evaluated for lightweight HSM, rejected due to low adoption (MEDIUM confidence)
+- [Top 10 State Machine Frameworks for Python](https://statemachine.events/article/Top_10_State_Machine_Frameworks_for_Python.html) -- landscape survey (MEDIUM confidence)
 
 ---
-*Stack research for: gesture-keys v1.2 seamless gesture transitions*
-*Researched: 2026-03-22*
+*Stack research for: gesture-keys v2.0 structured gesture architecture*
+*Researched: 2026-03-24*
