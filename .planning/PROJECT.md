@@ -33,7 +33,16 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ### Active
 
-(No active requirements — planning next milestone)
+## Current Milestone: v2.0 Structured Gesture Architecture
+
+**Goal:** Clean rewrite of the gesture pipeline with activation gating, gesture hierarchy (static + temporal states), and action-based dispatch with multiple fire modes.
+
+**Target features:**
+- Activation gate: gesture-based arm/disarm with configurable bypass (scout/peace default)
+- Gesture hierarchy: static gestures as base layer, hold and swiping as temporal state modifiers
+- Action dispatch: static gesture × temporal state → mapped keyboard command
+- Fire modes: tap (press+release) and hold_key (sustained keypress mirroring gesture state)
+- Orchestrator managing gesture type prioritization and state transitions
 
 ### Out of Scope
 
@@ -49,12 +58,12 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ## Context
 
-Shipped v1.3 with 7,549 LOC Python.
+Clean rewrite milestone. Previous v1.0–v1.3 shipped 7,549 LOC Python with incremental gesture pipeline.
 Tech stack: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML.
 Platform: Windows 11, CPU inference (30+ FPS sufficient).
-Architecture: camera thread → MediaPipe landmarks → classifier → smoother → debouncer → keystroke sender, all wrapped in pystray tray app.
-Detection pipeline: static classification runs before swipe detection; debouncer.is_activating gates swipe arming. Per-gesture cooldowns and settling_frames are configurable via config.yaml.
-Both hands supported with active hand selection (single-hand auto, both-hand sticky, preferred_hand config). Left hand mirrors right-hand mappings by default with optional per-hand overrides via left_gestures YAML section.
+Previous architecture (being replaced): camera thread → MediaPipe landmarks → classifier → smoother → debouncer → keystroke sender.
+New architecture target: activation gate → gesture orchestrator (static base + temporal modifiers) → action resolver → fire mode executor.
+Compound gestures (v1.3) are subsumed by the temporal state model — no separate compound concept needed.
 
 ## Constraints
 
@@ -85,4 +94,4 @@ Both hands supported with active hand selection (single-hand auto, both-hand sti
 | Pre-parse both hand mappings at startup | Avoid per-frame resolution overhead; instant swap on hand switch | ✓ Good — hot-reload re-parses both sets |
 
 ---
-*Last updated: 2026-03-24 after v1.3 milestone*
+*Last updated: 2026-03-24 after v2.0 milestone started*
