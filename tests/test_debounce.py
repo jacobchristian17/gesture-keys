@@ -6,6 +6,7 @@ import pytest
 
 from gesture_keys.classifier import Gesture
 from gesture_keys.debounce import DebounceAction, DebounceSignal, DebounceState, GestureDebouncer
+from gesture_keys.swipe import SwipeDirection
 
 
 class TestDebounceStateTransitions:
@@ -277,9 +278,28 @@ class TestDebounceSignal:
 
     def test_debounce_signal_unpacking(self):
         signal = DebounceSignal(DebounceAction.HOLD_START, Gesture.PEACE)
-        action, gesture = signal
+        action, gesture, direction = signal
         assert action == DebounceAction.HOLD_START
         assert gesture == Gesture.PEACE
+        assert direction is None
+
+
+class TestDebounceSignalDirection:
+    """Test DebounceSignal direction field."""
+
+    def test_signal_without_direction_defaults_to_none(self):
+        sig = DebounceSignal(DebounceAction.FIRE, Gesture.FIST)
+        assert sig.direction is None
+
+    def test_signal_with_direction(self):
+        sig = DebounceSignal(DebounceAction.FIRE, Gesture.FIST, SwipeDirection.SWIPE_LEFT)
+        assert sig.direction == SwipeDirection.SWIPE_LEFT
+
+    def test_existing_signals_unaffected(self):
+        sig = DebounceSignal(DebounceAction.HOLD_START, Gesture.PEACE)
+        assert sig.action == DebounceAction.HOLD_START
+        assert sig.gesture == Gesture.PEACE
+        assert sig.direction is None
 
 
 class TestPerGestureCooldowns:

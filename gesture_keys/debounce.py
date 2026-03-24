@@ -18,6 +18,7 @@ from enum import Enum
 from typing import NamedTuple, Optional
 
 from gesture_keys.classifier import Gesture
+from gesture_keys.swipe import SwipeDirection
 
 logger = logging.getLogger("gesture_keys")
 
@@ -28,6 +29,7 @@ class DebounceAction(Enum):
     FIRE = "fire"
     HOLD_START = "hold_start"
     HOLD_END = "hold_end"
+    COMPOUND_FIRE = "compound_fire"
 
 
 class DebounceSignal(NamedTuple):
@@ -35,6 +37,7 @@ class DebounceSignal(NamedTuple):
 
     action: DebounceAction
     gesture: Gesture
+    direction: Optional[SwipeDirection] = None
 
 
 class DebounceState(Enum):
