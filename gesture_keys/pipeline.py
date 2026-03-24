@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+from enum import Enum
 
 from gesture_keys.classifier import Gesture, GestureClassifier
 from gesture_keys.config import (
@@ -18,14 +19,49 @@ from gesture_keys.config import (
     resolve_hand_gestures,
     resolve_hand_swipe_mappings,
 )
-from gesture_keys.debounce import DebounceAction, DebounceState, GestureDebouncer
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.distance import DistanceFilter
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
+from gesture_keys.orchestrator import (
+    GestureOrchestrator,
+    LifecycleState,
+    OrchestratorAction,
+    OrchestratorResult,
+    TemporalState,
+)
 from gesture_keys.smoother import GestureSmoother
 from gesture_keys.swipe import SwipeDetector
 
 logger = logging.getLogger("gesture_keys")
+
+
+# Backward-compatible DebounceState enum for FrameResult.debounce_state
+class DebounceState(Enum):
+    """Legacy debounce states for backward compatibility with preview.py."""
+
+    IDLE = "IDLE"
+    ACTIVATING = "ACTIVATING"
+    FIRED = "FIRED"
+    COOLDOWN = "COOLDOWN"
+    HOLDING = "HOLDING"
+    SWIPE_WINDOW = "SWIPE_WINDOW"
+
+
+def _map_to_debounce_state(result: OrchestratorResult) -> DebounceState:
+    """Map OrchestratorResult to legacy DebounceState for backward compat."""
+    if result.outer_state == LifecycleState.IDLE:
+        return DebounceState.IDLE
+    elif result.outer_state == LifecycleState.ACTIVATING:
+        return DebounceState.ACTIVATING
+    elif result.outer_state == LifecycleState.SWIPE_WINDOW:
+        return DebounceState.SWIPE_WINDOW
+    elif result.outer_state == LifecycleState.ACTIVE:
+        if result.temporal_state == TemporalState.HOLD:
+            return DebounceState.HOLDING
+        return DebounceState.FIRED  # CONFIRMED or SWIPING maps to FIRED
+    elif result.outer_state == LifecycleState.COOLDOWN:
+        return DebounceState.COOLDOWN
+    return DebounceState.IDLE
 
 
 @dataclass
@@ -39,6 +75,7 @@ class FrameResult:
     debounce_state: DebounceState = DebounceState.IDLE
     swiping: bool = False
     frame_valid: bool = True
+    orchestrator: OrchestratorResult | None = None
 
 
 def _parse_key_mappings(gestures: dict) -> dict:
@@ -99,7 +136,7 @@ def _parse_compound_swipe_key_mappings(gesture_swipe_mappings: dict[str, dict[st
 class Pipeline:
     """Unified gesture detection pipeline.
 
-    Owns: camera, detector, classifier, smoother, debouncer,
+    Owns: camera, detector, classifier, smoother, orchestrator,
           swipe_detector, distance_filter, sender, config_watcher,
           key mappings, and all per-frame state variables.
 
@@ -125,7 +162,7 @@ class Pipeline:
         self._detector = None
         self._classifier = None
         self._smoother = None
-        self._debouncer = None
+        self._orchestrator = None
         self._sender = None
         self._distance_filter = None
         self._swipe_detector = None
@@ -145,13 +182,10 @@ class Pipeline:
 
         # Per-frame state
         self._prev_gesture = None
-        self._pre_swipe_gesture = None
         self._prev_handedness = None
         self._hand_was_in_range = True
-        self._was_swiping = False
-        self._compound_swipe_suppress_until = 0.0
 
-        # Hold state
+        # Hold state (repeat timing stays in Pipeline per user decision)
         self._hold_active = False
         self._hold_modifiers = None
         self._hold_key = None
@@ -184,14 +218,14 @@ class Pipeline:
         self._classifier = GestureClassifier(thresholds)
         self._smoother = GestureSmoother(config.smoothing_window)
 
-        # Build swipe direction sets for debouncer
+        # Build swipe direction sets for orchestrator
         self._swipe_gesture_directions = {
             name: set(dirs.keys())
             for name, dirs in config.gesture_swipe_mappings.items()
         }
 
-        # Debounce and keystroke components
-        self._debouncer = GestureDebouncer(
+        # Orchestrator and keystroke components
+        self._orchestrator = GestureOrchestrator(
             config.activation_delay, config.cooldown_duration,
             gesture_cooldowns=config.gesture_cooldowns,
             gesture_modes=config.gesture_modes,
@@ -219,7 +253,7 @@ class Pipeline:
             enabled=config.distance_enabled,
         )
 
-        # Swipe detection (parallel path, bypasses smoother/debouncer)
+        # Swipe detection (parallel path, bypasses smoother/orchestrator)
         self._swipe_detector = SwipeDetector(
             min_velocity=config.swipe_min_velocity,
             min_displacement=config.swipe_min_displacement,
@@ -255,9 +289,9 @@ class Pipeline:
             self._detector.close()
 
     def reset_pipeline(self) -> None:
-        """Reset smoother, debouncer, swipe_detector, and hold state."""
+        """Reset smoother, orchestrator, swipe_detector, and hold state."""
         self._smoother.reset()
-        self._debouncer.reset()
+        self._orchestrator.reset()
         self._swipe_detector.reset()
         self._hold_active = False
         self._sender.release_all()
@@ -283,14 +317,12 @@ class Pipeline:
 
         # Hand switch detection: reset pipeline on hand change
         if handedness is not None and self._prev_handedness is not None and handedness != self._prev_handedness:
-            # Instant switch: release holds, reset pipeline
             self._hold_active = False
             self._sender.release_all()
             self._smoother.reset()
-            self._debouncer.reset()
+            self._orchestrator.reset()
             self._swipe_detector.reset()
             logger.info("Hand switch: %s -> %s", self._prev_handedness, handedness)
-            # Swap to correct mapping set for new hand
             if handedness == "Left":
                 self._key_mappings = self._left_key_mappings
                 self._swipe_key_mappings = self._left_swipe_key_mappings
@@ -321,7 +353,7 @@ class Pipeline:
                     self._hold_active = False
                     self._sender.release_all()
                     self._smoother.reset()
-                    self._debouncer.reset()
+                    self._orchestrator.reset()
                     self._swipe_detector.reset()
                 self._hand_was_in_range = False
                 landmarks = None
@@ -330,31 +362,8 @@ class Pipeline:
         else:
             self._hand_was_in_range = True  # No hand = reset tracking for next appearance
 
-        # --- Static gesture classification (runs FIRST for priority) ---
-        # Classify even during swipe cooldown (is_swiping is now ARMED-only)
+        # --- Static gesture classification ---
         swiping = self._config.swipe_enabled and self._swipe_detector.is_swiping
-        if swiping and not self._was_swiping:
-            self._pre_swipe_gesture = self._prev_gesture
-            self._hold_active = False
-            self._sender.release_all()
-            self._smoother.reset()
-            self._debouncer.reset()
-        if self._was_swiping and not swiping:
-            self._hold_active = False
-            self._sender.release_all()
-            self._smoother.reset()
-            self._debouncer.reset()
-            # Suppress the pre-swipe gesture from re-firing after swipe
-            if self._pre_swipe_gesture is not None:
-                self._debouncer._state = DebounceState.COOLDOWN
-                self._debouncer._cooldown_gesture = self._pre_swipe_gesture
-                self._debouncer._cooldown_start = current_time
-                logger.debug(
-                    "Swipe exit: suppressing %s re-fire",
-                    self._pre_swipe_gesture.value,
-                )
-            self._pre_swipe_gesture = None
-        self._was_swiping = swiping
         if landmarks and not swiping:
             raw_gesture = self._classifier.classify(landmarks)
             gesture = self._smoother.update(raw_gesture)
@@ -368,12 +377,10 @@ class Pipeline:
             logger.debug("Gesture: %s", gesture_name)
             self._prev_gesture = gesture
 
-        # --- Swipe detection (BEFORE debouncer so result can be passed in) ---
+        # --- Swipe detection (BEFORE orchestrator so result can be passed in) ---
         swipe_result = None
         if self._config.swipe_enabled:
-            # Suppress swipes during ACTIVATING (static gesture has priority).
-            # During SWIPE_WINDOW, swipes are allowed (we need to detect them).
-            suppress_swipe = self._debouncer.is_activating
+            suppress_swipe = self._orchestrator.is_activating
             swipe_result = self._swipe_detector.update(
                 landmarks or None, current_time,
                 suppressed=suppress_swipe,
@@ -381,33 +388,28 @@ class Pipeline:
 
             # If in SWIPE_WINDOW and swipe fired for unmapped direction,
             # reset swipe detector to IDLE so it can detect a subsequent
-            # mapped swipe. This prevents unmapped swipes from consuming
-            # the detector's internal cooldown.
-            if self._debouncer.in_swipe_window and swipe_result is not None:
-                gesture_name = self._debouncer.activating_gesture.value if self._debouncer.activating_gesture else None
+            # mapped swipe.
+            if self._orchestrator.in_swipe_window and swipe_result is not None:
+                gesture_name = self._orchestrator.activating_gesture.value if self._orchestrator.activating_gesture else None
                 mapped = self._swipe_gesture_directions.get(gesture_name, set())
                 if swipe_result.value not in mapped:
                     self._swipe_detector.reset()
-                    swipe_result = None  # Unmapped: don't pass to debouncer
+                    swipe_result = None
         else:
             self._swipe_detector.update(None, current_time)
 
-        # --- Debounce and fire keystroke (gated during swiping) ---
-        was_in_swipe_window = self._debouncer.in_swipe_window
-        if not swiping:
-            # Pass swipe result to debouncer only when in swipe window
-            swipe_dir_for_debounce = swipe_result if was_in_swipe_window else None
-            debounce_signal = self._debouncer.update(
-                gesture, current_time, swipe_direction=swipe_dir_for_debounce,
-            )
-        else:
-            debounce_signal = None
+        # --- Orchestrator update: single call replaces all coordination logic ---
+        orch_result = self._orchestrator.update(
+            gesture, current_time,
+            swipe_direction=swipe_result,
+            swiping=swiping,
+        )
 
-        if debounce_signal is not None:
-            sig_gesture_name = debounce_signal.gesture.value
-            if debounce_signal.action == DebounceAction.COMPOUND_FIRE:
-                # Compound gesture: look up by (gesture, direction)
-                direction_name = debounce_signal.direction.value
+        # Process signals from orchestrator
+        for signal in orch_result.signals:
+            sig_gesture_name = signal.gesture.value
+            if signal.action == OrchestratorAction.COMPOUND_FIRE:
+                direction_name = signal.direction.value
                 lookup = (sig_gesture_name, direction_name)
                 if lookup in self._compound_mappings:
                     sig_mods, sig_key, sig_key_string = self._compound_mappings[lookup]
@@ -415,10 +417,10 @@ class Pipeline:
                     logger.info("COMPOUND: %s + %s -> %s", sig_gesture_name, direction_name, sig_key_string)
             elif sig_gesture_name in self._key_mappings:
                 sig_mods, sig_key, sig_key_string = self._key_mappings[sig_gesture_name]
-                if debounce_signal.action == DebounceAction.FIRE:
+                if signal.action == OrchestratorAction.FIRE:
                     self._sender.send(sig_mods, sig_key)
                     logger.info("FIRED: %s -> %s", sig_gesture_name, sig_key_string)
-                elif debounce_signal.action == DebounceAction.HOLD_START:
+                elif signal.action == OrchestratorAction.HOLD_START:
                     self._sender.send(sig_mods, sig_key)
                     self._hold_active = True
                     self._hold_modifiers = sig_mods
@@ -427,18 +429,20 @@ class Pipeline:
                     self._hold_gesture_name = sig_gesture_name
                     self._hold_last_repeat = current_time
                     logger.info("HOLD START: %s -> %s", sig_gesture_name, sig_key_string)
-                elif debounce_signal.action == DebounceAction.HOLD_END:
+                elif signal.action == OrchestratorAction.HOLD_END:
                     self._hold_active = False
                     logger.info("HOLD END: %s -> %s", sig_gesture_name, sig_key_string)
 
-        # Track compound swipe suppression: when entering SWIPE_WINDOW,
-        # suppress standalone swipes for the full window duration + a buffer.
-        if self._debouncer.in_swipe_window or was_in_swipe_window:
-            self._compound_swipe_suppress_until = current_time + self._config.swipe_window
+        # Handle swiping entry/exit hold release (orchestrator emits HOLD_END
+        # but Pipeline also needs to release held keys and reset smoother)
+        if swiping and self._hold_active:
+            # Safety: if orchestrator signaled swiping entry, ensure keys released
+            self._hold_active = False
+            self._sender.release_all()
+            self._smoother.reset()
 
-        # Standalone swipe handling:
-        compound_suppress = current_time < self._compound_swipe_suppress_until
-        if swipe_result is not None and not compound_suppress:
+        # Standalone swipe handling (gated by orchestrator's suppress flag)
+        if swipe_result is not None and not orch_result.suppress_standalone_swipe:
             swipe_name = swipe_result.value
             if swipe_name in self._swipe_key_mappings:
                 modifiers, key, key_string = self._swipe_key_mappings[swipe_name]
@@ -459,13 +463,14 @@ class Pipeline:
             handedness=self._prev_handedness,
             gesture=gesture,
             raw_gesture=raw_gesture,
-            debounce_state=self._debouncer.state,
+            debounce_state=_map_to_debounce_state(orch_result),
             swiping=swiping,
             frame_valid=True,
+            orchestrator=orch_result,
         )
 
     def reload_config(self) -> None:
-        """Hot-reload config, preserving SWIPE_WINDOW fire-before-reset edge case."""
+        """Hot-reload config, using flush_pending() for fire-before-reset edge case."""
         try:
             new_config = load_config(self._config_path)
             self._hold_active = False
@@ -480,30 +485,28 @@ class Pipeline:
             else:
                 self._key_mappings = self._right_key_mappings
 
-            self._debouncer._activation_delay = new_config.activation_delay
-            self._debouncer._cooldown_duration = new_config.cooldown_duration
+            # CRITICAL: flush pending gesture before reset (fire-before-reset edge case)
+            flush_result = self._orchestrator.flush_pending()
+            for signal in flush_result.signals:
+                sig_gesture_name = signal.gesture.value
+                if sig_gesture_name in self._key_mappings:
+                    sig_mods, sig_key, sig_key_string = self._key_mappings[sig_gesture_name]
+                    self._sender.send(sig_mods, sig_key)
+                    logger.info("FIRED (reload): %s -> %s", sig_gesture_name, sig_key_string)
 
-            # Update debouncer with hand-appropriate cooldowns/modes
+            # Update orchestrator config params
+            self._orchestrator._activation_delay = new_config.activation_delay
+            self._orchestrator._cooldown_duration = new_config.cooldown_duration
+
             if self._prev_handedness == "Left" and new_config.left_gesture_cooldowns:
                 merged_cooldowns = {**new_config.gesture_cooldowns, **new_config.left_gesture_cooldowns}
                 merged_modes = {**new_config.gesture_modes, **new_config.left_gesture_modes}
             else:
                 merged_cooldowns = new_config.gesture_cooldowns
                 merged_modes = new_config.gesture_modes
-            self._debouncer._gesture_cooldowns = merged_cooldowns
-            self._debouncer._gesture_modes = merged_modes
-            self._debouncer._hold_release_delay = new_config.hold_release_delay
-
-            # CRITICAL: Handle SWIPE_WINDOW -> fire static action before resetting
-            # (spec requirement -- preserves fire-before-reset edge case)
-            if self._debouncer.in_swipe_window and self._debouncer.activating_gesture is not None:
-                sw_gesture = self._debouncer.activating_gesture
-                sw_name = sw_gesture.value
-                if sw_name not in new_config.gesture_swipe_mappings:
-                    if sw_name in self._key_mappings:
-                        sig_mods, sig_key, sig_key_string = self._key_mappings[sw_name]
-                        self._sender.send(sig_mods, sig_key)
-                        logger.info("FIRED (reload): %s -> %s", sw_name, sig_key_string)
+            self._orchestrator._gesture_cooldowns = merged_cooldowns
+            self._orchestrator._gesture_modes = merged_modes
+            self._orchestrator._hold_release_delay = new_config.hold_release_delay
 
             # Update compound swipe config
             new_gesture_swipe_mappings = new_config.gesture_swipe_mappings
@@ -511,8 +514,8 @@ class Pipeline:
                 name: set(dirs.keys())
                 for name, dirs in new_gesture_swipe_mappings.items()
             }
-            self._debouncer._swipe_gesture_directions = new_swipe_gesture_directions
-            self._debouncer._swipe_window = new_config.swipe_window
+            self._orchestrator._swipe_gesture_directions = new_swipe_gesture_directions
+            self._orchestrator._swipe_window = new_config.swipe_window
             self._swipe_gesture_directions = new_swipe_gesture_directions
 
             # Re-parse compound key mappings for both hands
@@ -528,7 +531,7 @@ class Pipeline:
             else:
                 self._compound_mappings = right_compound_mappings
 
-            self._debouncer.reset()
+            self._orchestrator.reset()
             self._smoother.reset()
             self._swipe_detector.settling_frames = new_config.swipe_settling_frames
             self._swipe_detector._settling_frames_remaining = 0
