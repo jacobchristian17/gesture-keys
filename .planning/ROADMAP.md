@@ -128,7 +128,7 @@ Phases execute in numeric order: 14 -> 15 -> 16 -> 17
 | 11. Left Hand Detection and Classification | v1.3 | 2/2 | Complete | 2026-03-23 |
 | 12. Left Hand Configuration | v1.3 | 2/2 | Complete | 2026-03-24 |
 | 13. Preview and Polish | v1.3 | 1/1 | Complete | 2026-03-24 |
-| 14. Shared Types and Pipeline Unification | 2/2 | Complete   | 2026-03-24 | - |
+| 14. Shared Types and Pipeline Unification | 2/2 | Complete    | 2026-03-24 | - |
 | 15. Gesture Orchestrator | v2.0 | 0/? | Not started | - |
 | 16. Action Dispatch and Fire Modes | v2.0 | 0/? | Not started | - |
 | 17. Activation Gate | v2.0 | 0/? | Not started | - |
