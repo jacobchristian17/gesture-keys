@@ -83,7 +83,10 @@ Plans:
   3. Swiping while holding a static gesture transitions to the swiping temporal state with the correct direction
   4. The orchestrator prevents conflicting states (no simultaneous hold + swipe, no swipe without a base gesture)
   5. All v1.3 edge-case behaviors preserved: direct gesture transitions, static-first priority gate, swipe-exit reset, per-gesture cooldowns
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 15-01-PLAN.md -- TDD: Build GestureOrchestrator hierarchical FSM with full test coverage
+- [ ] 15-02-PLAN.md -- Wire orchestrator into Pipeline, delete debounce.py
 
 ### Phase 16: Action Dispatch and Fire Modes
 **Goal**: Gestures map to keyboard actions through a structured resolver with tap (press+release) and hold_key (sustained keypress) fire modes, with guaranteed stuck-key prevention
@@ -129,6 +132,6 @@ Phases execute in numeric order: 14 -> 15 -> 16 -> 17
 | 12. Left Hand Configuration | v1.3 | 2/2 | Complete | 2026-03-24 |
 | 13. Preview and Polish | v1.3 | 1/1 | Complete | 2026-03-24 |
 | 14. Shared Types and Pipeline Unification | 2/2 | Complete    | 2026-03-24 | - |
-| 15. Gesture Orchestrator | v2.0 | 0/? | Not started | - |
+| 15. Gesture Orchestrator | v2.0 | 0/2 | Not started | - |
 | 16. Action Dispatch and Fire Modes | v2.0 | 0/? | Not started | - |
 | 17. Activation Gate | v2.0 | 0/? | Not started | - |
