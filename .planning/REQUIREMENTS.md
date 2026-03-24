@@ -11,8 +11,8 @@ Requirements for structured gesture architecture rewrite. Each maps to roadmap p
 
 - [x] **PIPE-01**: Shared data types (FrameResult, GestureState, TemporalState enums) used by all pipeline components
 - [x] **PIPE-02**: Unified pipeline class that both preview and tray modes call, eliminating duplicated loop logic
-- [ ] **PIPE-03**: Preview mode wrapper using unified pipeline (~50 lines)
-- [ ] **PIPE-04**: Tray mode wrapper using unified pipeline (~30 lines)
+- [x] **PIPE-03**: Preview mode wrapper using unified pipeline (~50 lines)
+- [x] **PIPE-04**: Tray mode wrapper using unified pipeline (~30 lines)
 
 ### Activation
 
@@ -65,8 +65,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | PIPE-01 | Phase 14 | Complete |
 | PIPE-02 | Phase 14 | Complete |
-| PIPE-03 | Phase 14 | Pending |
-| PIPE-04 | Phase 14 | Pending |
+| PIPE-03 | Phase 14 | Complete |
+| PIPE-04 | Phase 14 | Complete |
 | ACTV-01 | Phase 17 | Pending |
 | ACTV-02 | Phase 17 | Pending |
 | ACTV-03 | Phase 17 | Pending |

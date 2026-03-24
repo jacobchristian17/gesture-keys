@@ -51,7 +51,7 @@
 
 **Milestone Goal:** Clean rewrite of the gesture pipeline with activation gating, gesture hierarchy (static + temporal states), and action-based dispatch with multiple fire modes.
 
-- [ ] **Phase 14: Shared Types and Pipeline Unification** - Eliminate duplicated loop logic with shared data types and a unified pipeline class
+- [x] **Phase 14: Shared Types and Pipeline Unification** - Eliminate duplicated loop logic with shared data types and a unified pipeline class (completed 2026-03-24)
 - [ ] **Phase 15: Gesture Orchestrator** - Unified state machine replacing debouncer and main-loop coordination
 - [ ] **Phase 16: Action Dispatch and Fire Modes** - Structured gesture-to-action mapping with tap and hold_key fire modes
 - [ ] **Phase 17: Activation Gate** - Gesture-based arm/disarm gating with configurable bypass
@@ -68,7 +68,7 @@
   3. Preview mode wrapper is under 80 lines (down from ~570) and tray mode wrapper is under 50 lines (down from ~515)
   4. All existing tests pass against the new pipeline without modification to test assertions
   5. Hot-reload (config edit while running) works through Pipeline.reload_config() in both modes
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 14-01-PLAN.md -- Create FrameResult dataclass and unified Pipeline class
 - [ ] 14-02-PLAN.md -- Rewrite preview and tray wrappers to use Pipeline
@@ -128,7 +128,7 @@ Phases execute in numeric order: 14 -> 15 -> 16 -> 17
 | 11. Left Hand Detection and Classification | v1.3 | 2/2 | Complete | 2026-03-23 |
 | 12. Left Hand Configuration | v1.3 | 2/2 | Complete | 2026-03-24 |
 | 13. Preview and Polish | v1.3 | 1/1 | Complete | 2026-03-24 |
-| 14. Shared Types and Pipeline Unification | 1/2 | In Progress|  | - |
+| 14. Shared Types and Pipeline Unification | 2/2 | Complete   | 2026-03-24 | - |
 | 15. Gesture Orchestrator | v2.0 | 0/? | Not started | - |
 | 16. Action Dispatch and Fire Modes | v2.0 | 0/? | Not started | - |
 | 17. Activation Gate | v2.0 | 0/? | Not started | - |

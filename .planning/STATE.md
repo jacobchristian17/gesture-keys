@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
 status: executing
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-03-24T11:16:28Z"
-last_activity: 2026-03-24 — Plan 14-01 completed (Pipeline + FrameResult)
+stopped_at: Completed 14-02-PLAN.md
+last_updated: "2026-03-24T11:24:44.369Z"
+last_activity: 2026-03-24 — Plan 14-02 completed (Wrapper rewrite)
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 10
-  completed_plans: 1
-  percent: 10
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
+  percent: 20
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 14 of 17 (Shared Types and Pipeline Unification)
-Plan: 1 of 1 (Phase 14) -- Plan 14-01 complete
+Plan: 2 of 3 (Phase 14) -- Plan 14-02 complete
 Status: Executing
-Last activity: 2026-03-24 — Plan 14-01 completed (Pipeline + FrameResult)
+Last activity: 2026-03-24 — Plan 14-02 completed (Wrapper rewrite)
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
@@ -45,6 +45,8 @@ Progress: [█░░░░░░░░░] 10%
 - [14-01] FrameResult uses @dataclass with 7 fields (landmarks, handedness, gesture, raw_gesture, debounce_state, swiping, frame_valid)
 - [14-01] DistanceFilter init fixed to include max_hand_size (tray.py bug)
 - [14-01] __main__.py used as source of truth for detection logic (not tray.py)
+- [14-02] Integration tests mock Pipeline as unit rather than individual components
+- [14-02] Tray _detection_loop keeps pre-Pipeline load_config() for error resilience
 
 ### Pending Todos
 
@@ -58,5 +60,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-24T11:16:28Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-03-24T11:24:44.366Z
+Stopped at: Completed 14-02-PLAN.md
