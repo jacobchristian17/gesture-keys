@@ -75,12 +75,13 @@ def draw_hand_landmarks(frame, hand_landmarks):
         cv2.circle(frame, (px, py), 5, (0, 0, 0), 1)  # Black outline
 
 
-def render_preview(frame, gesture_name, fps, debounce_state=None):
+def render_preview(frame, gesture_name, fps, debounce_state=None, handedness=None):
     """Render frame with solid bottom bar showing gesture label and FPS.
 
     Creates a dark gray bar below the camera feed with the gesture name
-    in the bottom-left, the FPS counter in the bottom-right, and an
-    optional debounce state indicator centered in the bar.
+    in the bottom-left, the FPS counter in the bottom-right, an
+    optional debounce state indicator centered in the bar, and an
+    optional hand indicator between the gesture label and center.
 
     Args:
         frame: BGR numpy array (camera feed).
@@ -88,6 +89,8 @@ def render_preview(frame, gesture_name, fps, debounce_state=None):
         fps: Current frames per second value.
         debounce_state: Optional debounce state string (IDLE, ACTIVATING,
             COOLDOWN, FIRED). Displayed centered and color-coded when provided.
+        handedness: Optional hand label ("Left" or "Right"). Displays a
+            compact "L" or "R" indicator when provided.
     """
     h, w = frame.shape[:2]
 
@@ -121,6 +124,16 @@ def render_preview(frame, gesture_name, fps, debounce_state=None):
         x = (w - text_size[0]) // 2
         cv2.putText(bar, debounce_state, (x, 28),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+
+    # Hand indicator (between gesture label and center debounce state)
+    if handedness is not None:
+        hand_letter = handedness[0]  # "L" or "R"
+        if handedness == "Left":
+            hand_color = (255, 200, 0)    # Cyan-ish blue (BGR)
+        else:
+            hand_color = (0, 200, 255)    # Orange-ish (BGR)
+        cv2.putText(bar, hand_letter, (w // 4, 28),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, hand_color, 1)
 
     # Stack frame + bar
     display = np.vstack([frame, bar])
