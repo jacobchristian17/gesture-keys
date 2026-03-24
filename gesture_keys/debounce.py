@@ -48,6 +48,7 @@ class DebounceState(Enum):
     FIRED = "FIRED"
     COOLDOWN = "COOLDOWN"
     HOLDING = "HOLDING"
+    SWIPE_WINDOW = "SWIPE_WINDOW"
 
 
 class GestureDebouncer:
@@ -69,12 +70,16 @@ class GestureDebouncer:
         gesture_cooldowns: dict[str, float] | None = None,
         gesture_modes: dict[str, str] | None = None,
         hold_release_delay: float = 0.1,
+        swipe_gesture_directions: dict[str, set[str]] | None = None,
+        swipe_window: float = 0.2,
     ) -> None:
         self._activation_delay = activation_delay
         self._cooldown_duration = cooldown_duration
         self._gesture_cooldowns = gesture_cooldowns or {}
         self._gesture_modes = gesture_modes or {}
         self._hold_release_delay = hold_release_delay
+        self._swipe_gesture_directions = swipe_gesture_directions or {}
+        self._swipe_window = swipe_window
         self._cooldown_duration_active = cooldown_duration
         self._state = DebounceState.IDLE
         self._activating_gesture: Optional[Gesture] = None
@@ -83,6 +88,7 @@ class GestureDebouncer:
         self._cooldown_gesture: Optional[Gesture] = None
         self._holding_gesture: Optional[Gesture] = None
         self._release_delay_start: Optional[float] = None
+        self._swipe_window_start: float = 0.0
 
     @property
     def state(self) -> DebounceState:
@@ -97,6 +103,11 @@ class GestureDebouncer:
         """
         return self._state == DebounceState.ACTIVATING
 
+    @property
+    def in_swipe_window(self) -> bool:
+        """True when debouncer is in SWIPE_WINDOW state."""
+        return self._state == DebounceState.SWIPE_WINDOW
+
     def reset(self) -> None:
         """Reset to IDLE state. Used for config reload."""
         self._state = DebounceState.IDLE
@@ -107,6 +118,7 @@ class GestureDebouncer:
         self._cooldown_duration_active = self._cooldown_duration
         self._holding_gesture = None
         self._release_delay_start = None
+        self._swipe_window_start = 0.0
 
     def update(
         self, gesture: Optional[Gesture], timestamp: float

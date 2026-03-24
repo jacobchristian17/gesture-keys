@@ -550,3 +550,21 @@ class TestHoldModeCooldownCycle:
         # Cooldown expires + release -> IDLE
         d.update(None, 1.2)
         assert d.state == DebounceState.IDLE
+
+
+class TestSwipeWindowState:
+    """Test SWIPE_WINDOW state basics."""
+
+    def test_swipe_window_state_exists(self):
+        assert hasattr(DebounceState, "SWIPE_WINDOW")
+
+    def test_in_swipe_window_false_by_default(self):
+        d = GestureDebouncer()
+        assert d.in_swipe_window is False
+
+    def test_constructor_accepts_swipe_params(self):
+        d = GestureDebouncer(
+            swipe_gesture_directions={"peace": {"swipe_left", "swipe_right"}},
+            swipe_window=0.2,
+        )
+        assert d.in_swipe_window is False
