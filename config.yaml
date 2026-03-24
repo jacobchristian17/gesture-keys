@@ -1,4 +1,4 @@
-# preferred_hand: left  # Which hand to prefer when both are visible at startup ("left" or "right")
+preferred_hand: left  # Which hand to prefer when both are visible at startup ("left" or "right")
 
 camera:
   index: 0
@@ -7,6 +7,7 @@ detection:
   smoothing_window: 2
   activation_delay: 0.2
   cooldown_duration: 0.1
+  swipe_window: 0.2          # seconds to wait for static-to-swipe compound gesture
 
 distance:
   enabled: true
