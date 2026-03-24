@@ -912,3 +912,31 @@ left_gestures:
         config = load_config(str(cfg))
         resolved = resolve_hand_gestures("Right", config)
         assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+left"
+
+    def test_left_partial_override_preserves_other_directions(self, tmp_path):
+        """Left-hand overriding only swipe_left should keep swipe_right from right-hand."""
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+gestures:
+  peace:
+    key: ctrl+z
+    threshold: 0.7
+    swipe:
+      swipe_left:
+        key: ctrl+shift+left
+      swipe_right:
+        key: ctrl+shift+right
+left_gestures:
+  peace:
+    swipe:
+      swipe_left:
+        key: ctrl+shift+right
+""")
+        config = load_config(str(cfg))
+        resolved = resolve_hand_gestures("Left", config)
+        # Left override applied
+        assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+right"
+        # Right-hand swipe_right preserved
+        assert resolved["peace"]["swipe"]["swipe_right"]["key"] == "ctrl+shift+right"

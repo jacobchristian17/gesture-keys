@@ -108,6 +108,11 @@ class GestureDebouncer:
         """True when debouncer is in SWIPE_WINDOW state."""
         return self._state == DebounceState.SWIPE_WINDOW
 
+    @property
+    def activating_gesture(self) -> Optional[Gesture]:
+        """The gesture currently being activated or in swipe window."""
+        return self._activating_gesture
+
     def reset(self) -> None:
         """Reset to IDLE state. Used for config reload."""
         self._state = DebounceState.IDLE

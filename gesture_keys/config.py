@@ -184,7 +184,14 @@ def resolve_hand_gestures(handedness: str, config: AppConfig) -> dict:
     merged = copy.deepcopy(config.gestures)
     for gesture_name, left_settings in config.left_gestures.items():
         if gesture_name in merged:
-            merged[gesture_name].update(left_settings)
+            # Deep-merge swipe sub-dict so partial left overrides
+            # preserve unmapped directions from the right-hand defaults
+            if "swipe" in left_settings and "swipe" in merged[gesture_name]:
+                merged[gesture_name]["swipe"].update(left_settings["swipe"])
+                remaining = {k: v for k, v in left_settings.items() if k != "swipe"}
+                merged[gesture_name].update(remaining)
+            else:
+                merged[gesture_name].update(left_settings)
         else:
             merged[gesture_name] = dict(left_settings)
     return merged

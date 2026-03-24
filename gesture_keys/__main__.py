@@ -353,7 +353,7 @@ def run_preview_mode(args):
                 # mapped swipe. This prevents unmapped swipes from consuming
                 # the detector's internal cooldown.
                 if debouncer.in_swipe_window and swipe_result is not None:
-                    gesture_name = debouncer._activating_gesture.value if debouncer._activating_gesture else None
+                    gesture_name = debouncer.activating_gesture.value if debouncer.activating_gesture else None
                     mapped = swipe_gesture_directions.get(gesture_name, set())
                     if swipe_result.value not in mapped:
                         swipe_detector.reset()
@@ -445,8 +445,8 @@ def run_preview_mode(args):
                     debouncer._gesture_modes = merged_modes
                     debouncer._hold_release_delay = new_config.hold_release_delay
                     # Handle SWIPE_WINDOW -> fire static action before resetting (spec requirement)
-                    if debouncer.in_swipe_window and debouncer._activating_gesture is not None:
-                        sw_gesture = debouncer._activating_gesture
+                    if debouncer.in_swipe_window and debouncer.activating_gesture is not None:
+                        sw_gesture = debouncer.activating_gesture
                         sw_name = sw_gesture.value
                         if sw_name not in new_config.gesture_swipe_mappings:
                             if sw_name in key_mappings:
