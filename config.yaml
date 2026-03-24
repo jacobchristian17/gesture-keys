@@ -7,7 +7,7 @@ detection:
   smoothing_window: 2
   activation_delay: 0.2
   cooldown_duration: 0.1
-  swipe_window: 0.2          # seconds to wait for static-to-swipe compound gesture
+  swipe_window: 0.5          # seconds to wait for static-to-swipe compound gesture
 
 distance:
   enabled: true
@@ -19,6 +19,11 @@ gestures:
     # key: space     
     key: win+tab
     threshold: 0.7
+    swipe:
+      swipe_left:
+        key: "1"
+      swipe_right:
+        key: "2"
   fist: # close 5 fingers
     # key: space     
     key: space
@@ -34,9 +39,10 @@ gestures:
     key: alt+tab
     threshold: 0.7
   peace: # 2 fingers up: index + middle
-    # key: space     
+    # key: space
     key: win+ctrl+left
     threshold: 0.7
+    
   scout: # 3 fingers up:  index + middle + ring
     # key: space     
     key: win+ctrl+right
@@ -52,7 +58,7 @@ gestures:
       
 swipe:
   settling_frames: 2
-  cooldown: 0.1
+  cooldown: 0.3
   min_velocity: 0.15
   min_displacement: 0.03
   axis_ratio: 1.5

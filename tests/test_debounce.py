@@ -620,10 +620,20 @@ class TestSwipeWindowTransitions:
         assert result == DebounceSignal(DebounceAction.FIRE, Gesture.PEACE)
         assert d.state == DebounceState.FIRED
 
-    def test_idle_on_gesture_lost(self):
+    def test_tolerates_gesture_loss_during_window(self):
+        """Gesture loss during window is tolerated (swipe distorts hand shape)."""
         d = self._make_debouncer()
         d.update(Gesture.PEACE, 0.0)
         result = d.update(None, 0.05)
+        assert result is None
+        assert d.state == DebounceState.SWIPE_WINDOW  # stays in window
+
+    def test_idle_on_window_expired_gesture_gone(self):
+        """If window expires and gesture is no longer held, go IDLE."""
+        d = self._make_debouncer(swipe_window=0.2)
+        d.update(Gesture.PEACE, 0.0)
+        d.update(None, 0.05)  # gesture lost mid-window
+        result = d.update(None, 0.25)  # window expires, gesture still gone
         assert result is None
         assert d.state == DebounceState.IDLE
 
@@ -634,12 +644,13 @@ class TestSwipeWindowTransitions:
         d.update(Gesture.FIST, 0.05)
         assert d.state == DebounceState.SWIPE_WINDOW
 
-    def test_gesture_switch_to_non_swipe(self):
+    def test_gesture_switch_tolerated_during_window(self):
+        """Gesture changes during window are tolerated (swipe distorts hand)."""
         d = self._make_debouncer()
         d.update(Gesture.PEACE, 0.0)
         assert d.state == DebounceState.SWIPE_WINDOW
         d.update(Gesture.THUMBS_UP, 0.05)
-        assert d.state == DebounceState.ACTIVATING
+        assert d.state == DebounceState.SWIPE_WINDOW  # stays in window
 
     def test_is_activating_false_during_swipe_window(self):
         d = self._make_debouncer()

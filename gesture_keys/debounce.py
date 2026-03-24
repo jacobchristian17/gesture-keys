@@ -161,7 +161,7 @@ class GestureDebouncer:
                 self._state = DebounceState.SWIPE_WINDOW
                 self._activating_gesture = gesture
                 self._swipe_window_start = timestamp
-                logger.debug("IDLE -> SWIPE_WINDOW: %s", gesture.value)
+                logger.info("IDLE -> SWIPE_WINDOW: %s", gesture.value)
             else:
                 self._state = DebounceState.ACTIVATING
                 self._activating_gesture = gesture
@@ -204,24 +204,10 @@ class GestureDebouncer:
         self, gesture: Optional[Gesture], timestamp: float,
         swipe_direction: Optional[SwipeDirection],
     ) -> Optional[DebounceSignal]:
-        # Gesture lost -> IDLE
-        if gesture is None:
-            self._state = DebounceState.IDLE
-            self._activating_gesture = None
-            logger.debug("SWIPE_WINDOW -> IDLE: gesture released")
-            return None
-
-        # Gesture changed -> restart for new gesture
-        if gesture != self._activating_gesture:
-            self._activating_gesture = gesture
-            if gesture.value in self._swipe_gesture_directions:
-                self._swipe_window_start = timestamp
-                logger.debug("SWIPE_WINDOW reset: switched to %s", gesture.value)
-            else:
-                self._state = DebounceState.ACTIVATING
-                self._activation_start = timestamp
-                logger.debug("SWIPE_WINDOW -> ACTIVATING: %s (no swipe mapping)", gesture.value)
-            return None
+        # During SWIPE_WINDOW, tolerate gesture loss and changes because
+        # the swiping motion distorts hand shape. We only care about:
+        # 1. Did a mapped swipe arrive?
+        # 2. Did the window expire?
 
         # Swipe detected and direction is mapped for this gesture -> COMPOUND_FIRE
         if swipe_direction is not None:
@@ -235,7 +221,7 @@ class GestureDebouncer:
                 )
                 self._cooldown_gesture = fired_gesture
                 self._activating_gesture = None
-                logger.debug(
+                logger.info(
                     "SWIPE_WINDOW -> COOLDOWN: compound %s + %s",
                     fired_gesture.value, swipe_direction.value,
                 )
@@ -243,11 +229,18 @@ class GestureDebouncer:
             # Unmapped direction: ignore, keep waiting
             return None
 
-        # Window expired -> fire static gesture normally
+        # Window expired -> fire static gesture if still held, else go IDLE
         if timestamp - self._swipe_window_start >= self._swipe_window:
-            self._state = DebounceState.FIRED
-            logger.debug("SWIPE_WINDOW -> FIRED: %s (window expired)", self._activating_gesture.value)
-            return DebounceSignal(DebounceAction.FIRE, self._activating_gesture)
+            if gesture == self._activating_gesture:
+                self._state = DebounceState.FIRED
+                logger.info("SWIPE_WINDOW -> FIRED: %s (window expired)", self._activating_gesture.value)
+                return DebounceSignal(DebounceAction.FIRE, self._activating_gesture)
+            else:
+                # Gesture lost or changed during window, no swipe came
+                self._state = DebounceState.IDLE
+                self._activating_gesture = None
+                logger.info("SWIPE_WINDOW -> IDLE: window expired, gesture gone")
+                return None
 
         return None
 
