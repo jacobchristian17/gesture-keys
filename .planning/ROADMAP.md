@@ -105,4 +105,4 @@ Plans:
 | 10. Tuned Defaults and Config Surface | v1.2 | 4/4 | Complete | 2026-03-23 |
 | 11. Left Hand Detection and Classification | v1.3 | 2/2 | Complete | 2026-03-23 |
 | 12. Left Hand Configuration | v1.3 | 2/2 | Complete | 2026-03-24 |
-| 13. Preview and Polish | 1/1 | Complete   | 2026-03-24 | - |
+| 13. Preview and Polish | 1/1 | Complete    | 2026-03-24 | - |
