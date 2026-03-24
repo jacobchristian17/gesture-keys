@@ -2,7 +2,7 @@
 
 These tests validate the contract that the main loop relies on:
 - is_swiping is True only during ARMED state (not COOLDOWN)
-- Static gestures have priority: debouncer.is_activating suppresses swipe arming
+- Static gestures have priority: orchestrator.is_activating suppresses swipe arming
 - is_swiping is False during held poses (static pipeline runs normally)
 - reset() cleanly interrupts swipe state for distance gating
 - Swipe-to-pose transitions are clean (no stuck states)
@@ -13,7 +13,7 @@ from enum import Enum
 from types import SimpleNamespace
 
 from gesture_keys.classifier import Gesture
-from gesture_keys.debounce import GestureDebouncer, DebounceState
+from gesture_keys.orchestrator import GestureOrchestrator, LifecycleState
 from gesture_keys.smoother import GestureSmoother
 from gesture_keys.swipe import SwipeDetector, SwipeDirection, _SwipeState
 
@@ -177,7 +177,7 @@ class TestSmootherResetLeakRegression:
         )
 
 class TestSwipeExitReset:
-    """Tests for smoother/debouncer reset when swipe exits (is_swiping True->False)."""
+    """Tests for smoother/orchestrator reset when swipe exits (is_swiping True->False)."""
 
     def test_exit_reset_clears_smoother(self):
         """When swipe exits, smoother buffer must be cleared so stale
@@ -198,22 +198,20 @@ class TestSwipeExitReset:
         )
         assert len(smoother._buffer) == 1, "Buffer should only contain the one new frame"
 
-    def test_exit_reset_clears_debouncer(self):
-        """When swipe exits, debouncer must return to IDLE so no stale
+    def test_exit_reset_clears_orchestrator(self):
+        """When swipe exits, orchestrator must return to IDLE so no stale
         activation/cooldown state carries over."""
-        from gesture_keys.debounce import GestureDebouncer, DebounceState
-        from gesture_keys.classifier import Gesture
+        orchestrator = GestureOrchestrator(activation_delay=0.3, cooldown_duration=0.5)
 
-        debouncer = GestureDebouncer(activation_delay=0.3, cooldown_duration=0.5)
-
-        # Advance debouncer to ACTIVATING state
-        debouncer.update(Gesture.OPEN_PALM, 0.0)
-        assert debouncer.state == DebounceState.ACTIVATING
+        # Advance orchestrator to ACTIVATING state
+        result = orchestrator.update(Gesture.OPEN_PALM, 0.0)
+        assert result.outer_state == LifecycleState.ACTIVATING
 
         # Simulate swipe exit: reset
-        debouncer.reset()
-        assert debouncer.state == DebounceState.IDLE, (
-            "After exit reset, debouncer should be IDLE"
+        orchestrator.reset()
+        result = orchestrator.update(None, 1.0)
+        assert result.outer_state == LifecycleState.IDLE, (
+            "After exit reset, orchestrator should be IDLE"
         )
 
     def test_exit_reset_symmetric_with_entry(self):
@@ -295,7 +293,7 @@ class TestHotReloadReset:
 
 
 class TestTransitionLatency:
-    """End-to-end test: swipe -> cooldown -> settling -> smoother refill -> debouncer fires.
+    """End-to-end test: swipe -> cooldown -> settling -> smoother refill -> orchestrator fires.
 
     Validates that the full pipeline latency from cooldown end to static gesture
     fire is within the ~600ms budget (settling 100ms + smoother 100ms + activation_delay 400ms).
@@ -319,7 +317,7 @@ class TestTransitionLatency:
             # settling_frames uses default -- this is what we're testing
         )
         smoother = GestureSmoother(window_size=3)
-        debouncer = GestureDebouncer(activation_delay=0.4, cooldown_duration=0.8)
+        orchestrator = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.8)
 
         # Phase 1: Trigger a swipe
         positions = _generate_swipe_positions((0.7, 0.5), (0.2, 0.5), steps=8)
@@ -334,9 +332,9 @@ class TestTransitionLatency:
 
         # Simulate main-loop exit reset (as __main__.py does)
         smoother.reset()
-        debouncer.reset()
+        orchestrator.reset()
 
-        # Phase 3: Feed static gesture frames and track when debouncer fires
+        # Phase 3: Feed static gesture frames and track when orchestrator fires
         t = cooldown_end_time + fps_dt
         fire_time = None
 
@@ -347,9 +345,9 @@ class TestTransitionLatency:
 
             # Static pipeline runs whenever is_swiping is False
             gesture = smoother.update(Gesture.OPEN_PALM)
-            fire = debouncer.update(gesture, t)
+            result = orchestrator.update(gesture, t)
 
-            if fire is not None:
+            if len(result.signals) > 0:
                 fire_time = t
                 break
 

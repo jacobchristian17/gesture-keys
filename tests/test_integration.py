@@ -10,8 +10,7 @@ import numpy as np
 import pytest
 
 from gesture_keys.classifier import Gesture
-from gesture_keys.debounce import DebounceState
-from gesture_keys.pipeline import FrameResult
+from gesture_keys.pipeline import DebounceState, FrameResult
 
 # Force-import __main__ module so patch() can resolve it
 import gesture_keys.__main__ as _main_mod
