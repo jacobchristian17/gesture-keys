@@ -653,11 +653,12 @@ class TestPerGestureCooldowns:
             gesture_cooldowns={"pinch": 0.6},
         )
         o.update(Gesture.PINCH, 0.0)
-        o.update(Gesture.PINCH, 0.2)  # fires
-        o.update(Gesture.PINCH, 0.3)  # -> cooldown at t=0.3
-        result = o.update(None, 0.8)
+        o.update(Gesture.PINCH, 0.2)  # fires + cooldown starts at t=0.2
+        # 0.5s elapsed (t=0.7), still in cooldown (0.6s per-gesture)
+        result = o.update(None, 0.7)
         assert result.outer_state == LifecycleState.COOLDOWN
-        result = o.update(None, 1.0)
+        # 0.7s elapsed (t=0.9), cooldown over
+        result = o.update(None, 0.9)
         assert result.outer_state == LifecycleState.IDLE
 
 
