@@ -43,7 +43,7 @@
 
 - [x] **Phase 11: Left Hand Detection and Classification** - 2 plans - Detect left hand via MediaPipe and classify all gestures with right-hand parity (completed 2026-03-23)
 - [x] **Phase 12: Left Hand Configuration** - 2 plans - Mirror right-hand mappings by default with optional separate left-hand overrides (completed 2026-03-23)
-- [ ] **Phase 13: Preview and Polish** - Show active hand in preview overlay and verify end-to-end left hand workflow
+- [ ] **Phase 13: Preview and Polish** - 1 plan - Show active hand in preview overlay and verify end-to-end left hand workflow
 
 ## Phase Details
 
@@ -74,8 +74,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Add left-hand config fields and resolution functions to config.py
-- [ ] 12-02-PLAN.md — Wire hand-aware mapping resolution into both detection loops with hot-reload
+- [x] 12-01-PLAN.md — Add left-hand config fields and resolution functions to config.py
+- [x] 12-02-PLAN.md — Wire hand-aware mapping resolution into both detection loops with hot-reload
 
 ### Phase 13: Preview and Polish
 **Goal**: Users can visually confirm which hand is active and the full left-hand workflow is verified end-to-end
@@ -84,10 +84,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Preview overlay displays which hand (left or right) is currently active
   2. Switching hands in front of the camera updates the active hand indicator in real time
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 13-01: TBD
+- [ ] 13-01-PLAN.md — Add hand indicator to preview overlay and verify end-to-end
 
 ## Progress
 
@@ -104,5 +104,5 @@ Plans:
 | 9. Swipe/Static Transition Latency | v1.2 | 2/2 | Complete | 2026-03-23 |
 | 10. Tuned Defaults and Config Surface | v1.2 | 4/4 | Complete | 2026-03-23 |
 | 11. Left Hand Detection and Classification | v1.3 | 2/2 | Complete | 2026-03-23 |
-| 12. Left Hand Configuration | 2/2 | Complete    | 2026-03-24 | - |
-| 13. Preview and Polish | v1.3 | 0/? | Not started | - |
+| 12. Left Hand Configuration | v1.3 | 2/2 | Complete | 2026-03-24 |
+| 13. Preview and Polish | v1.3 | 0/1 | Not started | - |
