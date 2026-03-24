@@ -25,20 +25,15 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Direct gesture-to-gesture firing without returning to "none" state — v1.2
 - ✓ Faster swipe↔static transitions (reduced settling/cooldown lag) — v1.2
 - ✓ Tuned debounce/cooldown/threshold defaults based on real usage — v1.2
+- ✓ Left-hand detection with same 6 static gestures + 4 swipe directions — v1.3
+- ✓ One-hand-at-a-time mode with active hand selection and preferred_hand config — v1.3
+- ✓ Left hand mirrors right-hand key mappings by default — v1.3
+- ✓ Optional separate left-hand key mappings via left_gestures config section — v1.3
+- ✓ Preview overlay hand indicator (L/R) showing active hand in real time — v1.3
 
 ### Active
 
-## Current Milestone: v1.3 Left Hand Support
-
-**Goal:** Add left-hand gesture detection with 1:1 feature parity to the right hand, one hand active at a time, with optional separate key mappings.
-
-**Target features:**
-- Left-hand detection with same 6 static gestures + 4 swipe directions
-- One-hand-at-a-time mode (whichever hand is in frame)
-- Left hand mirrors right-hand key mappings by default
-- Optional separate left-hand key mappings in config.yaml
-- Same debounce/cooldown/pipeline behavior for left hand
-- Swipe directions are absolute (no horizontal mirroring)
+(No active requirements — planning next milestone)
 
 ### Out of Scope
 
@@ -48,15 +43,18 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - Multiple camera support — single camera index from config
 - Gesture profiles / per-app mappings — single global config for now
 - GPU acceleration (onnxruntime-gpu) — MediaPipe Python on Windows is CPU-only; 30+ FPS on CPU is sufficient
-- Simultaneous two-hand detection — one hand at a time for v1.3
+- Simultaneous two-hand detection — one hand at a time; complexity deferred
+- Per-hand debounce/cooldown tuning — same pipeline behavior for both hands
+- Mirrored swipe directions for left hand — swipe directions are absolute
 
 ## Context
 
-Shipped v1.2 with 6,661 LOC Python.
+Shipped v1.3 with 7,549 LOC Python.
 Tech stack: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML.
 Platform: Windows 11, CPU inference (30+ FPS sufficient).
 Architecture: camera thread → MediaPipe landmarks → classifier → smoother → debouncer → keystroke sender, all wrapped in pystray tray app.
 Detection pipeline: static classification runs before swipe detection; debouncer.is_activating gates swipe arming. Per-gesture cooldowns and settling_frames are configurable via config.yaml.
+Both hands supported with active hand selection (single-hand auto, both-hand sticky, preferred_hand config). Left hand mirrors right-hand mappings by default with optional per-hand overrides via left_gestures YAML section.
 
 ## Constraints
 
@@ -81,6 +79,10 @@ Detection pipeline: static classification runs before swipe detection; debouncer
 | Settling frames 10→3 | Reduce post-swipe latency from ~330ms to ~100ms | ✓ Good — safe with exit reset flushing stale state |
 | Static-first priority gate | Prevent swipe arming while debouncer is activating a static gesture | ✓ Good — eliminates swipe-preempts-static bug |
 | Per-gesture cooldowns via config.yaml | Different gestures need different cooldowns (e.g., pinch longer than fist) | ✓ Good — simple gesture.value string key lookup |
+| Dict-based active hand selection | O(1) lookup from MediaPipe results, sticky during two-hand frames | ✓ Good — prevents hand-switch jitter |
+| Classifier hand-agnostic (no changes) | MediaPipe landmarks normalize hand geometry; thumb uses abs() | ✓ Good — zero classifier code changes for left hand |
+| Deep-merge for left gestures, full replace for swipes | Gestures benefit from partial override; swipe dirs are atomic | ✓ Good — intuitive config behavior |
+| Pre-parse both hand mappings at startup | Avoid per-frame resolution overhead; instant swap on hand switch | ✓ Good — hot-reload re-parses both sets |
 
 ---
-*Last updated: 2026-03-24 after v1.3 milestone start*
+*Last updated: 2026-03-24 after v1.3 milestone*

@@ -1,5 +1,21 @@
 # Milestones
 
+## v1.3 Left Hand Support (Shipped: 2026-03-24)
+
+**Phases completed:** 3 phases, 5 plans, 8 tasks
+**Lines of code:** 7,549 Python (total project)
+**Timeline:** 3 days (2026-03-21 → 2026-03-24)
+**Git range:** 5fa3045..f04d74f
+
+**Key accomplishments:**
+- Both-hand detection with active hand selection (sticky, preferred, transition jitter prevention)
+- Left-hand classification verified hand-agnostic across all 7 gestures — zero classifier changes needed
+- Deep-merge config resolution for per-hand gesture and swipe mappings via left_gestures YAML section
+- Hand-aware mapping pre-parsed at startup with instant hand-switch swap and hot-reload re-resolution
+- Preview overlay hand indicator (L/R) with distinct per-hand colors (cyan-blue Left, orange Right)
+
+---
+
 ## v1.2 Continuous and Seamless Commands (Shipped: 2026-03-23)
 
 **Phases completed:** 3 phases, 8 plans

@@ -123,6 +123,47 @@
 
 ---
 
+## Milestone: v1.3 — Left Hand Support
+
+**Shipped:** 2026-03-24
+**Phases:** 3 | **Plans:** 5
+
+### What Was Built
+- Both-hand detection with active hand selection (sticky, preferred, transition jitter prevention)
+- Left-hand classification verified hand-agnostic — zero classifier changes needed
+- Deep-merge config resolution for per-hand gesture and swipe mappings via left_gestures YAML section
+- Hand-aware mapping pre-parsed at startup with instant hand-switch swap and hot-reload
+- Preview overlay hand indicator (L/R) with distinct per-hand colors
+
+### What Worked
+- Classifier hand-agnosticism was a major win — MediaPipe normalizes hand geometry, so abs()/y-axis-only checks work for both hands without code changes
+- Pre-parsing both hand mapping sets at startup gives instant swap on hand switch (no per-frame resolution overhead)
+- Transition frame returning ([], None) during hand switches prevents jitter cleanly
+- TDD continued to catch issues early — 4 new test files, all passing before integration
+
+### What Was Inefficient
+- Duplicated loop code in __main__.py and tray.py remains — hand-switch logic, mapping pre-parse, and hot-reload all had to be applied twice (carried forward from v1.2 lesson)
+- 3 pre-existing config test failures persisted throughout all 5 plans due to user-modified config.yaml — should be addressed
+
+### Patterns Established
+- `detect()` returns (landmarks, handedness) tuple — all downstream consumers unpack this
+- `resolve_hand_*()` functions for per-hand mapping lookup at config layer
+- Dual-mapping pre-parse at startup: right_key_mappings + left_key_mappings swapped by handedness
+- Preview overlay optional params: add kwarg with None default, render only when not None
+
+### Key Lessons
+1. Testing hand-agnosticism of existing code before writing new code saves significant effort
+2. Sticky active hand selection (don't switch during two-hand frames) prevents jitter better than priority-based selection
+3. Deep-merge for gesture overrides + full replacement for swipe directions matches user mental model of config
+4. Loop code duplication (__main__.py + tray.py) is now a confirmed pattern — refactor is overdue for next milestone
+
+### Cost Observations
+- Model mix: opus for execution, sonnet for verification
+- 5 plans across 3 days, ~3-5 min per plan execution
+- Notable: Smallest milestone (5 plans) but high impact — doubled the supported input surface
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -132,10 +173,13 @@
 | v1.0 | 3 | 7 | Initial project — established TDD + human verification pattern |
 | v1.1 | 4 | 8 | Extended pipeline architecture — added SwipeDetector subsystem |
 | v1.2 | 3 | 8 | UAT gap closure pattern — plans grew from 2→4 in Phase 10 |
+| v1.3 | 3 | 5 | Smallest milestone — hand-agnostic classifier, dual-mapping pre-parse |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. Human verification / UAT catches issues automated tests miss — confirmed in v1.0 (tray icon), v1.2 (swipe priority)
+1. Human verification / UAT catches issues automated tests miss — confirmed in v1.0 (tray icon), v1.2 (swipe priority), v1.3 (preview indicator)
 2. Bottom-up architecture with independently testable phases reduces integration risk
 3. Research before planning identifies minimal keystone changes — keeps implementation focused (v1.2)
 4. Fix prerequisites before optimizations to avoid cascading failures (v1.1 settling frames → v1.2 reduction)
+5. Test existing code assumptions before writing new code — v1.3 classifier was already hand-agnostic, saving significant effort
+6. Duplicated loop code (__main__.py + tray.py) is a persistent maintenance burden — flagged in v1.2, confirmed in v1.3
