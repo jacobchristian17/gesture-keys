@@ -859,3 +859,56 @@ gestures:
         config = load_config(str(cfg))
         assert "swipe_left" in config.gesture_swipe_mappings["peace"]
         assert "swipe_right" not in config.gesture_swipe_mappings["peace"]
+
+
+class TestLeftHandSwipeMerge:
+    """Tests for left-hand gesture override with swipe blocks."""
+
+    def test_left_gestures_swipe_override(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+gestures:
+  peace:
+    key: ctrl+z
+    threshold: 0.7
+    swipe:
+      swipe_left:
+        key: ctrl+shift+left
+      swipe_right:
+        key: ctrl+shift+right
+left_gestures:
+  peace:
+    swipe:
+      swipe_left:
+        key: ctrl+shift+right
+      swipe_right:
+        key: ctrl+shift+left
+""")
+        config = load_config(str(cfg))
+        resolved = resolve_hand_gestures("Left", config)
+        assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+right"
+        assert resolved["peace"]["swipe"]["swipe_right"]["key"] == "ctrl+shift+left"
+
+    def test_right_hand_unaffected(self, tmp_path):
+        cfg = tmp_path / "config.yaml"
+        cfg.write_text("""
+camera:
+  index: 0
+gestures:
+  peace:
+    key: ctrl+z
+    threshold: 0.7
+    swipe:
+      swipe_left:
+        key: ctrl+shift+left
+left_gestures:
+  peace:
+    swipe:
+      swipe_left:
+        key: ctrl+shift+right
+""")
+        config = load_config(str(cfg))
+        resolved = resolve_hand_gestures("Right", config)
+        assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+left"
