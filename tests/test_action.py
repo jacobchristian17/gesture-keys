@@ -238,7 +238,7 @@ class TestCompoundFire:
         signal = OrchestratorSignal(
             OrchestratorAction.COMPOUND_FIRE,
             Gesture.OPEN_PALM,
-            SwipeDirection.swipe_left,
+            SwipeDirection.SWIPE_LEFT,
         )
         dispatcher.dispatch(signal)
         mock_sender.send.assert_called_once_with([], "1")
@@ -248,7 +248,7 @@ class TestCompoundFire:
         signal = OrchestratorSignal(
             OrchestratorAction.COMPOUND_FIRE,
             Gesture.FIST,
-            SwipeDirection.swipe_left,
+            SwipeDirection.SWIPE_LEFT,
         )
         dispatcher.dispatch(signal)
         mock_sender.send.assert_not_called()
