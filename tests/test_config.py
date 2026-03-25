@@ -552,7 +552,7 @@ class TestGestureModesConfig:
             "  fist:\n    key: space\n    threshold: 0.7\n    mode: hold\n"
         )
         config = load_config(str(cfg))
-        assert config.gesture_modes == {"fist": "hold"}
+        assert config.gesture_modes == {"fist": "hold_key"}
 
     def test_mode_tap_parsed(self, tmp_path):
         cfg = tmp_path / "cfg.yaml"
@@ -608,7 +608,7 @@ class TestGestureModesConfig:
         )
         config = load_config(str(cfg))
         assert config.gesture_modes == {
-            "fist": "hold",
+            "fist": "hold_key",
             "open_palm": "tap",
             "pinch": "tap",
         }
@@ -693,7 +693,7 @@ class TestLeftHandConfig:
             "  open_palm:\n    key: ctrl+w\n    threshold: 0.8\n    mode: hold\n"
         )
         config = load_config(str(cfg))
-        assert config.left_gesture_modes == {"open_palm": "hold"}
+        assert config.left_gesture_modes == {"open_palm": "hold_key"}
 
     # --- resolve_hand_gestures ---
 

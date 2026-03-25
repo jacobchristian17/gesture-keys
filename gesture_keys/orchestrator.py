@@ -77,7 +77,7 @@ class GestureOrchestrator:
         activation_delay: Seconds a gesture must be held before firing.
         cooldown_duration: Seconds after firing during which same gesture is blocked.
         gesture_cooldowns: Per-gesture cooldown overrides (gesture name -> seconds).
-        gesture_modes: Per-gesture mode overrides (gesture name -> "tap" or "hold").
+        gesture_modes: Per-gesture mode overrides (gesture name -> "tap" or "hold_key").
         hold_release_delay: Seconds to wait after gesture loss before releasing hold.
         swipe_gesture_directions: Gesture name -> set of mapped swipe direction strings.
         swipe_window: Seconds to wait for a swipe after a swipe-mapped gesture appears.
@@ -324,7 +324,7 @@ class GestureOrchestrator:
 
         if timestamp - self._activation_start >= self._activation_delay:
             mode = self._gesture_modes.get(gesture.value, "tap")
-            if mode == "hold":
+            if mode == "hold_key":
                 # ACTIVATING -> ACTIVE(HOLD) + HOLD_START
                 self._outer_state = LifecycleState.ACTIVE
                 self._temporal_state = TemporalState.HOLD

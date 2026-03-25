@@ -88,7 +88,7 @@ class TestConstructor:
             activation_delay=0.2,
             cooldown_duration=0.5,
             gesture_cooldowns={"fist": 0.6},
-            gesture_modes={"fist": "hold"},
+            gesture_modes={"fist": "hold_key"},
             hold_release_delay=0.15,
             swipe_gesture_directions={"peace": {"swipe_left"}},
             swipe_window=0.3,
@@ -278,7 +278,7 @@ class TestHoldMode:
 
     def test_hold_mode_activating_to_active_hold(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         result = o.update(Gesture.FIST, 0.5)
@@ -291,7 +291,7 @@ class TestHoldMode:
 
     def test_hold_mode_stays_active_hold_while_gesture_continues(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -303,7 +303,7 @@ class TestHoldMode:
     def test_hold_release_delay_absorbs_flicker(self):
         o = GestureOrchestrator(
             activation_delay=0.4, hold_release_delay=0.1,
-            gesture_modes={"fist": "hold"},
+            gesture_modes={"fist": "hold_key"},
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -319,7 +319,7 @@ class TestHoldMode:
     def test_hold_release_after_delay_expires(self):
         o = GestureOrchestrator(
             activation_delay=0.4, hold_release_delay=0.1,
-            gesture_modes={"fist": "hold"},
+            gesture_modes={"fist": "hold_key"},
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -334,7 +334,7 @@ class TestHoldMode:
     def test_hold_end_emitted_exactly_once(self):
         o = GestureOrchestrator(
             activation_delay=0.4, cooldown_duration=0.3,
-            hold_release_delay=0.1, gesture_modes={"fist": "hold"},
+            hold_release_delay=0.1, gesture_modes={"fist": "hold_key"},
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -346,7 +346,7 @@ class TestHoldMode:
     def test_tap_mode_unchanged_when_hold_modes_exist(self):
         o = GestureOrchestrator(
             activation_delay=0.4,
-            gesture_modes={"fist": "hold", "peace": "tap"},
+            gesture_modes={"fist": "hold_key", "peace": "tap"},
         )
         o.update(Gesture.PEACE, 0.0)
         result = o.update(Gesture.PEACE, 0.5)
@@ -358,7 +358,7 @@ class TestHoldMode:
     def test_multiple_rapid_drops_within_delay(self):
         o = GestureOrchestrator(
             activation_delay=0.4, hold_release_delay=0.1,
-            gesture_modes={"fist": "hold"},
+            gesture_modes={"fist": "hold_key"},
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -376,7 +376,7 @@ class TestHoldModeGestureChange:
 
     def test_different_gesture_during_hold_emits_hold_end(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -389,7 +389,7 @@ class TestHoldModeGestureChange:
 
     def test_different_gesture_during_hold_starts_activating_new(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -403,7 +403,7 @@ class TestHoldModeGestureChange:
     def test_different_gesture_during_release_delay(self):
         o = GestureOrchestrator(
             activation_delay=0.4, hold_release_delay=0.1,
-            gesture_modes={"fist": "hold"},
+            gesture_modes={"fist": "hold_key"},
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -422,7 +422,7 @@ class TestHoldModeCooldownCycle:
     def test_full_hold_cycle(self):
         o = GestureOrchestrator(
             activation_delay=0.4, cooldown_duration=0.3,
-            hold_release_delay=0.1, gesture_modes={"fist": "hold"},
+            hold_release_delay=0.1, gesture_modes={"fist": "hold_key"},
         )
         # IDLE -> ACTIVATING
         o.update(Gesture.FIST, 0.0)
@@ -563,7 +563,7 @@ class TestProperties:
 
     def test_is_activating_false_in_active_hold(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -683,7 +683,7 @@ class TestReset:
 
     def test_reset_clears_hold_state(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -835,7 +835,7 @@ class TestTemporalStateInvariants:
 
     def test_temporal_state_hold_in_active(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         result = o.update(Gesture.FIST, 0.5)
@@ -861,7 +861,7 @@ class TestBaseGesture:
 
     def test_base_gesture_set_during_active_hold(self):
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         result = o.update(Gesture.FIST, 0.5)
@@ -960,7 +960,7 @@ class TestEdgeCases:
         """Hold release delay grace period (flicker absorption)."""
         o = GestureOrchestrator(
             activation_delay=0.4, hold_release_delay=0.1,
-            gesture_modes={"fist": "hold"},
+            gesture_modes={"fist": "hold_key"},
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
@@ -990,7 +990,7 @@ class TestEdgeCases:
     def test_edge_10_reset_clears_all_state(self):
         """reset() method clears all state (used for hand switch)."""
         o = GestureOrchestrator(
-            activation_delay=0.4, gesture_modes={"fist": "hold"}
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
         )
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)

@@ -1,11 +1,16 @@
 """Configuration loading and hot-reload for gesture-keys."""
 
+from __future__ import annotations
+
 import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
 
 import yaml
+
+from gesture_keys.action import Action, FireMode
+from gesture_keys.keystroke import parse_key_string
 
 logger = logging.getLogger("gesture_keys")
 
@@ -99,28 +104,55 @@ def _extract_gesture_cooldowns(gestures: dict) -> dict[str, float]:
 
 
 def _extract_gesture_modes(gestures: dict) -> dict[str, str]:
-    """Extract per-gesture mode from gesture config entries.
+    """Extract per-gesture fire mode from gesture config entries.
+
+    Supports both v2.0 ``fire_mode:`` and v1.x ``mode:`` keys.
+    ``fire_mode:`` takes precedence when both are present.
+
+    v1.x backward compatibility:
+        - ``mode: hold`` -> ``"hold_key"``
+        - ``mode: tap``  -> ``"tap"``
 
     Args:
-        gestures: Gesture config dict {name: {key: ..., mode: ...}}.
+        gestures: Gesture config dict {name: {key: ..., fire_mode/mode: ...}}.
 
     Returns:
-        Dict mapping gesture_name -> "tap" or "hold" for all gestures.
+        Dict mapping gesture_name -> "tap" or "hold_key" for all gestures.
 
     Raises:
-        ValueError: If a gesture has an invalid mode value.
+        ValueError: If a gesture has an invalid fire_mode or mode value.
     """
-    valid_modes = {"tap", "hold"}
+    valid_fire_modes = {"tap", "hold_key"}
+    valid_legacy_modes = {"tap", "hold"}
+    # Map v1.x mode values to v2.0 fire_mode values
+    legacy_mode_map = {"hold": "hold_key", "tap": "tap"}
+
     modes: dict[str, str] = {}
     for name, settings in gestures.items():
         if isinstance(settings, dict):
-            mode = str(settings.get("mode", "tap")).lower()
-            if mode not in valid_modes:
-                raise ValueError(
-                    f"Gesture '{name}' has invalid mode '{mode}'. "
-                    f"Valid modes: {valid_modes}"
-                )
-            modes[name] = mode
+            fire_mode = settings.get("fire_mode")
+            legacy_mode = settings.get("mode")
+
+            if fire_mode is not None:
+                # v2.0 fire_mode takes precedence
+                fire_mode = str(fire_mode).lower()
+                if fire_mode not in valid_fire_modes:
+                    raise ValueError(
+                        f"Gesture '{name}' has invalid fire_mode '{fire_mode}'. "
+                        f"Valid fire_modes: {valid_fire_modes}"
+                    )
+                modes[name] = fire_mode
+            elif legacy_mode is not None:
+                # v1.x backward compat
+                legacy_mode = str(legacy_mode).lower()
+                if legacy_mode not in valid_legacy_modes:
+                    raise ValueError(
+                        f"Gesture '{name}' has invalid mode '{legacy_mode}'. "
+                        f"Valid modes: {valid_legacy_modes}"
+                    )
+                modes[name] = legacy_mode_map[legacy_mode]
+            else:
+                modes[name] = "tap"
     return modes
 
 
@@ -146,9 +178,9 @@ def extract_gesture_swipe_mappings(gestures: dict, gesture_modes: dict[str, str]
         if not isinstance(swipe_block, dict):
             continue
         mode = gesture_modes.get(name, "tap")
-        if mode == "hold":
+        if mode == "hold_key":
             raise ValueError(
-                f"Gesture '{name}' uses hold mode and cannot have a swipe block. "
+                f"Gesture '{name}' uses hold_key mode and cannot have a swipe block. "
                 "Static-to-swipe is only supported for tap mode gestures."
             )
         direction_map: dict[str, str] = {}
@@ -159,6 +191,67 @@ def extract_gesture_swipe_mappings(gestures: dict, gesture_modes: dict[str, str]
         if direction_map:
             mappings[name] = direction_map
     return mappings
+
+
+def build_action_maps(
+    gestures: dict, gesture_modes: dict[str, str]
+) -> dict[str, Action]:
+    """Build gesture_name -> Action map from config gestures.
+
+    Pre-parses key strings into pynput objects via parse_key_string().
+    Sets FireMode from gesture_modes dict.
+
+    Args:
+        gestures: Gesture config dict {name: {key: str, ...}}.
+        gesture_modes: Dict mapping gesture_name -> fire mode string.
+
+    Returns:
+        Dict mapping gesture_name -> Action for gestures with a 'key' field.
+    """
+    fire_mode_map = {"tap": FireMode.TAP, "hold_key": FireMode.HOLD_KEY}
+    actions: dict[str, Action] = {}
+    for name, settings in gestures.items():
+        if not isinstance(settings, dict) or "key" not in settings:
+            continue
+        key_string = settings["key"]
+        modifiers, key = parse_key_string(key_string)
+        mode_str = gesture_modes.get(name, "tap")
+        fire_mode = fire_mode_map[mode_str]
+        actions[name] = Action(
+            key_string=key_string,
+            fire_mode=fire_mode,
+            gesture_name=name,
+            modifiers=modifiers,
+            key=key,
+        )
+    return actions
+
+
+def build_compound_action_maps(
+    gesture_swipe_mappings: dict[str, dict[str, str]],
+) -> dict[tuple[str, str], Action]:
+    """Build (gesture_name, direction) -> Action map for compound gestures.
+
+    All compound actions use FireMode.TAP (compound fire = always tap).
+
+    Args:
+        gesture_swipe_mappings: Dict of {gesture_name: {direction: key_string}}.
+
+    Returns:
+        Dict mapping (gesture_name, direction) -> Action.
+    """
+    actions: dict[tuple[str, str], Action] = {}
+    for gesture_name, directions in gesture_swipe_mappings.items():
+        for direction_name, key_string in directions.items():
+            modifiers, key = parse_key_string(key_string)
+            actions[(gesture_name, direction_name)] = Action(
+                key_string=key_string,
+                fire_mode=FireMode.TAP,
+                gesture_name=gesture_name,
+                modifiers=modifiers,
+                key=key,
+            )
+    return actions
 
 
 def resolve_hand_gestures(handedness: str, config: AppConfig) -> dict:
