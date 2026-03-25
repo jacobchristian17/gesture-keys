@@ -37,7 +37,13 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ### Active
 
-(None — planning next milestone)
+- [ ] Tri-state gesture model (static/holding/moving with direction) replacing separate gesture + swipe systems
+- [ ] Compact trigger string syntax for config (`gesture:state[:direction]`, sequences with `>`)
+- [ ] MotionDetector replacing SwipeDetector (continuous per-frame signal, no state machine)
+- [ ] New `actions:` config section replacing `gestures:` and `swipe:` sections
+- [ ] Orchestrator simplification: remove swipe states, add MOVING_FIRE and SEQUENCE_FIRE signals
+- [ ] Sequence gesture support (gesture A then B within time window)
+- [ ] Config migration from old format to new `actions:` format
 
 ### Out of Scope
 
@@ -48,8 +54,20 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - Gesture profiles / per-app mappings — single global config for now
 - GPU acceleration (onnxruntime-gpu) — MediaPipe Python on Windows is CPU-only; 30+ FPS on CPU is sufficient
 - Simultaneous two-hand detection — one hand at a time; complexity deferred
-- Sequence gestures (gesture A then B) — adds latency to all gestures
 - Config auto-migration from v1.x — clean rewrite, manual config update acceptable
+
+## Current Milestone: v3.0 Tri-State Gesture Model + Action Library
+
+**Goal:** Unify gestures and swipes into a tri-state model (static/holding/moving) with an action library using compact trigger strings, replacing the separate gesture + swipe subsystems entirely.
+
+**Target features:**
+- Trigger parser with enums and compact string syntax
+- MotionDetector (continuous per-frame motion state, replaces SwipeDetector)
+- New `actions:` config section with trigger strings
+- Orchestrator refactor (remove swipe states, add motion/sequence signals)
+- ActionResolver/Dispatcher updates for new signal types
+- Pipeline integration swapping SwipeDetector for MotionDetector
+- Cleanup: delete swipe.py, migrate config.yaml
 
 ## Context
 
@@ -90,4 +108,4 @@ Platform: Windows 11, CPU inference (30+ FPS sufficient).
 | gate=None as bypass mode (v2.0) | Zero overhead for default config, not a disabled flag | ✓ Good — no conditional checks on hot path when gate unused |
 
 ---
-*Last updated: 2026-03-26 after v2.0 milestone complete*
+*Last updated: 2026-03-26 after v3.0 milestone started*

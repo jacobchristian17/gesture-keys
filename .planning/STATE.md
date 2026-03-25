@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Structured Gesture Architecture
-status: complete
+milestone: v3.0
+milestone_name: Tri-State Gesture Model + Action Library
+status: active
 last_updated: "2026-03-26"
-last_activity: 2026-03-26 — Milestone v2.0 complete, all phases shipped and verified
+last_activity: 2026-03-26 — Milestone v3.0 started
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -20,13 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-26)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Planning next milestone
+**Current focus:** v3.0 Tri-State Gesture Model + Action Library
 
 ## Current Position
 
-Milestone: v2.0 Structured Gesture Architecture — COMPLETE
-Status: Between milestones
-Last activity: 2026-03-26 — Milestone v2.0 shipped, all 4 phases verified via UAT
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-26 — Milestone v3.0 started
 
 ## Performance Metrics
 
@@ -45,9 +46,9 @@ None.
 
 ### Blockers/Concerns
 
-None — all v2.0 concerns resolved.
+None.
 
 ## Session Continuity
 
 Last session: 2026-03-26
-Stopped at: Milestone v2.0 complete
+Stopped at: Milestone v3.0 requirements definition
