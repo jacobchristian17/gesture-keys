@@ -175,29 +175,33 @@ class TestTapFireMode:
 # ===========================================================================
 
 class TestHoldKeyFireMode:
-    """Hold_key fire mode uses press_and_hold / release_held lifecycle."""
+    """Hold_key fire mode sets _held_action for tick-based tap-repeat."""
 
-    def test_hold_start_calls_press_and_hold(self, dispatcher, mock_sender):
-        """dispatch(HOLD_START for hold_key gesture) calls sender.press_and_hold()."""
+    def test_hold_start_sets_held_action(self, dispatcher, mock_sender):
+        """dispatch(HOLD_START for hold_key gesture) sets _held_action (no press_and_hold)."""
         signal = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
         dispatcher.dispatch(signal)
-        mock_sender.press_and_hold.assert_called_once_with([Key.ctrl], "z")
+        assert dispatcher._held_action is not None
+        assert dispatcher._held_action.key_string == "ctrl+z"
+        # Must NOT call press_and_hold (tap-repeat replaces it)
+        mock_sender.press_and_hold.assert_not_called()
 
     def test_hold_start_tap_gesture_ignored(self, dispatcher, mock_sender):
         """dispatch(HOLD_START for tap-mode gesture) does nothing."""
         signal = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.FIST)
         dispatcher.dispatch(signal)
         mock_sender.press_and_hold.assert_not_called()
+        assert dispatcher._held_action is None
 
-    def test_hold_end_calls_release_held(self, dispatcher, mock_sender):
-        """dispatch(HOLD_END) calls sender.release_held() and clears held state."""
-        # First hold start
+    def test_hold_end_clears_held_action(self, dispatcher, mock_sender):
+        """dispatch(HOLD_END) clears _held_action (no release_held call)."""
         start = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
         dispatcher.dispatch(start)
-        # Then hold end
         end = OrchestratorSignal(OrchestratorAction.HOLD_END, Gesture.OPEN_PALM)
         dispatcher.dispatch(end)
-        mock_sender.release_held.assert_called_once()
+        assert dispatcher._held_action is None
+        # Must NOT call release_held (tap-repeat doesn't hold physical keys)
+        mock_sender.release_held.assert_not_called()
 
     def test_hold_end_without_start_does_nothing(self, dispatcher, mock_sender):
         """dispatch(HOLD_END) with no active hold does nothing."""
@@ -206,24 +210,14 @@ class TestHoldKeyFireMode:
         mock_sender.release_held.assert_not_called()
 
     def test_hold_to_hold_transition_ordering(self, dispatcher, mock_sender):
-        """Hold-to-hold: old keys released before new keys pressed.
-
-        Orchestrator emits HOLD_END for old gesture, then pipeline processes
-        new gesture HOLD_START. Verify the ordering.
-        """
-        # Start holding open_palm
+        """Hold-to-hold: old hold cleared before new hold set."""
         start1 = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
         dispatcher.dispatch(start1)
-
-        # Orchestrator emits HOLD_END for old, then new gesture starts
         end1 = OrchestratorSignal(OrchestratorAction.HOLD_END, Gesture.OPEN_PALM)
         dispatcher.dispatch(end1)
-
-        # Verify release happened before we could start new hold
-        assert mock_sender.release_held.call_count == 1
-
-        # Now new gesture could start holding (if it were hold_key mode)
-        # This verifies the ordering is correct
+        assert dispatcher._held_action is None
+        # No release_held calls -- tap-repeat doesn't use it
+        mock_sender.release_held.assert_not_called()
 
 
 # ===========================================================================
@@ -268,6 +262,84 @@ class TestCompoundFire:
 # TestStuckKeyPrevention -- ACTN-04
 # ===========================================================================
 
+class TestHoldKeyTick:
+    """tick() sends repeated keystrokes at repeat_interval while _held_action is set."""
+
+    def test_tick_no_held_action_does_nothing(self, mock_sender, resolver):
+        """tick() with no held action does not call sender."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        d.tick(1.0)
+        mock_sender.send.assert_not_called()
+
+    def test_hold_start_then_tick_sends_first_keystroke(self, mock_sender, resolver):
+        """HOLD_START + tick() sends first keystroke immediately."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        signal = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
+        d.dispatch(signal)
+        mock_sender.send.reset_mock()  # Clear any previous calls
+        d.tick(1.0)
+        mock_sender.send.assert_called_once_with([Key.ctrl], "z")
+
+    def test_tick_sends_when_interval_elapsed(self, mock_sender, resolver):
+        """tick() sends when repeat_interval has elapsed since last send."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        signal = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
+        d.dispatch(signal)
+        d.tick(1.0)  # First send
+        mock_sender.send.reset_mock()
+        d.tick(1.04)  # 40ms later > 30ms interval
+        mock_sender.send.assert_called_once_with([Key.ctrl], "z")
+
+    def test_tick_does_not_send_before_interval(self, mock_sender, resolver):
+        """tick() does NOT send when repeat_interval has not elapsed."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        signal = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
+        d.dispatch(signal)
+        d.tick(1.0)  # First send
+        mock_sender.send.reset_mock()
+        d.tick(1.01)  # 10ms later < 30ms interval
+        mock_sender.send.assert_not_called()
+
+    def test_hold_end_stops_tick(self, mock_sender, resolver):
+        """HOLD_END clears held action; subsequent tick() does nothing."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        start = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
+        d.dispatch(start)
+        d.tick(1.0)  # First send
+        end = OrchestratorSignal(OrchestratorAction.HOLD_END, Gesture.OPEN_PALM)
+        d.dispatch(end)
+        mock_sender.send.reset_mock()
+        d.tick(1.1)  # Well past interval
+        mock_sender.send.assert_not_called()
+
+    def test_release_all_stops_tick(self, mock_sender, resolver):
+        """release_all() clears held action; subsequent tick() does nothing."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        start = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
+        d.dispatch(start)
+        d.tick(1.0)  # First send
+        d.release_all()
+        mock_sender.send.reset_mock()
+        d.tick(1.1)
+        mock_sender.send.assert_not_called()
+
+    def test_hold_start_never_calls_press_and_hold(self, mock_sender, resolver):
+        """HOLD_START no longer calls sender.press_and_hold()."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        signal = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
+        d.dispatch(signal)
+        mock_sender.press_and_hold.assert_not_called()
+
+    def test_hold_end_never_calls_release_held(self, mock_sender, resolver):
+        """HOLD_END no longer calls sender.release_held()."""
+        d = ActionDispatcher(mock_sender, resolver, repeat_interval=0.03)
+        start = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
+        d.dispatch(start)
+        end = OrchestratorSignal(OrchestratorAction.HOLD_END, Gesture.OPEN_PALM)
+        d.dispatch(end)
+        mock_sender.release_held.assert_not_called()
+
+
 class TestStuckKeyPrevention:
     """release_all() releases all held keys and clears internal state."""
 
@@ -278,16 +350,12 @@ class TestStuckKeyPrevention:
 
     def test_release_all_clears_held_action(self, dispatcher, mock_sender):
         """release_all() clears _held_action so subsequent HOLD_END is no-op."""
-        # Start a hold
         start = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.OPEN_PALM)
         dispatcher.dispatch(start)
-        # Release all
         dispatcher.release_all()
         mock_sender.release_all.assert_called_once()
-        # HOLD_END after release_all should do nothing
         end = OrchestratorSignal(OrchestratorAction.HOLD_END, Gesture.OPEN_PALM)
         dispatcher.dispatch(end)
-        # release_held should NOT be called (already released via release_all)
         mock_sender.release_held.assert_not_called()
 
     def test_release_all_idempotent(self, dispatcher, mock_sender):
