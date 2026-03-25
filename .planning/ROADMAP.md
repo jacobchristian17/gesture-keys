@@ -113,7 +113,10 @@ Plans:
   2. Bypass mode in config disables the activation gate entirely, preserving v1.x behavior as the default
   3. The activation gesture is consumed by the gate and does not fire its mapped action
   4. Gate expiry while a hold_key action is active releases the held key immediately (no stuck keys from gate timeout)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 17-01-PLAN.md -- TDD: Activation gate integration (config, signal filtering, expiry safety)
+- [ ] 17-02-PLAN.md -- Config.yaml update and human verification of end-to-end behavior
 
 ## Progress
 
@@ -138,4 +141,4 @@ Phases execute in numeric order: 14 -> 15 -> 16 -> 17
 | 14. Shared Types and Pipeline Unification | 2/2 | Complete    | 2026-03-24 | - |
 | 15. Gesture Orchestrator | 2/2 | Complete    | 2026-03-24 | - |
 | 16. Action Dispatch and Fire Modes | 3/3 | Complete    | 2026-03-25 | - |
-| 17. Activation Gate | v2.0 | 0/? | Not started | - |
+| 17. Activation Gate | v2.0 | 0/2 | Not started | - |
