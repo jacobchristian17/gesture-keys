@@ -137,5 +137,5 @@ Phases execute in numeric order: 14 -> 15 -> 16 -> 17
 | 13. Preview and Polish | v1.3 | 1/1 | Complete | 2026-03-24 |
 | 14. Shared Types and Pipeline Unification | 2/2 | Complete    | 2026-03-24 | - |
 | 15. Gesture Orchestrator | 2/2 | Complete    | 2026-03-24 | - |
-| 16. Action Dispatch and Fire Modes | 3/3 | Complete   | 2026-03-25 | - |
+| 16. Action Dispatch and Fire Modes | 3/3 | Complete    | 2026-03-25 | - |
 | 17. Activation Gate | v2.0 | 0/? | Not started | - |
