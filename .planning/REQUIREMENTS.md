@@ -16,9 +16,9 @@ Requirements for structured gesture architecture rewrite. Each maps to roadmap p
 
 ### Activation
 
-- [ ] **ACTV-01**: Activation gate arms/disarms gesture detection via configurable activation gestures (scout/peace default)
-- [ ] **ACTV-02**: Bypass mode disables activation gating (all gestures pass through directly)
-- [ ] **ACTV-03**: Activation gate integrates with gesture orchestrator (consumed gesture doesn't fire actions)
+- [x] **ACTV-01**: Activation gate arms/disarms gesture detection via configurable activation gestures (scout/peace default)
+- [x] **ACTV-02**: Bypass mode disables activation gating (all gestures pass through directly)
+- [x] **ACTV-03**: Activation gate integrates with gesture orchestrator (consumed gesture doesn't fire actions)
 
 ### Gesture Orchestration
 
@@ -67,9 +67,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PIPE-02 | Phase 14 | Complete |
 | PIPE-03 | Phase 14 | Complete |
 | PIPE-04 | Phase 14 | Complete |
-| ACTV-01 | Phase 17 | Pending |
-| ACTV-02 | Phase 17 | Pending |
-| ACTV-03 | Phase 17 | Pending |
+| ACTV-01 | Phase 17 | Complete |
+| ACTV-02 | Phase 17 | Complete |
+| ACTV-03 | Phase 17 | Complete |
 | ORCH-01 | Phase 15 | Complete |
 | ORCH-02 | Phase 15 | Complete |
 | ORCH-03 | Phase 15 | Complete |

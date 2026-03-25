@@ -3,11 +3,27 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
 status: executing
+stopped_at: Completed 17-01-PLAN.md (activation gate integration)
+last_updated: "2026-03-25T13:05:29.980Z"
+last_activity: 2026-03-25 — Plan 16-03 completed (hold_key tap-repeat fix for Windows SendInput)
+progress:
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 8
+  percent: 94
+---
+
+---
+gsd_state_version: 1.0
+milestone: v2.0
+milestone_name: Structured Gesture Architecture
+status: executing
 stopped_at: Completed 16-03-PLAN.md (gap closure - hold_key tap-repeat fix)
 last_updated: "2026-03-25T10:36:01.306Z"
 last_activity: 2026-03-25 — Plan 16-03 completed (hold_key tap-repeat fix for Windows SendInput)
 progress:
-  total_phases: 4
+  [█████████░] 94%
   completed_phases: 3
   total_plans: 7
   completed_plans: 7
@@ -44,6 +60,7 @@ Progress: [██████████] 100%
 | 16    | 01   | 3min     | 2     | 2     |
 | 16    | 02   | 10min    | 2     | 5     |
 | 16    | 03   | 3min     | 2     | 3     |
+| Phase 17 P01 | 6min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -71,6 +88,7 @@ Progress: [██████████] 100%
 - [16-03] App-controlled tap-repeat replaces OS press_and_hold (Windows SendInput non-repeat fix)
 - [16-03] HOLD_START sets _last_repeat_time=0.0 so first tick() fires immediately on same frame
 - [16-03] HOLD_END clears _held_action only (no physical release needed for tap-repeat)
+- [Phase 17]: gate=None is bypass mode (zero overhead for default config); ActivationGate stores single gesture, Pipeline owns set-based filtering via _activation_gestures; Gate expiry triggers release_all + orchestrator.reset
 
 ### Pending Todos
 
@@ -84,5 +102,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T10:25:32Z
-Stopped at: Completed 16-03-PLAN.md (gap closure - hold_key tap-repeat fix)
+Last session: 2026-03-25T13:05:29.977Z
+Stopped at: Completed 17-01-PLAN.md (activation gate integration)
