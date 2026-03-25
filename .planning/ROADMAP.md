@@ -54,7 +54,7 @@
 - [x] **Phase 14: Shared Types and Pipeline Unification** - Eliminate duplicated loop logic with shared data types and a unified pipeline class (completed 2026-03-24)
 - [x] **Phase 15: Gesture Orchestrator** - Unified state machine replacing debouncer and main-loop coordination (completed 2026-03-24)
 - [x] **Phase 16: Action Dispatch and Fire Modes** - Structured gesture-to-action mapping with tap and hold_key fire modes (gap closure in progress) (completed 2026-03-25)
-- [ ] **Phase 17: Activation Gate** - Gesture-based arm/disarm gating with configurable bypass
+- [x] **Phase 17: Activation Gate** - Gesture-based arm/disarm gating with configurable bypass (completed 2026-03-25)
 
 ## Phase Details
 
@@ -113,7 +113,7 @@ Plans:
   2. Bypass mode in config disables the activation gate entirely, preserving v1.x behavior as the default
   3. The activation gesture is consumed by the gate and does not fire its mapped action
   4. Gate expiry while a hold_key action is active releases the held key immediately (no stuck keys from gate timeout)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 17-01-PLAN.md -- TDD: Activation gate integration (config, signal filtering, expiry safety)
 - [ ] 17-02-PLAN.md -- Config.yaml update and human verification of end-to-end behavior
@@ -141,4 +141,4 @@ Phases execute in numeric order: 14 -> 15 -> 16 -> 17
 | 14. Shared Types and Pipeline Unification | 2/2 | Complete    | 2026-03-24 | - |
 | 15. Gesture Orchestrator | 2/2 | Complete    | 2026-03-24 | - |
 | 16. Action Dispatch and Fire Modes | 3/3 | Complete    | 2026-03-25 | - |
-| 17. Activation Gate | 1/2 | In Progress|  | - |
+| 17. Activation Gate | 1/2 | Complete    | 2026-03-25 | - |
