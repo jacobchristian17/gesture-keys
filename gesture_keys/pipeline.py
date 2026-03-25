@@ -201,7 +201,10 @@ class Pipeline:
             left_compound = build_compound_action_maps(left_gestures_swipe)
 
             self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
-            self._dispatcher = ActionDispatcher(self._sender, self._resolver)
+            self._dispatcher = ActionDispatcher(
+                self._sender, self._resolver,
+                repeat_interval=config.hold_repeat_interval,
+            )
         except ValueError as e:
             logger.error("Invalid key mapping in config: %s", e)
             raise
@@ -352,6 +355,9 @@ class Pipeline:
         for signal in orch_result.signals:
             self._dispatcher.dispatch(signal)
 
+        # Tick tap-repeat: sends held keystroke if interval elapsed
+        self._dispatcher.tick(current_time)
+
         # Safety: release held keys when entering swiping state
         if swiping and self._dispatcher._held_action is not None:
             self._dispatcher.release_all()
@@ -402,6 +408,7 @@ class Pipeline:
             left_compound = build_compound_action_maps(new_left_gestures_swipe)
             self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
             self._dispatcher._resolver = self._resolver
+            self._dispatcher._repeat_interval = new_config.hold_repeat_interval
             if self._prev_handedness is not None:
                 self._resolver.set_hand(self._prev_handedness)
 
