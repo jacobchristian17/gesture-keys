@@ -45,6 +45,9 @@ class AppConfig:
     left_gesture_modes: dict[str, str] = field(default_factory=dict)
     swipe_window: float = 0.2
     gesture_swipe_mappings: dict[str, dict[str, str]] = field(default_factory=dict)
+    activation_gate_enabled: bool = False
+    activation_gate_gestures: list[str] = field(default_factory=list)
+    activation_gate_duration: float = 3.0
 
 
 class ConfigWatcher:
@@ -383,6 +386,12 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         if isinstance(mapping, dict) and "key" in mapping:
             left_swipe_mappings[direction] = mapping["key"]
 
+    # Parse optional activation_gate section
+    activation_gate_raw = raw.get("activation_gate", {}) or {}
+    activation_gate_enabled = bool(activation_gate_raw.get("enabled", False))
+    activation_gate_gestures = list(activation_gate_raw.get("gestures", []) or [])
+    activation_gate_duration = float(activation_gate_raw.get("duration", 3.0))
+
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
         smoothing_window=int(detection.get("smoothing_window", 2)),
@@ -410,4 +419,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         left_gesture_modes=_extract_gesture_modes(left_gestures),
         swipe_window=float(detection.get("swipe_window", 0.2)),
         gesture_swipe_mappings=gesture_swipe_mappings,
+        activation_gate_enabled=activation_gate_enabled,
+        activation_gate_gestures=activation_gate_gestures,
+        activation_gate_duration=activation_gate_duration,
     )

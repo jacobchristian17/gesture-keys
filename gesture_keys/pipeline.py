@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from gesture_keys.action import ActionDispatcher, ActionResolver
+from gesture_keys.activation import ActivationGate
 from gesture_keys.classifier import Gesture, GestureClassifier
 from gesture_keys.config import (
     ConfigWatcher,
@@ -78,6 +79,7 @@ class FrameResult:
     swiping: bool = False
     frame_valid: bool = True
     orchestrator: OrchestratorResult | None = None
+    activation_armed: bool = False
 
 
 def _parse_swipe_key_mappings(swipe_mappings: dict[str, str]) -> dict:
@@ -140,6 +142,10 @@ class Pipeline:
         # Action dispatch (created in start())
         self._resolver = None
         self._dispatcher = None
+
+        # Activation gate (created in start() when config enabled)
+        self._activation_gate: ActivationGate | None = None
+        self._activation_gestures: set[str] = set()
 
         # Per-frame state
         self._prev_gesture = None
@@ -231,6 +237,17 @@ class Pipeline:
         self._left_swipe_key_mappings = _parse_swipe_key_mappings(left_swipe_resolved) if config.swipe_enabled else {}
         self._swipe_key_mappings = self._right_swipe_key_mappings
 
+        # Activation gate (None = bypass mode when disabled or no gestures)
+        if config.activation_gate_enabled and config.activation_gate_gestures:
+            self._activation_gate = ActivationGate(
+                gesture=Gesture(config.activation_gate_gestures[0]),
+                duration=config.activation_gate_duration,
+            )
+            self._activation_gestures = set(config.activation_gate_gestures)
+        else:
+            self._activation_gate = None
+            self._activation_gestures = set()
+
         # Config hot-reload watcher
         self._watcher = ConfigWatcher(self._config_path)
 
@@ -249,6 +266,40 @@ class Pipeline:
         self._orchestrator.reset()
         self._swipe_detector.reset()
         self._dispatcher.release_all()
+
+    def _filter_signals_through_gate(
+        self,
+        signals: list,
+        current_time: float,
+    ) -> list:
+        """Filter orchestrator signals through the activation gate.
+
+        When gate is None (bypass mode), all signals pass unchanged.
+        When gate is active:
+          - Activation gesture signals arm/re-arm the gate and are consumed.
+          - Non-activation signals pass only when the gate is armed.
+
+        Args:
+            signals: List of OrchestratorSignal from the orchestrator.
+            current_time: Current frame timestamp.
+
+        Returns:
+            Filtered list of signals to dispatch.
+        """
+        if self._activation_gate is None:
+            return signals
+
+        filtered = []
+        for signal in signals:
+            gesture_value = signal.gesture.value
+            if gesture_value in self._activation_gestures:
+                # Activation gesture: arm/re-arm, consume signal
+                self._activation_gate.arm(current_time)
+            elif self._activation_gate.is_armed():
+                # Non-activation signal while armed: pass through
+                filtered.append(signal)
+            # else: gate not armed, suppress non-activation signal
+        return filtered
 
     def process_frame(self) -> FrameResult:
         """Read camera frame and run the full detection pipeline.
@@ -351,8 +402,19 @@ class Pipeline:
             swiping=swiping,
         )
 
-        # Dispatch all orchestrator signals through ActionDispatcher
-        for signal in orch_result.signals:
+        # Activation gate: tick, detect expiry, filter signals
+        if self._activation_gate is not None:
+            was_armed = self._activation_gate.is_armed()
+            self._activation_gate.tick(current_time)
+            if was_armed and not self._activation_gate.is_armed():
+                # Gate expired: release held keys and reset orchestrator
+                self._dispatcher.release_all()
+                self._orchestrator.reset()
+
+        filtered_signals = self._filter_signals_through_gate(orch_result.signals, current_time)
+
+        # Dispatch filtered orchestrator signals through ActionDispatcher
+        for signal in filtered_signals:
             self._dispatcher.dispatch(signal)
 
         # Tick tap-repeat: sends held keystroke if interval elapsed
@@ -375,6 +437,11 @@ class Pipeline:
         if self._watcher.check(current_time):
             self.reload_config()
 
+        activation_armed = (
+            self._activation_gate.is_armed()
+            if self._activation_gate is not None
+            else False
+        )
         return FrameResult(
             landmarks=landmarks,
             handedness=self._prev_handedness,
@@ -384,6 +451,7 @@ class Pipeline:
             swiping=swiping,
             frame_valid=True,
             orchestrator=orch_result,
+            activation_armed=activation_armed,
         )
 
     def reload_config(self) -> None:
@@ -457,6 +525,27 @@ class Pipeline:
                 self._swipe_key_mappings = self._left_swipe_key_mappings
             else:
                 self._swipe_key_mappings = self._right_swipe_key_mappings
+
+            # Activation gate hot-reload
+            old_gate = self._activation_gate
+            if new_config.activation_gate_enabled and new_config.activation_gate_gestures:
+                if old_gate is not None:
+                    # Update existing gate in-place
+                    old_gate.duration = new_config.activation_gate_duration
+                    self._activation_gestures = set(new_config.activation_gate_gestures)
+                else:
+                    # Enable: create new gate
+                    self._activation_gate = ActivationGate(
+                        gesture=Gesture(new_config.activation_gate_gestures[0]),
+                        duration=new_config.activation_gate_duration,
+                    )
+                    self._activation_gestures = set(new_config.activation_gate_gestures)
+            else:
+                if old_gate is not None:
+                    # Disable: destroy gate and release held keys
+                    self._dispatcher.release_all()
+                self._activation_gate = None
+                self._activation_gestures = set()
 
             self._config = new_config
             logger.info(
