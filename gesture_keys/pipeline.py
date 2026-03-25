@@ -11,9 +11,12 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 
+from gesture_keys.action import ActionDispatcher, ActionResolver
 from gesture_keys.classifier import Gesture, GestureClassifier
 from gesture_keys.config import (
     ConfigWatcher,
+    build_action_maps,
+    build_compound_action_maps,
     extract_gesture_swipe_mappings,
     load_config,
     resolve_hand_gestures,
@@ -25,7 +28,6 @@ from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.orchestrator import (
     GestureOrchestrator,
     LifecycleState,
-    OrchestratorAction,
     OrchestratorResult,
     TemporalState,
 )
@@ -78,28 +80,6 @@ class FrameResult:
     orchestrator: OrchestratorResult | None = None
 
 
-def _parse_key_mappings(gestures: dict) -> dict:
-    """Pre-parse key strings from gesture config into pynput objects.
-
-    Args:
-        gestures: Gesture config dict {name: {key: str, ...}}.
-
-    Returns:
-        Dict mapping gesture_name -> (modifiers, key, original_key_string).
-
-    Raises:
-        ValueError: If any key string is invalid (fail fast at startup).
-    """
-    mappings = {}
-    for name, settings in gestures.items():
-        if not isinstance(settings, dict) or "key" not in settings:
-            continue
-        key_string = settings["key"]
-        modifiers, key = parse_key_string(key_string)
-        mappings[name] = (modifiers, key, key_string)
-    return mappings
-
-
 def _parse_swipe_key_mappings(swipe_mappings: dict[str, str]) -> dict:
     """Pre-parse swipe direction key strings into pynput objects.
 
@@ -113,23 +93,6 @@ def _parse_swipe_key_mappings(swipe_mappings: dict[str, str]) -> dict:
     for direction_name, key_string in swipe_mappings.items():
         modifiers, key = parse_key_string(key_string)
         mappings[direction_name] = (modifiers, key, key_string)
-    return mappings
-
-
-def _parse_compound_swipe_key_mappings(gesture_swipe_mappings: dict[str, dict[str, str]]) -> dict:
-    """Pre-parse compound gesture swipe key strings into pynput objects.
-
-    Args:
-        gesture_swipe_mappings: Dict of {gesture_name: {direction: key_string}}.
-
-    Returns:
-        Dict mapping (gesture_name, direction) -> (modifiers, key, key_string).
-    """
-    mappings = {}
-    for gesture_name, directions in gesture_swipe_mappings.items():
-        for direction_name, key_string in directions.items():
-            modifiers, key = parse_key_string(key_string)
-            mappings[(gesture_name, direction_name)] = (modifiers, key, key_string)
     return mappings
 
 
@@ -168,30 +131,20 @@ class Pipeline:
         self._swipe_detector = None
         self._watcher = None
 
-        # Key mapping sets (populated in start())
-        self._right_key_mappings = None
-        self._left_key_mappings = None
-        self._key_mappings = None
+        # Swipe key mapping sets (populated in start())
         self._right_swipe_key_mappings = None
         self._left_swipe_key_mappings = None
         self._swipe_key_mappings = None
-        self._right_compound_mappings = None
-        self._left_compound_mappings = None
-        self._compound_mappings = None
         self._swipe_gesture_directions = None
+
+        # Action dispatch (created in start())
+        self._resolver = None
+        self._dispatcher = None
 
         # Per-frame state
         self._prev_gesture = None
         self._prev_handedness = None
         self._hand_was_in_range = True
-
-        # Hold state (repeat timing stays in Pipeline per user decision)
-        self._hold_active = False
-        self._hold_modifiers = None
-        self._hold_key = None
-        self._hold_key_string = None
-        self._hold_gesture_name = None
-        self._hold_last_repeat = 0.0
 
         # Frame storage for preview access
         self._last_frame = None
@@ -235,12 +188,20 @@ class Pipeline:
         )
         self._sender = KeystrokeSender()
 
-        # Pre-parse key mappings for both hands (fail fast on invalid config)
+        # Build Action maps for both hands (fail fast on invalid config)
         try:
-            self._right_key_mappings = _parse_key_mappings(config.gestures)
+            right_actions = build_action_maps(config.gestures, config.gesture_modes)
             left_gestures_resolved = resolve_hand_gestures("Left", config)
-            self._left_key_mappings = _parse_key_mappings(left_gestures_resolved)
-            self._key_mappings = self._right_key_mappings  # start with right (or preferred hand)
+            left_modes = {**config.gesture_modes, **config.left_gesture_modes} if config.left_gesture_modes else config.gesture_modes
+            left_actions = build_action_maps(left_gestures_resolved, left_modes)
+
+            # Build compound Action maps
+            right_compound = build_compound_action_maps(config.gesture_swipe_mappings)
+            left_gestures_swipe = extract_gesture_swipe_mappings(left_gestures_resolved, left_modes)
+            left_compound = build_compound_action_maps(left_gestures_swipe)
+
+            self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
+            self._dispatcher = ActionDispatcher(self._sender, self._resolver)
         except ValueError as e:
             logger.error("Invalid key mapping in config: %s", e)
             raise
@@ -267,34 +228,24 @@ class Pipeline:
         self._left_swipe_key_mappings = _parse_swipe_key_mappings(left_swipe_resolved) if config.swipe_enabled else {}
         self._swipe_key_mappings = self._right_swipe_key_mappings
 
-        # Pre-parse compound swipe key mappings for both hands
-        self._right_compound_mappings = _parse_compound_swipe_key_mappings(config.gesture_swipe_mappings)
-        left_gestures_swipe = extract_gesture_swipe_mappings(
-            left_gestures_resolved,
-            {**config.gesture_modes, **config.left_gesture_modes} if config.left_gesture_modes else config.gesture_modes,
-        )
-        self._left_compound_mappings = _parse_compound_swipe_key_mappings(left_gestures_swipe)
-        self._compound_mappings = self._right_compound_mappings
-
         # Config hot-reload watcher
         self._watcher = ConfigWatcher(self._config_path)
 
     def stop(self) -> None:
         """Release all resources: camera, detector, held keys."""
-        if self._sender is not None:
-            self._sender.release_all()
+        if self._dispatcher is not None:
+            self._dispatcher.release_all()
         if self._camera is not None:
             self._camera.stop()
         if self._detector is not None:
             self._detector.close()
 
     def reset_pipeline(self) -> None:
-        """Reset smoother, orchestrator, swipe_detector, and hold state."""
+        """Reset smoother, orchestrator, swipe_detector, and release held keys."""
         self._smoother.reset()
         self._orchestrator.reset()
         self._swipe_detector.reset()
-        self._hold_active = False
-        self._sender.release_all()
+        self._dispatcher.release_all()
 
     def process_frame(self) -> FrameResult:
         """Read camera frame and run the full detection pipeline.
@@ -317,31 +268,24 @@ class Pipeline:
 
         # Hand switch detection: reset pipeline on hand change
         if handedness is not None and self._prev_handedness is not None and handedness != self._prev_handedness:
-            self._hold_active = False
-            self._sender.release_all()
+            self._dispatcher.release_all()
             self._smoother.reset()
             self._orchestrator.reset()
             self._swipe_detector.reset()
+            self._resolver.set_hand(handedness)
             logger.info("Hand switch: %s -> %s", self._prev_handedness, handedness)
             if handedness == "Left":
-                self._key_mappings = self._left_key_mappings
                 self._swipe_key_mappings = self._left_swipe_key_mappings
-                self._compound_mappings = self._left_compound_mappings
             else:
-                self._key_mappings = self._right_key_mappings
                 self._swipe_key_mappings = self._right_swipe_key_mappings
-                self._compound_mappings = self._right_compound_mappings
 
         # Initial hand detection: set mappings on first hand appearance
         if self._prev_handedness is None and handedness is not None:
+            self._resolver.set_hand(handedness)
             if handedness == "Left":
-                self._key_mappings = self._left_key_mappings
                 self._swipe_key_mappings = self._left_swipe_key_mappings
-                self._compound_mappings = self._left_compound_mappings
             else:
-                self._key_mappings = self._right_key_mappings
                 self._swipe_key_mappings = self._right_swipe_key_mappings
-                self._compound_mappings = self._right_compound_mappings
 
         self._prev_handedness = handedness if handedness is not None else self._prev_handedness
 
@@ -350,8 +294,7 @@ class Pipeline:
             in_range = self._distance_filter.check(landmarks)
             if not in_range:
                 if self._hand_was_in_range:
-                    self._hold_active = False
-                    self._sender.release_all()
+                    self._dispatcher.release_all()
                     self._smoother.reset()
                     self._orchestrator.reset()
                     self._swipe_detector.reset()
@@ -405,40 +348,13 @@ class Pipeline:
             swiping=swiping,
         )
 
-        # Process signals from orchestrator
+        # Dispatch all orchestrator signals through ActionDispatcher
         for signal in orch_result.signals:
-            sig_gesture_name = signal.gesture.value
-            if signal.action == OrchestratorAction.COMPOUND_FIRE:
-                direction_name = signal.direction.value
-                lookup = (sig_gesture_name, direction_name)
-                if lookup in self._compound_mappings:
-                    sig_mods, sig_key, sig_key_string = self._compound_mappings[lookup]
-                    self._sender.send(sig_mods, sig_key)
-                    logger.info("COMPOUND: %s + %s -> %s", sig_gesture_name, direction_name, sig_key_string)
-            elif sig_gesture_name in self._key_mappings:
-                sig_mods, sig_key, sig_key_string = self._key_mappings[sig_gesture_name]
-                if signal.action == OrchestratorAction.FIRE:
-                    self._sender.send(sig_mods, sig_key)
-                    logger.info("FIRED: %s -> %s", sig_gesture_name, sig_key_string)
-                elif signal.action == OrchestratorAction.HOLD_START:
-                    self._sender.send(sig_mods, sig_key)
-                    self._hold_active = True
-                    self._hold_modifiers = sig_mods
-                    self._hold_key = sig_key
-                    self._hold_key_string = sig_key_string
-                    self._hold_gesture_name = sig_gesture_name
-                    self._hold_last_repeat = current_time
-                    logger.info("HOLD START: %s -> %s", sig_gesture_name, sig_key_string)
-                elif signal.action == OrchestratorAction.HOLD_END:
-                    self._hold_active = False
-                    logger.info("HOLD END: %s -> %s", sig_gesture_name, sig_key_string)
+            self._dispatcher.dispatch(signal)
 
-        # Handle swiping entry/exit hold release (orchestrator emits HOLD_END
-        # but Pipeline also needs to release held keys and reset smoother)
-        if swiping and self._hold_active:
-            # Safety: if orchestrator signaled swiping entry, ensure keys released
-            self._hold_active = False
-            self._sender.release_all()
+        # Safety: release held keys when entering swiping state
+        if swiping and self._dispatcher._held_action is not None:
+            self._dispatcher.release_all()
             self._smoother.reset()
 
         # Standalone swipe handling (gated by orchestrator's suppress flag)
@@ -448,11 +364,6 @@ class Pipeline:
                 modifiers, key, key_string = self._swipe_key_mappings[swipe_name]
                 self._sender.send(modifiers, key)
                 logger.info("SWIPE: %s -> %s", swipe_name, key_string)
-
-        # Hold-mode key repeat: send key at repeat interval while holding
-        if self._hold_active and current_time - self._hold_last_repeat >= self._config.hold_repeat_interval:
-            self._sender.send(self._hold_modifiers, self._hold_key)
-            self._hold_last_repeat = current_time
 
         # Config hot-reload check
         if self._watcher.check(current_time):
@@ -473,26 +384,26 @@ class Pipeline:
         """Hot-reload config, using flush_pending() for fire-before-reset edge case."""
         try:
             new_config = load_config(self._config_path)
-            self._hold_active = False
-            self._sender.release_all()
-
-            # Re-parse both hand mapping sets
-            self._right_key_mappings = _parse_key_mappings(new_config.gestures)
-            left_gestures_resolved = resolve_hand_gestures("Left", new_config)
-            self._left_key_mappings = _parse_key_mappings(left_gestures_resolved)
-            if self._prev_handedness == "Left":
-                self._key_mappings = self._left_key_mappings
-            else:
-                self._key_mappings = self._right_key_mappings
+            self._dispatcher.release_all()
 
             # CRITICAL: flush pending gesture before reset (fire-before-reset edge case)
+            # Route flush through dispatcher so Action resolution and fire modes apply
             flush_result = self._orchestrator.flush_pending()
             for signal in flush_result.signals:
-                sig_gesture_name = signal.gesture.value
-                if sig_gesture_name in self._key_mappings:
-                    sig_mods, sig_key, sig_key_string = self._key_mappings[sig_gesture_name]
-                    self._sender.send(sig_mods, sig_key)
-                    logger.info("FIRED (reload): %s -> %s", sig_gesture_name, sig_key_string)
+                self._dispatcher.dispatch(signal)
+
+            # Rebuild ActionResolver with new action maps
+            new_left_gestures_resolved = resolve_hand_gestures("Left", new_config)
+            new_left_modes = {**new_config.gesture_modes, **new_config.left_gesture_modes} if new_config.left_gesture_modes else new_config.gesture_modes
+            right_actions = build_action_maps(new_config.gestures, new_config.gesture_modes)
+            left_actions = build_action_maps(new_left_gestures_resolved, new_left_modes)
+            right_compound = build_compound_action_maps(new_config.gesture_swipe_mappings)
+            new_left_gestures_swipe = extract_gesture_swipe_mappings(new_left_gestures_resolved, new_left_modes)
+            left_compound = build_compound_action_maps(new_left_gestures_swipe)
+            self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
+            self._dispatcher._resolver = self._resolver
+            if self._prev_handedness is not None:
+                self._resolver.set_hand(self._prev_handedness)
 
             # Update orchestrator config params
             self._orchestrator._activation_delay = new_config.activation_delay
@@ -517,19 +428,6 @@ class Pipeline:
             self._orchestrator._swipe_gesture_directions = new_swipe_gesture_directions
             self._orchestrator._swipe_window = new_config.swipe_window
             self._swipe_gesture_directions = new_swipe_gesture_directions
-
-            # Re-parse compound key mappings for both hands
-            right_compound_mappings = _parse_compound_swipe_key_mappings(new_gesture_swipe_mappings)
-            new_left_gestures_resolved = resolve_hand_gestures("Left", new_config)
-            new_left_modes = {**new_config.gesture_modes, **new_config.left_gesture_modes} if new_config.left_gesture_modes else new_config.gesture_modes
-            new_left_gestures_swipe = extract_gesture_swipe_mappings(new_left_gestures_resolved, new_left_modes)
-            left_compound_mappings = _parse_compound_swipe_key_mappings(new_left_gestures_swipe)
-            self._right_compound_mappings = right_compound_mappings
-            self._left_compound_mappings = left_compound_mappings
-            if self._prev_handedness == "Left":
-                self._compound_mappings = left_compound_mappings
-            else:
-                self._compound_mappings = right_compound_mappings
 
             self._orchestrator.reset()
             self._smoother.reset()
