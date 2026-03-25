@@ -98,7 +98,10 @@ Plans:
   3. Hold_key fire mode holds a key down while the gesture is sustained and releases it on gesture change, hand switch, distance exit, or app toggle
   4. No stuck keys remain after any exit path: gesture change, gate expiry, hand switch, distance out-of-range, app toggle off, config reload
   5. Per-hand action mappings work (left hand can map different actions than right hand for the same gesture)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 16-01-PLAN.md -- TDD: Build ActionResolver and ActionDispatcher with full test coverage
+- [ ] 16-02-PLAN.md -- Config fire_mode parsing and Pipeline integration
 
 ### Phase 17: Activation Gate
 **Goal**: Users can arm/disarm gesture detection with a configurable activation gesture, preventing accidental fires when not actively using the system
@@ -133,5 +136,5 @@ Phases execute in numeric order: 14 -> 15 -> 16 -> 17
 | 13. Preview and Polish | v1.3 | 1/1 | Complete | 2026-03-24 |
 | 14. Shared Types and Pipeline Unification | 2/2 | Complete    | 2026-03-24 | - |
 | 15. Gesture Orchestrator | 2/2 | Complete    | 2026-03-24 | - |
-| 16. Action Dispatch and Fire Modes | v2.0 | 0/? | Not started | - |
+| 16. Action Dispatch and Fire Modes | v2.0 | 0/2 | Not started | - |
 | 17. Activation Gate | v2.0 | 0/? | Not started | - |
