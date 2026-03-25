@@ -1,0 +1,91 @@
+# Requirements: Gesture Keys
+
+**Defined:** 2026-03-26
+**Core Value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
+
+## v3.0 Requirements
+
+Requirements for tri-state gesture model and action library. Each maps to roadmap phases.
+
+### Trigger Model
+
+- [ ] **TRIG-01**: User can define static triggers (`gesture:static`) that fire on gesture detection
+- [ ] **TRIG-02**: User can define holding triggers (`gesture:holding`) that hold a key while gesture persists
+- [ ] **TRIG-03**: User can define moving triggers (`gesture:moving:direction`) that fire on hand motion in a cardinal direction
+- [ ] **TRIG-04**: User can define sequence triggers (`gesture > gesture`) that fire when two gestures occur in succession
+- [ ] **TRIG-05**: System validates trigger strings and raises clear errors on invalid syntax
+
+### Motion Detection
+
+- [ ] **MOTN-01**: System detects continuous per-frame motion state (moving/not moving) from hand landmarks
+- [ ] **MOTN-02**: System classifies motion direction as one of 4 cardinal directions (left, right, up, down)
+- [ ] **MOTN-03**: System uses hysteresis (separate arm/disarm thresholds) to prevent motion state flicker
+- [ ] **MOTN-04**: System applies settling frames on hand entry to prevent false motion detection
+
+### Config
+
+- [ ] **CONF-01**: User can define actions in `actions:` config section with name, trigger, and key fields
+- [ ] **CONF-02**: User can set per-action cooldown overrides
+- [ ] **CONF-03**: User can set per-action bypass_gate flag
+- [ ] **CONF-04**: System derives orchestrator inputs (gesture_modes, cooldowns, gate bypass) from action triggers
+- [ ] **CONF-05**: Old `gestures:` and `swipe:` config sections are fully replaced by `actions:`
+
+### Orchestrator
+
+- [ ] **ORCH-01**: Orchestrator accepts motion_state parameter and emits MOVING_FIRE signal when gesture + moving + direction detected
+- [ ] **ORCH-02**: Orchestrator emits SEQUENCE_FIRE signal when two gestures match a sequence trigger within time window
+- [ ] **ORCH-03**: Orchestrator FSM simplified: SWIPE_WINDOW, SWIPING, and COMPOUND_FIRE states/signals removed
+- [ ] **ORCH-04**: Sequence window is configurable (default 0.5s)
+
+### Action Dispatch
+
+- [ ] **ACTN-01**: ActionResolver resolves static, holding, moving, and sequence triggers to actions via separate lookup maps
+- [ ] **ACTN-02**: ActionDispatcher handles MOVING_FIRE and SEQUENCE_FIRE signals, dispatching correct keystrokes
+- [ ] **ACTN-03**: Old compound fire handling removed from resolver and dispatcher
+
+### Integration
+
+- [ ] **INTG-01**: Pipeline uses MotionDetector instead of SwipeDetector for all motion-related processing
+- [ ] **INTG-02**: Pipeline passes motion_state to orchestrator on every frame
+- [ ] **INTG-03**: FrameResult exposes motion_state instead of swiping boolean
+- [ ] **INTG-04**: Activation gate works with all new signal types (MOVING_FIRE, SEQUENCE_FIRE)
+
+### Cleanup
+
+- [ ] **CLNP-01**: swipe.py and test_swipe.py deleted with no remaining imports
+- [ ] **CLNP-02**: config.yaml converted to new `actions:` format
+- [ ] **CLNP-03**: Old gestures/swipe parsing code removed from config.py
+
+## Future Requirements
+
+### Enhanced Triggers
+
+- **ETRIG-01**: User can define diagonal directions (up-left, up-right, etc.)
+- **ETRIG-02**: User can define three-gesture sequences
+- **ETRIG-03**: User can define velocity-sensitive triggers (fast vs slow motion)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Config auto-migration tool | Manual config update acceptable for v3.0 |
+| Diagonal directions | 4-way cardinal sufficient; adds complexity to direction classification |
+| Three+ gesture sequences | Two-gesture sequences cover practical use cases |
+| Simultaneous two-hand detection | Deferred from v2.0, still too complex |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| (populated by roadmapper) | | |
+
+**Coverage:**
+- v3.0 requirements: 23 total
+- Mapped to phases: 0
+- Unmapped: 23
+
+---
+*Requirements defined: 2026-03-26*
+*Last updated: 2026-03-26 after initial definition*
