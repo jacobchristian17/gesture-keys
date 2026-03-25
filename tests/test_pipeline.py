@@ -192,6 +192,9 @@ class TestPipelineStartStop:
         config.left_gestures = {}
         config.left_swipe_mappings = {}
         config.hold_repeat_interval = 0.03
+        config.activation_gate_enabled = False
+        config.activation_gate_gestures = []
+        config.activation_gate_duration = 3.0
         return config
 
     @patch("gesture_keys.pipeline.ConfigWatcher")
