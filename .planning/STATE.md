@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
 status: executing
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-03-25T09:05:00.000Z"
-last_activity: 2026-03-25 — Plan 16-01 completed (ActionResolver + ActionDispatcher with TDD)
+stopped_at: Completed 16-02-PLAN.md (Phase 16 complete)
+last_updated: "2026-03-25T09:17:47Z"
+last_activity: 2026-03-25 — Plan 16-02 completed (Pipeline ActionDispatcher integration + fire_mode config)
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 5
-  percent: 93
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -26,22 +26,23 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 16 of 17 (Action Dispatch and Fire Modes)
-Plan: 1 of 2 (Phase 16) -- Plan 16-01 complete
+Plan: 2 of 2 (Phase 16) -- Phase 16 complete
 Status: Executing
-Last activity: 2026-03-25 — Plan 16-01 completed (ActionResolver + ActionDispatcher with TDD)
+Last activity: 2026-03-25 — Plan 16-02 completed (Pipeline ActionDispatcher integration + fire_mode config)
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 31 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 3)
+- Total plans completed: 32 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 4)
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 15    | 01   | 17min    | 2     | 2     |
 | 15    | 02   | 41min    | 2     | 7     |
 | 16    | 01   | 3min     | 2     | 2     |
+| 16    | 02   | 10min    | 2     | 5     |
 
 ## Accumulated Context
 
@@ -62,6 +63,10 @@ Progress: [█████████░] 93%
 - [16-01] FIRE signal always uses sender.send() regardless of fire_mode (tap behavior)
 - [16-01] HOLD_START only activates hold when Action.fire_mode == HOLD_KEY
 - [16-01] Single _held_action field (None when idle) replaces multiple boolean flags
+- [16-02] mode: hold maps to "hold_key" internally; fire_mode: takes precedence over mode:
+- [16-02] Pipeline delegates all signal handling to dispatcher.dispatch() (3-line loop)
+- [16-02] reload_config routes flush_pending signals through dispatcher for proper Action resolution
+- [16-02] Orchestrator gesture_modes uses "hold_key" string value (was "hold")
 
 ### Pending Todos
 
@@ -75,5 +80,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T09:05:00.000Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-03-25T09:17:47Z
+Stopped at: Completed 16-02-PLAN.md (Phase 16 complete)

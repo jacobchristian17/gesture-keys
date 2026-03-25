@@ -34,7 +34,7 @@ Requirements for structured gesture architecture rewrite. Each maps to roadmap p
 - [x] **ACTN-02**: Tap fire mode — press and release key once on action trigger
 - [x] **ACTN-03**: Hold_key fire mode — key held down while gesture sustained, released on gesture change
 - [x] **ACTN-04**: Centralized key lifecycle management preventing stuck keys across all exit paths (gate expiry, hand switch, distance out-of-range, app toggle)
-- [ ] **ACTN-05**: Config schema supporting structured gesture-to-action mappings with fire mode per action
+- [x] **ACTN-05**: Config schema supporting structured gesture-to-action mappings with fire mode per action
 
 ## Future Requirements
 
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ACTN-02 | Phase 16 | Complete |
 | ACTN-03 | Phase 16 | Complete |
 | ACTN-04 | Phase 16 | Complete |
-| ACTN-05 | Phase 16 | Pending |
+| ACTN-05 | Phase 16 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 17 total
