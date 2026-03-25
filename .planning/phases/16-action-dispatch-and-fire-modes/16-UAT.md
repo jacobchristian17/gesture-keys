@@ -1,9 +1,9 @@
 ---
-status: diagnosed
+status: resolved
 phase: 16-action-dispatch-and-fire-modes
 source: [16-01-SUMMARY.md, 16-02-SUMMARY.md]
 started: 2026-03-25T10:00:00Z
-updated: 2026-03-25T10:30:00Z
+updated: 2026-03-25T12:00:00Z
 ---
 
 ## Current Test
@@ -51,7 +51,7 @@ skipped: 1
 ## Gaps
 
 - truth: "Hold_key fire mode holds key down continuously while gesture sustained"
-  status: failed
+  status: resolved
   reason: "User reported: Holding status is detected, but no continuous firing"
   severity: major
   test: 2
@@ -65,7 +65,7 @@ skipped: 1
     - "App-controlled repeat mechanism: on each frame while HOLD active, call sender.send() at hold_repeat_interval (30ms/30Hz) instead of relying on OS key repeat"
   debug_session: ".planning/debug/hold-key-no-continuous-firing.md"
 - truth: "Legacy mode: hold syntax produces hold_key behavior (sustained keypress)"
-  status: failed
+  status: resolved
   reason: "User reported: same exact case with thumbs_up"
   severity: major
   test: 3
