@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
 status: executing
-stopped_at: Completed 16-02-PLAN.md (Phase 16 complete)
-last_updated: "2026-03-25T09:23:15.741Z"
-last_activity: 2026-03-25 — Plan 16-02 completed (Pipeline ActionDispatcher integration + fire_mode config)
+stopped_at: Completed 16-03-PLAN.md (gap closure - hold_key tap-repeat fix)
+last_updated: "2026-03-25T10:28:29Z"
+last_activity: 2026-03-25 — Plan 16-03 completed (hold_key tap-repeat fix for Windows SendInput)
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 7
+  completed_plans: 7
   percent: 100
 ---
 
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-03-24)
 ## Current Position
 
 Phase: 16 of 17 (Action Dispatch and Fire Modes)
-Plan: 2 of 2 (Phase 16) -- Phase 16 complete
+Plan: 3 of 3 (Phase 16) -- Plan 16-03 complete (gap closure)
 Status: Executing
-Last activity: 2026-03-25 — Plan 16-02 completed (Pipeline ActionDispatcher integration + fire_mode config)
+Last activity: 2026-03-25 — Plan 16-03 completed (hold_key tap-repeat fix for Windows SendInput)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 32 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 4)
+- Total plans completed: 33 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 5)
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -43,6 +43,7 @@ Progress: [██████████] 100%
 | 15    | 02   | 41min    | 2     | 7     |
 | 16    | 01   | 3min     | 2     | 2     |
 | 16    | 02   | 10min    | 2     | 5     |
+| 16    | 03   | 3min     | 2     | 3     |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Progress: [██████████] 100%
 - [16-02] Pipeline delegates all signal handling to dispatcher.dispatch() (3-line loop)
 - [16-02] reload_config routes flush_pending signals through dispatcher for proper Action resolution
 - [16-02] Orchestrator gesture_modes uses "hold_key" string value (was "hold")
+- [16-03] App-controlled tap-repeat replaces OS press_and_hold (Windows SendInput non-repeat fix)
+- [16-03] HOLD_START sets _last_repeat_time=0.0 so first tick() fires immediately on same frame
+- [16-03] HOLD_END clears _held_action only (no physical release needed for tap-repeat)
 
 ### Pending Todos
 
@@ -80,5 +84,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T09:17:47Z
-Stopped at: Completed 16-02-PLAN.md (Phase 16 complete)
+Last session: 2026-03-25T10:25:32Z
+Stopped at: Completed 16-03-PLAN.md (gap closure - hold_key tap-repeat fix)
