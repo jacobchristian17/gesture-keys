@@ -781,7 +781,7 @@ class TestSwipeWindowConfig:
 
     def test_swipe_window_default(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.swipe_window == 0.2
+        assert config.swipe_window == 0.5
 
     def test_swipe_window_from_detection(self, tmp_path):
         cfg = tmp_path / "config.yaml"

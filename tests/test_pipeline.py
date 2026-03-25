@@ -134,12 +134,6 @@ class TestPipelineInit:
         assert pipeline._prev_gesture is None
         assert pipeline._prev_handedness is None
         assert pipeline._hand_was_in_range is True
-        assert pipeline._hold_active is False
-        assert pipeline._hold_modifiers is None
-        assert pipeline._hold_key is None
-        assert pipeline._hold_key_string is None
-        assert pipeline._hold_gesture_name is None
-        assert pipeline._hold_last_repeat == 0.0
         assert pipeline._last_frame is None
         assert pipeline._current_time == 0.0
 
@@ -239,13 +233,13 @@ class TestPipelineStartStop:
         pipeline = Pipeline("config.yaml")
 
         # Simulate components that were started
-        pipeline._sender = MagicMock()
+        pipeline._dispatcher = MagicMock()
         pipeline._camera = MagicMock()
         pipeline._detector = MagicMock()
 
         pipeline.stop()
 
-        pipeline._sender.release_all.assert_called_once()
+        pipeline._dispatcher.release_all.assert_called_once()
         pipeline._camera.stop.assert_called_once()
         pipeline._detector.close.assert_called_once()
 
@@ -284,13 +278,11 @@ class TestPipelineReset:
         pipeline._smoother = MagicMock()
         pipeline._orchestrator = MagicMock()
         pipeline._swipe_detector = MagicMock()
-        pipeline._sender = MagicMock()
-        pipeline._hold_active = True
+        pipeline._dispatcher = MagicMock()
 
         pipeline.reset_pipeline()
 
         pipeline._smoother.reset.assert_called_once()
         pipeline._orchestrator.reset.assert_called_once()
         pipeline._swipe_detector.reset.assert_called_once()
-        pipeline._sender.release_all.assert_called_once()
-        assert pipeline._hold_active is False
+        pipeline._dispatcher.release_all.assert_called_once()
