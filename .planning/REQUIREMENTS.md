@@ -75,17 +75,42 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| TRIG-01 | Phase 18 | Pending |
+| TRIG-02 | Phase 18 | Pending |
+| TRIG-03 | Phase 18 | Pending |
+| TRIG-04 | Phase 18 | Pending |
+| TRIG-05 | Phase 18 | Pending |
+| MOTN-01 | Phase 19 | Pending |
+| MOTN-02 | Phase 19 | Pending |
+| MOTN-03 | Phase 19 | Pending |
+| MOTN-04 | Phase 19 | Pending |
+| CONF-01 | Phase 20 | Pending |
+| CONF-02 | Phase 20 | Pending |
+| CONF-03 | Phase 20 | Pending |
+| CONF-04 | Phase 20 | Pending |
+| CONF-05 | Phase 20 | Pending |
+| ORCH-01 | Phase 21 | Pending |
+| ORCH-02 | Phase 21 | Pending |
+| ORCH-03 | Phase 21 | Pending |
+| ORCH-04 | Phase 21 | Pending |
+| ACTN-01 | Phase 22 | Pending |
+| ACTN-02 | Phase 22 | Pending |
+| ACTN-03 | Phase 22 | Pending |
+| INTG-01 | Phase 23 | Pending |
+| INTG-02 | Phase 23 | Pending |
+| INTG-03 | Phase 23 | Pending |
+| INTG-04 | Phase 23 | Pending |
+| CLNP-01 | Phase 24 | Pending |
+| CLNP-02 | Phase 24 | Pending |
+| CLNP-03 | Phase 24 | Pending |
 
 **Coverage:**
-- v3.0 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23
+- v3.0 requirements: 28 total
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after initial definition*
+*Last updated: 2026-03-26 after roadmap creation*
