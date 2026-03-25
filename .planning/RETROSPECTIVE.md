@@ -164,6 +164,53 @@
 
 ---
 
+## Milestone: v2.0 — Structured Gesture Architecture
+
+**Shipped:** 2026-03-26
+**Phases:** 4 | **Plans:** 9
+
+### What Was Built
+- Unified Pipeline class with FrameResult dataclass — preview wrapper ~70 lines, tray wrapper ~29 lines (down from ~570 and ~515)
+- Hierarchical GestureOrchestrator FSM with outer lifecycle + inner temporal state dispatch
+- ActionResolver (pure lookup) + ActionDispatcher (stateful key lifecycle) with tap and hold_key fire modes
+- App-controlled tap-repeat at 33Hz fixing Windows SendInput non-repeat behavior
+- Activation gate with configurable arm/disarm, bypass mode (default off), gate expiry safety, hot-reload
+- 428 tests passing with full TDD red-green coverage across all new subsystems
+
+### What Worked
+- Clean architectural break from v1.x — full rewrite enabled rethinking instead of patching
+- TDD red-green discipline caught regressions immediately (e.g., MagicMock auto-attributes returning truthy for activation_gate_enabled)
+- Resolver-Dispatcher separation made action dispatch independently testable with clear state ownership
+- gate=None as bypass mode gives zero overhead when feature is disabled (null-object pattern)
+- Wave-based execution with parallel agents kept phase completion fast despite 9 plans
+- UAT verified all 6 human-testable activation gate behaviors passed on first try
+
+### What Was Inefficient
+- Phase 16 required gap closure (plan 16-03) when Windows SendInput non-repeat behavior wasn't anticipated during planning — research should have flagged OS-level keyboard simulation differences
+- 4 pre-existing test failures from v1.x persisted through all v2.0 phases (stale test assertions for removed debouncer fields) — finally fixed in commit 77bf995 after all plans complete
+- Plan checkbox state in ROADMAP.md was inconsistent (some checked, some not) for completed plans — cosmetic but caused confusion during verification
+
+### Patterns Established
+- Pipeline.process_frame() as zero-arg entry point — all mode wrappers just loop this
+- Hierarchical FSM: outer dispatch to handler methods, inner sub-dispatch within _handle_active()
+- Resolver-Dispatcher pattern: pure lookup separated from stateful dispatch with single held-action field
+- App-controlled tap-repeat for platforms where OS key-hold doesn't auto-repeat programmatic input
+- gate=None as null-object bypass — no conditional checks on hot path
+
+### Key Lessons
+1. Pipeline unification resolved the persistent v1.x pain point of duplicated loop code — should have been done earlier
+2. Windows SendInput keyboard simulation differs from physical keyboard behavior — research should explicitly test OS-level APIs before planning fire modes
+3. Pre-existing test failures should be fixed at milestone boundary, not carried forward — they obscure new test regressions
+4. TDD with MagicMock requires explicit attribute setup for boolean fields — auto-attributes return truthy MagicMock objects, not False
+5. Activation gate UAT passing on first try validates that thorough automated testing (33 tests) makes human verification a confirmation step, not a discovery step
+
+### Cost Observations
+- Model mix: opus for execution, sonnet for verification
+- 4 phases across 5 days, ~3-6 min per plan execution
+- Notable: Major architectural rewrite (9 plans, +8540/-2217 lines) completed efficiently — clean break from v1.x avoided compatibility shim overhead
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -174,6 +221,7 @@
 | v1.1 | 4 | 8 | Extended pipeline architecture — added SwipeDetector subsystem |
 | v1.2 | 3 | 8 | UAT gap closure pattern — plans grew from 2→4 in Phase 10 |
 | v1.3 | 3 | 5 | Smallest milestone — hand-agnostic classifier, dual-mapping pre-parse |
+| v2.0 | 4 | 9 | Full rewrite — unified pipeline, hierarchical FSM, action dispatch, activation gate |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -182,4 +230,6 @@
 3. Research before planning identifies minimal keystone changes — keeps implementation focused (v1.2)
 4. Fix prerequisites before optimizations to avoid cascading failures (v1.1 settling frames → v1.2 reduction)
 5. Test existing code assumptions before writing new code — v1.3 classifier was already hand-agnostic, saving significant effort
-6. Duplicated loop code (__main__.py + tray.py) is a persistent maintenance burden — flagged in v1.2, confirmed in v1.3
+6. Duplicated loop code (__main__.py + tray.py) is a persistent maintenance burden — flagged in v1.2, confirmed in v1.3, **resolved in v2.0** via unified Pipeline class
+7. Full architectural rewrites (v2.0) are more efficient than incremental patching when the fundamental abstraction is wrong — clean break avoids compatibility shim overhead
+8. Platform-specific API behavior (Windows SendInput) must be researched before planning — OS-level differences cause gap closure cycles (v2.0 phase 16)
