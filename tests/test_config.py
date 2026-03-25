@@ -8,10 +8,15 @@ import pytest
 from gesture_keys.config import (
     AppConfig,
     ConfigWatcher,
+    _extract_gesture_modes,
+    build_action_maps,
+    build_compound_action_maps,
+    extract_gesture_swipe_mappings,
     load_config,
     resolve_hand_gestures,
     resolve_hand_swipe_mappings,
 )
+from gesture_keys.action import Action, FireMode
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -940,3 +945,118 @@ left_gestures:
         assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+right"
         # Right-hand swipe_right preserved
         assert resolved["peace"]["swipe"]["swipe_right"]["key"] == "ctrl+shift+right"
+
+
+class TestFireModeConfig:
+    """Tests for fire_mode config parsing and build_action_maps."""
+
+    def test_fire_mode_hold_key(self):
+        """fire_mode: hold_key in config produces gesture_modes['fist'] == 'hold_key'."""
+        gestures = {"fist": {"key": "space", "fire_mode": "hold_key"}}
+        modes = _extract_gesture_modes(gestures)
+        assert modes["fist"] == "hold_key"
+
+    def test_fire_mode_tap(self):
+        """fire_mode: tap in config produces gesture_modes['open_palm'] == 'tap'."""
+        gestures = {"open_palm": {"key": "win+tab", "fire_mode": "tap"}}
+        modes = _extract_gesture_modes(gestures)
+        assert modes["open_palm"] == "tap"
+
+    def test_mode_hold_backward_compat(self):
+        """mode: hold (v1.x) produces gesture_modes['fist'] == 'hold_key'."""
+        gestures = {"fist": {"key": "space", "mode": "hold"}}
+        modes = _extract_gesture_modes(gestures)
+        assert modes["fist"] == "hold_key"
+
+    def test_mode_tap_backward_compat(self):
+        """mode: tap (v1.x) still produces 'tap'."""
+        gestures = {"fist": {"key": "space", "mode": "tap"}}
+        modes = _extract_gesture_modes(gestures)
+        assert modes["fist"] == "tap"
+
+    def test_no_fire_mode_no_mode_defaults_tap(self):
+        """No fire_mode and no mode defaults to 'tap'."""
+        gestures = {"fist": {"key": "space"}}
+        modes = _extract_gesture_modes(gestures)
+        assert modes["fist"] == "tap"
+
+    def test_fire_mode_takes_precedence_over_mode(self):
+        """fire_mode takes precedence over mode when both present."""
+        gestures = {"fist": {"key": "space", "mode": "tap", "fire_mode": "hold_key"}}
+        modes = _extract_gesture_modes(gestures)
+        assert modes["fist"] == "hold_key"
+
+    def test_invalid_fire_mode_raises(self):
+        """Invalid fire_mode raises ValueError."""
+        gestures = {"fist": {"key": "space", "fire_mode": "invalid"}}
+        with pytest.raises(ValueError, match="invalid"):
+            _extract_gesture_modes(gestures)
+
+    def test_invalid_mode_raises(self):
+        """Invalid mode raises ValueError."""
+        gestures = {"fist": {"key": "space", "mode": "invalid"}}
+        with pytest.raises(ValueError, match="invalid"):
+            _extract_gesture_modes(gestures)
+
+    def test_build_action_maps_creates_actions(self):
+        """build_action_maps() creates dict[str, Action] from gestures config."""
+        gestures = {
+            "fist": {"key": "space", "threshold": 0.7},
+            "open_palm": {"key": "win+tab", "threshold": 0.7},
+        }
+        modes = {"fist": "tap", "open_palm": "tap"}
+        actions = build_action_maps(gestures, modes)
+        assert isinstance(actions, dict)
+        assert "fist" in actions
+        assert "open_palm" in actions
+        assert isinstance(actions["fist"], Action)
+        assert actions["fist"].key_string == "space"
+        assert actions["fist"].fire_mode == FireMode.TAP
+        assert actions["fist"].gesture_name == "fist"
+
+    def test_build_action_maps_hold_key_mode(self):
+        """build_action_maps() sets FireMode.HOLD_KEY for hold_key gestures."""
+        gestures = {"fist": {"key": "space", "threshold": 0.7}}
+        modes = {"fist": "hold_key"}
+        actions = build_action_maps(gestures, modes)
+        assert actions["fist"].fire_mode == FireMode.HOLD_KEY
+
+    def test_build_action_maps_pre_parses_keys(self):
+        """build_action_maps() pre-parses key strings via parse_key_string."""
+        from pynput.keyboard import Key
+        gestures = {"fist": {"key": "ctrl+space", "threshold": 0.7}}
+        modes = {"fist": "tap"}
+        actions = build_action_maps(gestures, modes)
+        assert Key.ctrl in actions["fist"].modifiers
+        assert actions["fist"].key == Key.space
+
+    def test_build_action_maps_skips_no_key(self):
+        """build_action_maps() skips gestures without a 'key' field."""
+        gestures = {"fist": {"threshold": 0.7}}
+        modes = {"fist": "tap"}
+        actions = build_action_maps(gestures, modes)
+        assert "fist" not in actions
+
+    def test_build_compound_action_maps(self):
+        """build_compound_action_maps() creates dict from gesture_swipe_mappings."""
+        swipe_mappings = {
+            "open_palm": {"swipe_left": "1", "swipe_right": "2"},
+        }
+        actions = build_compound_action_maps(swipe_mappings)
+        assert isinstance(actions, dict)
+        assert ("open_palm", "swipe_left") in actions
+        assert ("open_palm", "swipe_right") in actions
+        action = actions[("open_palm", "swipe_left")]
+        assert isinstance(action, Action)
+        assert action.fire_mode == FireMode.TAP
+        assert action.key_string == "1"
+        assert action.gesture_name == "open_palm"
+
+    def test_hold_key_with_swipe_raises(self):
+        """hold_key gesture with swipe block raises ValueError (existing validation)."""
+        gestures = {
+            "fist": {"key": "space", "swipe": {"swipe_left": {"key": "1"}}},
+        }
+        modes = {"fist": "hold_key"}
+        with pytest.raises(ValueError, match="hold"):
+            extract_gesture_swipe_mappings(gestures, modes)
