@@ -6,7 +6,7 @@ signals to KeystrokeSender methods.
 
 FireMode determines HOW a resolved action is executed:
   - TAP: press and release once (sender.send)
-  - HOLD_KEY: sustained press while gesture held (sender.press_and_hold + release_held)
+  - HOLD_KEY: app-controlled tap-repeat via tick() while gesture held
 """
 
 from __future__ import annotations
@@ -115,17 +115,30 @@ class ActionDispatcher:
     Owns held-key lifecycle state. Routes FIRE/HOLD_START/HOLD_END/COMPOUND_FIRE
     signals to the appropriate KeystrokeSender methods.
 
+    Hold_key fire mode uses app-controlled tap-repeat: tick() sends repeated
+    keystrokes at repeat_interval while _held_action is set. This replaces
+    OS key-hold (press_and_hold) which Windows does not auto-repeat for
+    programmatic SendInput events.
+
     Guarantees no stuck keys via release_all() on every exit path.
 
     Args:
         sender: KeystrokeSender for keyboard control.
         resolver: ActionResolver for gesture -> Action lookup.
+        repeat_interval: Seconds between tap-repeat sends (default 30ms).
     """
 
-    def __init__(self, sender: KeystrokeSender, resolver: ActionResolver) -> None:
+    def __init__(
+        self,
+        sender: KeystrokeSender,
+        resolver: ActionResolver,
+        repeat_interval: float = 0.03,
+    ) -> None:
         self._sender = sender
         self._resolver = resolver
         self._held_action: Optional[Action] = None
+        self._repeat_interval = repeat_interval
+        self._last_repeat_time: float = 0.0
 
     def dispatch(self, signal: OrchestratorSignal) -> None:
         """Route an orchestrator signal to the appropriate fire mode handler.
@@ -142,6 +155,23 @@ class ActionDispatcher:
         elif signal.action == OrchestratorAction.COMPOUND_FIRE:
             self._handle_compound_fire(signal)
 
+    def tick(self, current_time: float) -> None:
+        """Send repeated keystroke if hold is active and interval elapsed.
+
+        Called every frame by Pipeline.process_frame(). No-op when no
+        hold is active.
+
+        Args:
+            current_time: Current time in seconds (time.perf_counter()).
+        """
+        if self._held_action is None:
+            return
+        if current_time - self._last_repeat_time >= self._repeat_interval:
+            self._sender.send(
+                self._held_action.modifiers, self._held_action.key
+            )
+            self._last_repeat_time = current_time
+
     def _handle_fire(self, signal: OrchestratorSignal) -> None:
         """Handle FIRE signal -- always tap behavior regardless of fire_mode."""
         action = self._resolver.resolve(signal.gesture.value)
@@ -149,20 +179,18 @@ class ActionDispatcher:
             self._sender.send(action.modifiers, action.key)
 
     def _handle_hold_start(self, signal: OrchestratorSignal) -> None:
-        """Handle HOLD_START -- press and hold if fire_mode is HOLD_KEY."""
+        """Handle HOLD_START -- set held action for tick-based tap-repeat.
+
+        Sets _last_repeat_time to 0.0 so the next tick() fires immediately.
+        """
         action = self._resolver.resolve(signal.gesture.value)
         if action is not None and action.fire_mode == FireMode.HOLD_KEY:
-            # If already holding something, release first
-            if self._held_action is not None:
-                self._sender.release_held()
-            self._sender.press_and_hold(action.modifiers, action.key)
             self._held_action = action
+            self._last_repeat_time = 0.0  # Next tick() fires immediately
 
     def _handle_hold_end(self, signal: OrchestratorSignal) -> None:
-        """Handle HOLD_END -- release held keys if any."""
-        if self._held_action is not None:
-            self._sender.release_held()
-            self._held_action = None
+        """Handle HOLD_END -- clear held action (tick becomes no-op)."""
+        self._held_action = None
 
     def _handle_compound_fire(self, signal: OrchestratorSignal) -> None:
         """Handle COMPOUND_FIRE -- resolve compound and send."""
