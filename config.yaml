@@ -69,13 +69,13 @@ swipe:
   swipe_up:
     key: up
   swipe_down:
-    key: down
+    key: down                                                                        
 
 # Activation gate: arm/disarm gesture detection with an activation gesture.
 # When enabled, gestures only fire actions while the gate is armed.
 # The activation gesture arms the gate for the configured duration.
 activation_gate:
-  enabled: false          # Set to true to enable activation gating (default: bypass, v1.x behavior)
+  enabled: true          # Set to true to enable activation gating (default: bypass, v1.x behavior)
   gestures:               # Gestures that arm the gate (perform any of these to activate)
     - scout
     - peace
