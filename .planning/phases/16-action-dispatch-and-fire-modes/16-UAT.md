@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 16-action-dispatch-and-fire-modes
 source: [16-01-SUMMARY.md, 16-02-SUMMARY.md]
 started: 2026-03-25T10:00:00Z
@@ -55,16 +55,24 @@ skipped: 1
   reason: "User reported: Holding status is detected, but no continuous firing"
   severity: major
   test: 2
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Windows SendInput API does not auto-repeat programmatic key-down events. press_and_hold() sends a single key-down via pynput Controller.press(), but OS key repeat only applies to physical keyboard hardware input. The v1.x tap-repeat loop (send at 30Hz) was intentionally removed in Phase 16, but the replacement doesn't produce sustained output."
+  artifacts:
+    - path: "gesture_keys/keystroke.py"
+      issue: "press_and_hold() sends one key-down event, no repeat mechanism"
+    - path: "gesture_keys/action.py"
+      issue: "_handle_hold_start() calls press_and_hold() which works but produces no sustained output"
+  missing:
+    - "App-controlled repeat mechanism: on each frame while HOLD active, call sender.send() at hold_repeat_interval (30ms/30Hz) instead of relying on OS key repeat"
+  debug_session: ".planning/debug/hold-key-no-continuous-firing.md"
 - truth: "Legacy mode: hold syntax produces hold_key behavior (sustained keypress)"
   status: failed
   reason: "User reported: same exact case with thumbs_up"
   severity: major
   test: 3
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Same root cause as test 2 — press_and_hold() does not produce sustained output on Windows. Legacy mode: hold correctly maps to hold_key but hits the same SendInput limitation."
+  artifacts:
+    - path: "gesture_keys/keystroke.py"
+      issue: "press_and_hold() sends one key-down event, no repeat mechanism"
+  missing:
+    - "Same fix as test 2 — app-controlled repeat mechanism"
+  debug_session: ".planning/debug/hold-key-no-continuous-firing.md"
