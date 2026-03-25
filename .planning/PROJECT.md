@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard commands (single keys and combos). Runs as a Windows system tray app with optional camera preview.
+A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard commands via a structured pipeline: activation gate, gesture orchestrator (static + temporal states), action resolver with fire modes, and key lifecycle management. Runs as a Windows system tray app with optional camera preview.
 
 ## Core Value
 
@@ -21,28 +21,23 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Distance-based gesture gating — only detect gestures when hand is within configurable distance from camera — v1.1
 - ✓ Swipe gestures (left, right, up, down) — detect directional hand movement and fire mapped keyboard commands — v1.1
 - ✓ Preview overlays for distance value and swipe direction — v1.1
-
 - ✓ Direct gesture-to-gesture firing without returning to "none" state — v1.2
-- ✓ Faster swipe↔static transitions (reduced settling/cooldown lag) — v1.2
+- ✓ Faster swipe-to-static transitions (reduced settling/cooldown lag) — v1.2
 - ✓ Tuned debounce/cooldown/threshold defaults based on real usage — v1.2
 - ✓ Left-hand detection with same 6 static gestures + 4 swipe directions — v1.3
 - ✓ One-hand-at-a-time mode with active hand selection and preferred_hand config — v1.3
 - ✓ Left hand mirrors right-hand key mappings by default — v1.3
 - ✓ Optional separate left-hand key mappings via left_gestures config section — v1.3
 - ✓ Preview overlay hand indicator (L/R) showing active hand in real time — v1.3
+- ✓ Unified Pipeline class with shared data types (FrameResult, GestureState) eliminating preview/tray duplication — v2.0
+- ✓ Hierarchical GestureOrchestrator FSM managing static/hold/swiping state transitions — v2.0
+- ✓ ActionResolver + ActionDispatcher with tap and hold_key fire modes — v2.0
+- ✓ Centralized stuck-key prevention across all exit paths — v2.0
+- ✓ Activation gate with configurable arm/disarm, bypass mode, and hot-reload — v2.0
 
 ### Active
 
-## Current Milestone: v2.0 Structured Gesture Architecture
-
-**Goal:** Clean rewrite of the gesture pipeline with activation gating, gesture hierarchy (static + temporal states), and action-based dispatch with multiple fire modes.
-
-**Target features:**
-- Activation gate: gesture-based arm/disarm with configurable bypass (scout/peace default)
-- Gesture hierarchy: static gestures as base layer, hold and swiping as temporal state modifiers
-- Action dispatch: static gesture × temporal state → mapped keyboard command
-- Fire modes: tap (press+release) and hold_key (sustained keypress mirroring gesture state)
-- Orchestrator managing gesture type prioritization and state transitions
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -53,17 +48,15 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - Gesture profiles / per-app mappings — single global config for now
 - GPU acceleration (onnxruntime-gpu) — MediaPipe Python on Windows is CPU-only; 30+ FPS on CPU is sufficient
 - Simultaneous two-hand detection — one hand at a time; complexity deferred
-- Per-hand debounce/cooldown tuning — same pipeline behavior for both hands
-- Mirrored swipe directions for left hand — swipe directions are absolute
+- Sequence gestures (gesture A then B) — adds latency to all gestures
+- Config auto-migration from v1.x — clean rewrite, manual config update acceptable
 
 ## Context
 
-Clean rewrite milestone. Previous v1.0–v1.3 shipped 7,549 LOC Python with incremental gesture pipeline.
+Shipped v2.0 with 54,373 LOC Python. Architecture: unified Pipeline → ActivationGate → GestureOrchestrator (hierarchical FSM) → ActionResolver → ActionDispatcher → KeystrokeSender.
 Tech stack: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML.
 Platform: Windows 11, CPU inference (30+ FPS sufficient).
-Previous architecture (being replaced): camera thread → MediaPipe landmarks → classifier → smoother → debouncer → keystroke sender.
-New architecture target: activation gate → gesture orchestrator (static base + temporal modifiers) → action resolver → fire mode executor.
-Compound gestures (v1.3) are subsumed by the temporal state model — no separate compound concept needed.
+428 tests passing with full TDD coverage across pipeline, orchestrator, action dispatch, and activation gate subsystems.
 
 ## Constraints
 
@@ -83,15 +76,18 @@ Compound gestures (v1.3) are subsumed by the temporal state model — no separat
 | Dropped GPU acceleration | MediaPipe Python on Windows is CPU-only, 30+ FPS sufficient | ✓ Good — simplified dependencies |
 | RGBA icon + visible=True for pystray | RGB icons invisible on some Windows 11 configs | ✓ Good — fixed tray icon visibility |
 | Lazy TrayApp import in __main__.py | Avoid loading pystray/Pillow when using --preview mode | ✓ Good — faster preview startup |
-| COOLDOWN→ACTIVATING for different gesture | Enables direct gesture transitions without "none" intermediate | ✓ Good — ~15 LOC change, clean state machine extension |
-| Swipe-exit reset (smoother+debouncer) | Fix latent bug where stale state carried over swipe→static | ✓ Good — prerequisite for settling frame reduction |
-| Settling frames 10→3 | Reduce post-swipe latency from ~330ms to ~100ms | ✓ Good — safe with exit reset flushing stale state |
+| COOLDOWN->ACTIVATING for different gesture | Enables direct gesture transitions without "none" intermediate | ✓ Good — ~15 LOC change, clean state machine extension |
 | Static-first priority gate | Prevent swipe arming while debouncer is activating a static gesture | ✓ Good — eliminates swipe-preempts-static bug |
 | Per-gesture cooldowns via config.yaml | Different gestures need different cooldowns (e.g., pinch longer than fist) | ✓ Good — simple gesture.value string key lookup |
 | Dict-based active hand selection | O(1) lookup from MediaPipe results, sticky during two-hand frames | ✓ Good — prevents hand-switch jitter |
 | Classifier hand-agnostic (no changes) | MediaPipe landmarks normalize hand geometry; thumb uses abs() | ✓ Good — zero classifier code changes for left hand |
 | Deep-merge for left gestures, full replace for swipes | Gestures benefit from partial override; swipe dirs are atomic | ✓ Good — intuitive config behavior |
 | Pre-parse both hand mappings at startup | Avoid per-frame resolution overhead; instant swap on hand switch | ✓ Good — hot-reload re-parses both sets |
+| Unified Pipeline class (v2.0) | Eliminated 90% duplication between preview/tray detection loops | ✓ Good — ~70 line preview, ~29 line tray wrapper |
+| Hierarchical FSM for orchestrator (v2.0) | Outer lifecycle + inner temporal state cleanly separates concerns | ✓ Good — replaced scattered debouncer + main-loop coordination |
+| Resolver-Dispatcher separation (v2.0) | Pure lookup (ActionResolver) separated from stateful dispatch (ActionDispatcher) | ✓ Good — testable, single held-action field prevents state desync |
+| App-controlled tap-repeat (v2.0) | Windows SendInput doesn't auto-repeat key-down events | ✓ Good — 33Hz tap-repeat matches real keyboard behavior |
+| gate=None as bypass mode (v2.0) | Zero overhead for default config, not a disabled flag | ✓ Good — no conditional checks on hot path when gate unused |
 
 ---
-*Last updated: 2026-03-24 after v2.0 milestone started*
+*Last updated: 2026-03-26 after v2.0 milestone complete*

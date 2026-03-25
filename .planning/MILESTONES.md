@@ -1,5 +1,23 @@
 # Milestones
 
+## v2.0 Structured Gesture Architecture (Shipped: 2026-03-25)
+
+**Phases completed:** 4 phases, 9 plans, 2 tasks
+
+**Lines of code:** 54,373 Python (total project)
+**Timeline:** 5 days (2026-03-21 → 2026-03-26)
+**Git range:** e1736f8..1f183b4
+
+**Key accomplishments:**
+- Unified Pipeline class eliminating 90% code duplication between preview and tray modes (~70 and ~29 lines respectively)
+- Hierarchical GestureOrchestrator FSM replacing scattered debouncer + main-loop coordination with clean state machine
+- ActionResolver + ActionDispatcher with tap and hold_key fire modes, structured gesture-to-action mappings
+- Centralized stuck-key prevention across all exit paths (gate expiry, hand switch, distance out-of-range, app toggle)
+- Activation gate with configurable arm/disarm, bypass mode (default off), and hot-reload support
+- App-controlled tap-repeat at 33Hz fixing Windows SendInput non-repeat behavior for hold_key mode
+
+---
+
 ## v1.3 Left Hand Support (Shipped: 2026-03-24)
 
 **Phases completed:** 3 phases, 5 plans, 8 tasks
