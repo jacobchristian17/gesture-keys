@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Structured Gesture Architecture
 status: executing
-stopped_at: Completed 15-02-PLAN.md
-last_updated: "2026-03-24T22:55:53.562Z"
-last_activity: 2026-03-25 — Plan 15-02 completed (Pipeline orchestrator integration, debounce.py deleted)
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-03-25T09:05:00.000Z"
+last_activity: 2026-03-25 — Plan 16-01 completed (ActionResolver + ActionDispatcher with TDD)
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 95
+  total_plans: 6
+  completed_plans: 5
+  percent: 93
 ---
 
 # Project State
@@ -21,26 +21,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-24)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 15 - Gesture Orchestrator
+**Current focus:** Phase 16 - Action Dispatch and Fire Modes
 
 ## Current Position
 
-Phase: 15 of 17 (Gesture Orchestrator)
-Plan: 2 of 2 (Phase 15) -- Plan 15-02 complete
+Phase: 16 of 17 (Action Dispatch and Fire Modes)
+Plan: 1 of 2 (Phase 16) -- Plan 16-01 complete
 Status: Executing
-Last activity: 2026-03-25 — Plan 15-02 completed (Pipeline orchestrator integration, debounce.py deleted)
+Last activity: 2026-03-25 — Plan 16-01 completed (ActionResolver + ActionDispatcher with TDD)
 
-Progress: [█████████░] 95%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 2)
+- Total plans completed: 31 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 3)
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 15    | 01   | 17min    | 2     | 2     |
 | 15    | 02   | 41min    | 2     | 7     |
+| 16    | 01   | 3min     | 2     | 2     |
 
 ## Accumulated Context
 
@@ -58,6 +59,9 @@ Progress: [█████████░] 95%
 - [15-02] DebounceState enum placed in pipeline.py for backward compat (not orchestrator.py)
 - [15-02] Config reload uses flush_pending() signal iteration pattern
 - [15-02] Pipeline safety-net for swiping hold release (belt-and-suspenders with orchestrator HOLD_END)
+- [16-01] FIRE signal always uses sender.send() regardless of fire_mode (tap behavior)
+- [16-01] HOLD_START only activates hold when Action.fire_mode == HOLD_KEY
+- [16-01] Single _held_action field (None when idle) replaces multiple boolean flags
 
 ### Pending Todos
 
@@ -71,5 +75,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-25T22:44:00.000Z
-Stopped at: Completed 15-02-PLAN.md
+Last session: 2026-03-25T09:05:00.000Z
+Stopped at: Completed 16-01-PLAN.md
