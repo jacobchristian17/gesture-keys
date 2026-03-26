@@ -132,7 +132,7 @@ Plans:
   1. ActionResolver resolves static, holding, moving, and sequence triggers to their configured actions via separate lookup maps
   2. ActionDispatcher receives MOVING_FIRE and SEQUENCE_FIRE signals and dispatches the correct keystrokes
   3. Old compound fire handling code is removed from both resolver and dispatcher
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [x] 22-01-PLAN.md -- Refactor resolver to 4 trigger-type maps, add MOVING_FIRE/SEQUENCE_FIRE dispatch, update DerivedConfig
 
@@ -182,6 +182,6 @@ Plans:
 | 19. MotionDetector | 1/1 | Complete    | 2026-03-26 | - |
 | 20. Config Loader for Actions | 2/2 | Complete    | 2026-03-26 | - |
 | 21. Orchestrator Refactor | 2/2 | Complete    | 2026-03-26 | - |
-| 22. ActionResolver and Dispatcher Update | v3.0 | 0/1 | Not started | - |
+| 22. ActionResolver and Dispatcher Update | v3.0 | Complete    | 2026-03-26 | - |
 | 23. Pipeline Integration | v3.0 | 0/? | Not started | - |
 | 24. Cleanup and Config Migration | v3.0 | 0/? | Not started | - |
