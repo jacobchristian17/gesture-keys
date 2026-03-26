@@ -17,10 +17,10 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 ### Motion Detection
 
-- [ ] **MOTN-01**: System detects continuous per-frame motion state (moving/not moving) from hand landmarks
-- [ ] **MOTN-02**: System classifies motion direction as one of 4 cardinal directions (left, right, up, down)
-- [ ] **MOTN-03**: System uses hysteresis (separate arm/disarm thresholds) to prevent motion state flicker
-- [ ] **MOTN-04**: System applies settling frames on hand entry to prevent false motion detection
+- [x] **MOTN-01**: System detects continuous per-frame motion state (moving/not moving) from hand landmarks
+- [x] **MOTN-02**: System classifies motion direction as one of 4 cardinal directions (left, right, up, down)
+- [x] **MOTN-03**: System uses hysteresis (separate arm/disarm thresholds) to prevent motion state flicker
+- [x] **MOTN-04**: System applies settling frames on hand entry to prevent false motion detection
 
 ### Config
 
@@ -82,10 +82,10 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 | TRIG-03 | Phase 18 | Complete |
 | TRIG-04 | Phase 18 | Complete |
 | TRIG-05 | Phase 18 | Complete |
-| MOTN-01 | Phase 19 | Pending |
-| MOTN-02 | Phase 19 | Pending |
-| MOTN-03 | Phase 19 | Pending |
-| MOTN-04 | Phase 19 | Pending |
+| MOTN-01 | Phase 19 | Complete |
+| MOTN-02 | Phase 19 | Complete |
+| MOTN-03 | Phase 19 | Complete |
+| MOTN-04 | Phase 19 | Complete |
 | CONF-01 | Phase 20 | Pending |
 | CONF-02 | Phase 20 | Pending |
 | CONF-03 | Phase 20 | Pending |

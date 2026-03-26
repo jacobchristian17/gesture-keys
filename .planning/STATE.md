@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Tri-State Gesture Model + Action Library
 status: completed
-stopped_at: Phase 19 context gathered
-last_updated: "2026-03-26T07:49:17.633Z"
-last_activity: 2026-03-26 — Completed 18-01 Trigger Parser and Data Model
+stopped_at: Completed 19-01-PLAN.md
+last_updated: "2026-03-26T08:53:42.000Z"
+last_activity: 2026-03-26 — Completed 19-01 MotionDetector
 progress:
   total_phases: 7
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
   percent: 5
 ---
 
@@ -25,17 +25,17 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 ## Current Position
 
-Phase: 18 of 24 (Trigger Parser and Data Model)
+Phase: 19 of 24 (MotionDetector)
 Plan: 1 of 1 complete
-Status: Phase 18 complete, ready for Phase 19
-Last activity: 2026-03-26 — Completed 18-01 Trigger Parser and Data Model
+Status: Phase 19 complete, ready for Phase 20
+Last activity: 2026-03-26 — Completed 19-01 MotionDetector
 
-Progress: [█░░░░░░░░░] 5%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 39 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 1)
+- Total plans completed: 40 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 2)
 
 ## Accumulated Context
 
@@ -43,6 +43,8 @@ Progress: [█░░░░░░░░░] 5%
 
 Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions table for full history.
 - [Phase 18]: Direction enum uses clean cardinal names (left/right/up/down) not swipe-prefixed
+- [Phase 19]: MotionState uses frozen dataclass with _NOT_MOVING singleton for zero-alloc not-moving frames
+- [Phase 19]: Direction reused from trigger.py (single source of truth, not duplicated)
 
 ### Pending Todos
 
@@ -54,5 +56,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-26T07:49:17.621Z
-Stopped at: Phase 19 context gathered
+Last session: 2026-03-26T08:53:42.000Z
+Stopped at: Completed 19-01-PLAN.md
