@@ -65,7 +65,7 @@
 - [x] **Phase 20: Config Loader for Actions** - New `actions:` config section parsing and orchestrator input derivation (completed 2026-03-26)
 - [x] **Phase 21: Orchestrator Refactor** - Remove swipe states, add motion and sequence signals (completed 2026-03-26)
 - [x] **Phase 22: ActionResolver and Dispatcher Update** - Resolve and dispatch all new signal types (completed 2026-03-26)
-- [ ] **Phase 23: Pipeline Integration** - Wire MotionDetector and new signals through the full pipeline
+- [x] **Phase 23: Pipeline Integration** - Wire MotionDetector and new signals through the full pipeline (completed 2026-03-26)
 - [ ] **Phase 24: Cleanup and Config Migration** - Delete swipe.py, convert config, remove legacy code
 
 ## Phase Details
@@ -145,7 +145,7 @@ Plans:
   2. Pipeline passes motion_state from MotionDetector to orchestrator on every frame
   3. FrameResult contains motion_state (moving bool + direction) instead of the old swiping boolean
   4. Activation gate correctly gates MOVING_FIRE and SEQUENCE_FIRE signals (fires only when gate is open or bypass is set)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 23-01-PLAN.md -- Replace SwipeDetector with MotionDetector, switch to DerivedConfig, update FrameResult and tests
 
@@ -185,5 +185,5 @@ Plans:
 | 20. Config Loader for Actions | 2/2 | Complete    | 2026-03-26 | - |
 | 21. Orchestrator Refactor | 2/2 | Complete    | 2026-03-26 | - |
 | 22. ActionResolver and Dispatcher Update | v3.0 | Complete    | 2026-03-26 | - |
-| 23. Pipeline Integration | v3.0 | 0/1 | Not started | - |
+| 23. Pipeline Integration | v3.0 | 0/1 | Complete    | 2026-03-26 |
 | 24. Cleanup and Config Migration | v3.0 | 0/? | Not started | - |
