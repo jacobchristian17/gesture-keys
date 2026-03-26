@@ -9,9 +9,11 @@ from gesture_keys.config import (
     ActionEntry,
     AppConfig,
     ConfigWatcher,
+    DerivedConfig,
     _extract_gesture_modes,
     build_action_maps,
     build_compound_action_maps,
+    derive_from_actions,
     extract_gesture_swipe_mappings,
     load_config,
     parse_actions,
@@ -1298,3 +1300,169 @@ class TestParseActions:
         }
         result = parse_actions(actions_dict)
         assert result[0].hand == "both"
+
+
+class TestDeriveFromActions:
+    """Tests for derive_from_actions() function."""
+
+    def test_gesture_modes_from_trigger_states(self):
+        """Static -> tap, holding -> hold_key, moving -> tap."""
+        entries = [
+            ActionEntry(
+                name="tap_action",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.STATIC),
+                key="win+tab",
+            ),
+            ActionEntry(
+                name="hold_action",
+                trigger=Trigger(Gesture.FIST, TriggerState.HOLDING),
+                key="space",
+            ),
+            ActionEntry(
+                name="move_action",
+                trigger=Trigger(Gesture.PEACE, TriggerState.MOVING, Direction.LEFT),
+                key="left",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert isinstance(result, DerivedConfig)
+        assert result.gesture_modes["tap_action"] == "tap"
+        assert result.gesture_modes["hold_action"] == "hold_key"
+        assert result.gesture_modes["move_action"] == "tap"
+
+    def test_sequence_trigger_defaults_to_tap(self):
+        """SequenceTrigger always maps to tap."""
+        entries = [
+            ActionEntry(
+                name="seq_action",
+                trigger=SequenceTrigger(
+                    first=Trigger(Gesture.FIST, TriggerState.STATIC),
+                    second=Trigger(Gesture.OPEN_PALM, TriggerState.STATIC),
+                ),
+                key="enter",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert result.gesture_modes["seq_action"] == "tap"
+
+    def test_cooldown_overrides_collected(self):
+        """Actions with cooldown populate gesture_cooldowns; without -> not in dict."""
+        entries = [
+            ActionEntry(
+                name="with_cooldown",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="up",
+                cooldown=0.6,
+            ),
+            ActionEntry(
+                name="no_cooldown",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.STATIC),
+                key="down",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert result.gesture_cooldowns == {"with_cooldown": 0.6}
+
+    def test_bypass_gate_collected(self):
+        """Actions with bypass_gate=True appear in activation_gate_bypass list."""
+        entries = [
+            ActionEntry(
+                name="bypass_action",
+                trigger=Trigger(Gesture.PEACE, TriggerState.STATIC),
+                key="win+ctrl+right",
+                bypass_gate=True,
+            ),
+            ActionEntry(
+                name="normal_action",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="space",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert "bypass_action" in result.activation_gate_bypass
+        assert "normal_action" not in result.activation_gate_bypass
+
+    def test_hand_both_populates_both_maps(self):
+        """hand='both' puts action in both right_actions and left_actions."""
+        entries = [
+            ActionEntry(
+                name="both_action",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="space",
+                hand="both",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert "both_action" in result.right_actions
+        assert "both_action" in result.left_actions
+        assert isinstance(result.right_actions["both_action"], Action)
+        assert result.right_actions["both_action"].key_string == "space"
+        assert result.right_actions["both_action"].fire_mode == FireMode.TAP
+
+    def test_hand_left_only_in_left_map(self):
+        """hand='left' puts action only in left_actions."""
+        entries = [
+            ActionEntry(
+                name="left_only",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="ctrl+z",
+                hand="left",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert "left_only" in result.left_actions
+        assert "left_only" not in result.right_actions
+
+    def test_hand_right_only_in_right_map(self):
+        """hand='right' puts action only in right_actions."""
+        entries = [
+            ActionEntry(
+                name="right_only",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="ctrl+y",
+                hand="right",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert "right_only" in result.right_actions
+        assert "right_only" not in result.left_actions
+
+    def test_action_has_correct_fire_mode(self):
+        """Built Action uses fire_mode inferred from trigger state."""
+        entries = [
+            ActionEntry(
+                name="hold",
+                trigger=Trigger(Gesture.FIST, TriggerState.HOLDING),
+                key="space",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert result.right_actions["hold"].fire_mode == FireMode.HOLD_KEY
+
+    def test_action_has_parsed_modifiers_and_key(self):
+        """Built Action has pre-parsed modifiers and key from parse_key_string."""
+        from pynput.keyboard import Key
+        entries = [
+            ActionEntry(
+                name="mod_action",
+                trigger=Trigger(Gesture.PEACE, TriggerState.STATIC),
+                key="ctrl+space",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        action = result.right_actions["mod_action"]
+        assert Key.ctrl in action.modifiers
+        assert action.key == Key.space
+
+    def test_derived_config_is_frozen(self):
+        """DerivedConfig is a frozen dataclass."""
+        entries = [
+            ActionEntry(
+                name="test",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="space",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        with pytest.raises(AttributeError):
+            result.gesture_modes = {}
