@@ -211,6 +211,52 @@
 
 ---
 
+## Milestone: v3.0 — Tri-State Gesture Model + Action Library
+
+**Shipped:** 2026-03-27
+**Phases:** 7 | **Plans:** 9
+
+### What Was Built
+- Trigger string parser with TriggerState/Direction enums and compact syntax (`gesture:state[:direction]`, sequences with `>`)
+- MotionDetector with velocity hysteresis, cardinal direction classification, and settling-frame suppression
+- `actions:` config section with parse_actions() and derive_from_actions() producing DerivedConfig with 8 typed maps
+- Orchestrator refactor: removed swipe states, added MOVING_FIRE and SEQUENCE_FIRE signal emission
+- ActionResolver with 4 trigger-type maps per hand and ActionDispatcher routing for all signal types
+- Full pipeline integration: MotionDetector → Orchestrator → ActionResolver end-to-end
+- Legacy cleanup: deleted swipe.py (~320 lines), test_swipe.py (~604 lines), migrated config.yaml to actions-only
+
+### What Worked
+- Bottom-up phase ordering (foundations → config → orchestrator → resolver → pipeline → cleanup) kept each phase independently testable
+- DerivedConfig pattern (derive once at config load, O(1) lookup per frame) clean separation of parse-time vs runtime
+- Autonomous execution of phases 23-24 ran smoothly — infrastructure phases need no discussion
+- All 7 phase verifications passed on first attempt — no gap closure needed
+- Net deletion of ~3,000 lines while adding new capabilities — clean codebase result
+
+### What Was Inefficient
+- motion: YAML section was created in Phase 20 as a placeholder but never wired in Phase 23 — deferred without removing the YAML section, creating a silent config gap
+- Some SUMMARY.md files missing one_liner frontmatter (phases 23, 24) — template compliance drift
+- Phase 22 had to maintain backward-compatible legacy constructor for ActionResolver despite knowing it would be removed in Phase 24 — could have been deferred entirely
+
+### Patterns Established
+- Compact trigger string syntax as domain language for gesture-to-action mapping
+- DerivedConfig: parse-time derivation of runtime lookup tables from config entries
+- 4 trigger-type maps per hand (static, holding, moving, sequence) as the resolver structure
+- MotionDetector as continuous per-frame signal (no state machine) — simpler than event-based SwipeDetector
+
+### Key Lessons
+1. Placeholder config sections (motion:) should either be wired or removed — silent no-ops confuse users
+2. Legacy backward compatibility (Phase 22 legacy constructor) adds code that's deleted one phase later — consider deferring entirely
+3. Infrastructure/cleanup phases (Phase 24) execute fastest in autonomous mode with minimal discuss overhead
+4. 7-phase milestone with clear dependency ordering completed without any gap closure — thorough per-phase verification prevents accumulation
+5. Net code deletion (v3.0 removed more than it added) is a sign of healthy architectural evolution
+
+### Cost Observations
+- Model mix: opus for execution/planning, sonnet for verification/plan-checking
+- 7 phases across 2 days, 32 commits
+- Notable: Autonomous execution of final 2 phases (23-24) completed in ~20 minutes total including verification
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -222,6 +268,7 @@
 | v1.2 | 3 | 8 | UAT gap closure pattern — plans grew from 2→4 in Phase 10 |
 | v1.3 | 3 | 5 | Smallest milestone — hand-agnostic classifier, dual-mapping pre-parse |
 | v2.0 | 4 | 9 | Full rewrite — unified pipeline, hierarchical FSM, action dispatch, activation gate |
+| v3.0 | 7 | 9 | Tri-state model — trigger parser, MotionDetector, actions config, cleanup (-3k lines) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -233,3 +280,5 @@
 6. Duplicated loop code (__main__.py + tray.py) is a persistent maintenance burden — flagged in v1.2, confirmed in v1.3, **resolved in v2.0** via unified Pipeline class
 7. Full architectural rewrites (v2.0) are more efficient than incremental patching when the fundamental abstraction is wrong — clean break avoids compatibility shim overhead
 8. Platform-specific API behavior (Windows SendInput) must be researched before planning — OS-level differences cause gap closure cycles (v2.0 phase 16)
+9. Placeholder config sections should be wired or removed — silent no-ops create UX gaps (v3.0 motion: section)
+10. Net code deletion milestones (v3.0: -3k lines) validate that prior architectural decisions (v2.0 unified pipeline) were correct foundations
