@@ -27,8 +27,8 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 - [x] **CONF-01**: User can define actions in `actions:` config section with name, trigger, and key fields
 - [x] **CONF-02**: User can set per-action cooldown overrides
 - [x] **CONF-03**: User can set per-action bypass_gate flag
-- [ ] **CONF-04**: System derives orchestrator inputs (gesture_modes, cooldowns, gate bypass) from action triggers
-- [ ] **CONF-05**: Old `gestures:` and `swipe:` config sections are fully replaced by `actions:`
+- [x] **CONF-04**: System derives orchestrator inputs (gesture_modes, cooldowns, gate bypass) from action triggers
+- [x] **CONF-05**: Old `gestures:` and `swipe:` config sections are fully replaced by `actions:`
 
 ### Orchestrator
 
@@ -89,8 +89,8 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 | CONF-01 | Phase 20 | Complete |
 | CONF-02 | Phase 20 | Complete |
 | CONF-03 | Phase 20 | Complete |
-| CONF-04 | Phase 20 | Pending |
-| CONF-05 | Phase 20 | Pending |
+| CONF-04 | Phase 20 | Complete |
+| CONF-05 | Phase 20 | Complete |
 | ORCH-01 | Phase 21 | Pending |
 | ORCH-02 | Phase 21 | Pending |
 | ORCH-03 | Phase 21 | Pending |

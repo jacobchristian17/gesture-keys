@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Tri-State Gesture Model + Action Library
-status: in-progress
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-26T09:56:12.000Z"
-last_activity: 2026-03-26 — Completed 20-01 ActionEntry and parse_actions
+status: executing
+stopped_at: Completed 20-02-PLAN.md
+last_updated: "2026-03-26T10:07:09.221Z"
+last_activity: 2026-03-26 — Completed 20-02 derive_from_actions and load_config wiring
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 100
 ---
 
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 ## Current Position
 
 Phase: 20 of 24 (Config Loader for Actions)
-Plan: 1 of 4 complete
+Plan: 2 of 4 complete
 Status: Phase 20 in progress
-Last activity: 2026-03-26 — Completed 20-01 ActionEntry and parse_actions
+Last activity: 2026-03-26 — Completed 20-02 derive_from_actions and load_config wiring
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 41 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 3)
+- Total plans completed: 42 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 4)
 
 ## Accumulated Context
 
@@ -47,6 +47,8 @@ Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions t
 - [Phase 19]: Direction reused from trigger.py (single source of truth, not duplicated)
 - [Phase 20]: Trigger uniqueness uses hand-scoped tracking: 'both' registers in left+right+both scopes
 - [Phase 20]: ActionEntry stores raw key string, pre-parsing deferred to action map building
+- [Phase 20]: Fire mode inferred from trigger state: static->tap, holding->hold_key, moving->tap, sequence->tap
+- [Phase 20]: Left-hand parsing removed immediately per user decision (not deferred)
 
 ### Pending Todos
 
@@ -58,5 +60,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-26T09:56:12.000Z
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-03-26T10:07:09.218Z
+Stopped at: Completed 20-02-PLAN.md
