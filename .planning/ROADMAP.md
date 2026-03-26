@@ -179,7 +179,7 @@ Plans:
 | 18. Trigger Parser and Data Model | v3.0 | 1/1 | Complete | 2026-03-26 |
 | 19. MotionDetector | 1/1 | Complete    | 2026-03-26 | - |
 | 20. Config Loader for Actions | 2/2 | Complete    | 2026-03-26 | - |
-| 21. Orchestrator Refactor | 2/2 | Complete   | 2026-03-26 | - |
+| 21. Orchestrator Refactor | 2/2 | Complete    | 2026-03-26 | - |
 | 22. ActionResolver and Dispatcher Update | v3.0 | 0/? | Not started | - |
 | 23. Pipeline Integration | v3.0 | 0/? | Not started | - |
 | 24. Cleanup and Config Migration | v3.0 | 0/? | Not started | - |
