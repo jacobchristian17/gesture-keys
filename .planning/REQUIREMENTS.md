@@ -32,10 +32,10 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 ### Orchestrator
 
-- [ ] **ORCH-01**: Orchestrator accepts motion_state parameter and emits MOVING_FIRE signal when gesture + moving + direction detected
-- [ ] **ORCH-02**: Orchestrator emits SEQUENCE_FIRE signal when two gestures match a sequence trigger within time window
+- [x] **ORCH-01**: Orchestrator accepts motion_state parameter and emits MOVING_FIRE signal when gesture + moving + direction detected
+- [x] **ORCH-02**: Orchestrator emits SEQUENCE_FIRE signal when two gestures match a sequence trigger within time window
 - [x] **ORCH-03**: Orchestrator FSM simplified: SWIPE_WINDOW, SWIPING, and COMPOUND_FIRE states/signals removed
-- [ ] **ORCH-04**: Sequence window is configurable (default 0.5s)
+- [x] **ORCH-04**: Sequence window is configurable (default 0.5s)
 
 ### Action Dispatch
 
@@ -91,10 +91,10 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 | CONF-03 | Phase 20 | Complete |
 | CONF-04 | Phase 20 | Complete |
 | CONF-05 | Phase 20 | Complete |
-| ORCH-01 | Phase 21 | Pending |
-| ORCH-02 | Phase 21 | Pending |
+| ORCH-01 | Phase 21 | Complete |
+| ORCH-02 | Phase 21 | Complete |
 | ORCH-03 | Phase 21 | Complete |
-| ORCH-04 | Phase 21 | Pending |
+| ORCH-04 | Phase 21 | Complete |
 | ACTN-01 | Phase 22 | Pending |
 | ACTN-02 | Phase 22 | Pending |
 | ACTN-03 | Phase 22 | Pending |

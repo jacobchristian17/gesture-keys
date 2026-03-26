@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Tri-State Gesture Model + Action Library
 status: executing
-stopped_at: Completed 21-01-PLAN.md
-last_updated: "2026-03-26T13:42:37Z"
-last_activity: 2026-03-26 — Completed 21-01 strip swipe code from orchestrator
+stopped_at: Completed 21-02-PLAN.md
+last_updated: "2026-03-26T13:53:36Z"
+last_activity: 2026-03-26 — Completed 21-02 MOVING_FIRE and SEQUENCE_FIRE signals
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -26,16 +26,16 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 ## Current Position
 
 Phase: 21 of 24 (Orchestrator Refactor)
-Plan: 1 of 2 complete
-Status: Phase 21 in progress
-Last activity: 2026-03-26 — Completed 21-01 strip swipe code from orchestrator
+Plan: 2 of 2 complete
+Status: Phase 21 complete
+Last activity: 2026-03-26 — Completed 21-02 MOVING_FIRE and SEQUENCE_FIRE signals
 
-Progress: [████████░░] 83%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 43 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 5)
+- Total plans completed: 44 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 6)
 
 ## Accumulated Context
 
@@ -52,6 +52,9 @@ Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions t
 - [Phase 21]: Removed COMPOUND_FIRE from ActionDispatcher alongside orchestrator swipe cleanup
 - [Phase 21]: Kept DebounceState.SWIPE_WINDOW as legacy enum value to avoid breaking preview.py
 - [Phase 21]: Simplified flush_pending() to always return empty result (no SWIPE_WINDOW to flush)
+- [Phase 21]: Sequence tracking uses dict[Gesture, float] for O(1) last-fire-time lookup per gesture
+- [Phase 21]: SEQUENCE_FIRE triggers only on FIRE signals (not HOLD_START) per user constraint
+- [Phase 21]: _last_fire_time cleared on reset() to prevent stale sequence matches
 
 ### Pending Todos
 
@@ -63,5 +66,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-26T13:42:37Z
-Stopped at: Completed 21-01-PLAN.md
+Last session: 2026-03-26T13:53:36Z
+Stopped at: Completed 21-02-PLAN.md
