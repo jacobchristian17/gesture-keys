@@ -6,6 +6,7 @@ import time
 import pytest
 
 from gesture_keys.config import (
+    ActionEntry,
     AppConfig,
     ConfigWatcher,
     _extract_gesture_modes,
@@ -13,10 +14,19 @@ from gesture_keys.config import (
     build_compound_action_maps,
     extract_gesture_swipe_mappings,
     load_config,
+    parse_actions,
     resolve_hand_gestures,
     resolve_hand_swipe_mappings,
 )
 from gesture_keys.action import Action, FireMode
+from gesture_keys.trigger import (
+    Direction,
+    SequenceTrigger,
+    Trigger,
+    TriggerParseError,
+    TriggerState,
+)
+from gesture_keys.classifier import Gesture
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -1060,3 +1070,231 @@ class TestFireModeConfig:
         modes = {"fist": "hold_key"}
         with pytest.raises(ValueError, match="hold"):
             extract_gesture_swipe_mappings(gestures, modes)
+
+
+class TestActionEntry:
+    """Tests for the ActionEntry dataclass."""
+
+    def test_action_entry_has_all_fields(self):
+        """ActionEntry stores name, trigger, key, cooldown, bypass_gate, hand, threshold."""
+        trigger = Trigger(Gesture.FIST, TriggerState.STATIC)
+        entry = ActionEntry(
+            name="vol_up",
+            trigger=trigger,
+            key="up",
+            cooldown=0.5,
+            bypass_gate=True,
+            hand="left",
+            threshold=0.8,
+        )
+        assert entry.name == "vol_up"
+        assert entry.trigger == trigger
+        assert entry.key == "up"
+        assert entry.cooldown == 0.5
+        assert entry.bypass_gate is True
+        assert entry.hand == "left"
+        assert entry.threshold == 0.8
+
+    def test_action_entry_defaults(self):
+        """ActionEntry defaults: cooldown=None, bypass_gate=False, hand='both', threshold=None."""
+        trigger = Trigger(Gesture.FIST, TriggerState.STATIC)
+        entry = ActionEntry(name="test", trigger=trigger, key="space")
+        assert entry.cooldown is None
+        assert entry.bypass_gate is False
+        assert entry.hand == "both"
+        assert entry.threshold is None
+
+    def test_action_entry_is_frozen(self):
+        """ActionEntry is immutable (frozen dataclass)."""
+        trigger = Trigger(Gesture.FIST, TriggerState.STATIC)
+        entry = ActionEntry(name="test", trigger=trigger, key="space")
+        with pytest.raises(AttributeError):
+            entry.name = "changed"
+
+
+class TestParseActions:
+    """Tests for parse_actions() function."""
+
+    def test_basic_static_trigger(self):
+        """Parse a simple static trigger action."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up"},
+        }
+        result = parse_actions(actions_dict)
+        assert len(result) == 1
+        entry = result[0]
+        assert entry.name == "vol_up"
+        assert entry.trigger == Trigger(Gesture.FIST, TriggerState.STATIC)
+        assert entry.key == "up"
+
+    def test_entry_with_cooldown(self):
+        """Entry with cooldown: 0.5 -> ActionEntry.cooldown == 0.5."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up", "cooldown": 0.5},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].cooldown == 0.5
+
+    def test_entry_without_cooldown(self):
+        """Entry without cooldown -> ActionEntry.cooldown is None."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up"},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].cooldown is None
+
+    def test_entry_with_bypass_gate(self):
+        """Entry with bypass_gate: true -> ActionEntry.bypass_gate == True."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up", "bypass_gate": True},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].bypass_gate is True
+
+    def test_entry_without_bypass_gate(self):
+        """Entry without bypass_gate -> ActionEntry.bypass_gate == False."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up"},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].bypass_gate is False
+
+    def test_entry_with_hand_left(self):
+        """Entry with hand: left -> ActionEntry.hand == 'left'."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up", "hand": "left"},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].hand == "left"
+
+    def test_entry_without_hand(self):
+        """Entry without hand -> ActionEntry.hand == 'both'."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up"},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].hand == "both"
+
+    def test_entry_with_threshold(self):
+        """Entry with threshold: 0.8 -> ActionEntry.threshold == 0.8."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up", "threshold": 0.8},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].threshold == 0.8
+
+    def test_invalid_trigger_raises_trigger_parse_error(self):
+        """Entry with invalid trigger string -> TriggerParseError raised."""
+        actions_dict = {
+            "bad": {"trigger": "invalid_gesture:static", "key": "up"},
+        }
+        with pytest.raises(TriggerParseError):
+            parse_actions(actions_dict)
+
+    def test_missing_trigger_field_raises_valueerror(self):
+        """Entry missing 'trigger' field -> ValueError with clear message."""
+        actions_dict = {
+            "bad": {"key": "up"},
+        }
+        with pytest.raises(ValueError, match="trigger"):
+            parse_actions(actions_dict)
+
+    def test_missing_key_field_raises_valueerror(self):
+        """Entry missing 'key' field -> ValueError with clear message."""
+        actions_dict = {
+            "bad": {"trigger": "fist:static"},
+        }
+        with pytest.raises(ValueError, match="key"):
+            parse_actions(actions_dict)
+
+    def test_duplicate_trigger_raises_valueerror(self):
+        """Two entries with same trigger string -> ValueError('duplicate trigger')."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up"},
+            "vol_down": {"trigger": "fist:static", "key": "down"},
+        }
+        with pytest.raises(ValueError, match="duplicate trigger"):
+            parse_actions(actions_dict)
+
+    def test_invalid_hand_raises_valueerror(self):
+        """hand: invalid_value -> ValueError."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up", "hand": "invalid"},
+        }
+        with pytest.raises(ValueError, match="hand"):
+            parse_actions(actions_dict)
+
+    def test_moving_trigger(self):
+        """Moving trigger: fist:moving:left -> ActionEntry with direction."""
+        actions_dict = {
+            "nav_left": {"trigger": "fist:moving:left", "key": "left"},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].trigger == Trigger(
+            Gesture.FIST, TriggerState.MOVING, Direction.LEFT
+        )
+
+    def test_sequence_trigger(self):
+        """Sequence trigger: fist > open_palm -> ActionEntry with SequenceTrigger."""
+        actions_dict = {
+            "confirm": {"trigger": "fist > open_palm", "key": "enter"},
+        }
+        result = parse_actions(actions_dict)
+        assert isinstance(result[0].trigger, SequenceTrigger)
+        assert result[0].trigger.first.gesture == Gesture.FIST
+        assert result[0].trigger.second.gesture == Gesture.OPEN_PALM
+
+    def test_same_trigger_different_hands_allowed(self):
+        """Same trigger with hand:left and hand:right is ALLOWED (different scopes)."""
+        actions_dict = {
+            "left_fist": {"trigger": "fist:static", "key": "left", "hand": "left"},
+            "right_fist": {"trigger": "fist:static", "key": "right", "hand": "right"},
+        }
+        result = parse_actions(actions_dict)
+        assert len(result) == 2
+
+    def test_both_overlaps_with_left_raises(self):
+        """Same trigger with hand:both and hand:left -> ValueError (both overlaps)."""
+        actions_dict = {
+            "all_fist": {"trigger": "fist:static", "key": "up", "hand": "both"},
+            "left_fist": {"trigger": "fist:static", "key": "left", "hand": "left"},
+        }
+        with pytest.raises(ValueError, match="duplicate trigger"):
+            parse_actions(actions_dict)
+
+    def test_both_overlaps_with_right_raises(self):
+        """Same trigger with hand:both and hand:right -> ValueError (both overlaps)."""
+        actions_dict = {
+            "all_fist": {"trigger": "fist:static", "key": "up", "hand": "both"},
+            "right_fist": {"trigger": "fist:static", "key": "right", "hand": "right"},
+        }
+        with pytest.raises(ValueError, match="duplicate trigger"):
+            parse_actions(actions_dict)
+
+    def test_multiple_actions_parsed(self):
+        """Multiple valid actions produce correct list."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up"},
+            "vol_down": {"trigger": "open_palm:static", "key": "down"},
+            "nav_left": {"trigger": "peace:moving:left", "key": "left"},
+        }
+        result = parse_actions(actions_dict)
+        assert len(result) == 3
+        names = {e.name for e in result}
+        assert names == {"vol_up", "vol_down", "nav_left"}
+
+    def test_hand_right_value(self):
+        """hand: right -> ActionEntry.hand == 'right'."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up", "hand": "right"},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].hand == "right"
+
+    def test_hand_both_value(self):
+        """hand: both -> ActionEntry.hand == 'both'."""
+        actions_dict = {
+            "vol_up": {"trigger": "fist:static", "key": "up", "hand": "both"},
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].hand == "both"
