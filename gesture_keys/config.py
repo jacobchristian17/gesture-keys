@@ -5,14 +5,159 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional, Union
 
 import yaml
 
 from gesture_keys.action import Action, FireMode
 from gesture_keys.keystroke import parse_key_string
+from gesture_keys.trigger import (
+    SequenceTrigger,
+    Trigger,
+    parse_trigger,
+)
 
 logger = logging.getLogger("gesture_keys")
+
+
+_VALID_HANDS = {"left", "right", "both"}
+
+
+@dataclass(frozen=True)
+class ActionEntry:
+    """A parsed action entry from the actions: config section.
+
+    Attributes:
+        name: User-chosen action name (YAML key).
+        trigger: Parsed Trigger or SequenceTrigger.
+        key: Keystroke string (e.g. 'ctrl+z', 'up').
+        cooldown: Per-action cooldown override, or None for global default.
+        bypass_gate: Whether this action bypasses the activation gate.
+        hand: Which hand triggers this action ('left', 'right', 'both').
+        threshold: Per-action confidence threshold, or None for default.
+    """
+
+    name: str
+    trigger: Union[Trigger, SequenceTrigger]
+    key: str
+    cooldown: Optional[float] = None
+    bypass_gate: bool = False
+    hand: str = "both"
+    threshold: Optional[float] = None
+
+
+def parse_actions(actions_dict: dict) -> list[ActionEntry]:
+    """Parse the actions: YAML section into ActionEntry instances.
+
+    Args:
+        actions_dict: Dict from YAML actions: section (action_name -> {trigger, key, ...}).
+
+    Returns:
+        List of ActionEntry instances.
+
+    Raises:
+        ValueError: If required fields are missing, hand is invalid, or triggers collide.
+        TriggerParseError: If a trigger string cannot be parsed.
+    """
+    entries: list[ActionEntry] = []
+    # Track (trigger_string, hand_scope) -> action_name for uniqueness
+    seen_triggers: dict[tuple[str, str], str] = {}
+
+    for action_name, settings in actions_dict.items():
+        if not isinstance(settings, dict):
+            raise ValueError(
+                f"Action '{action_name}' must be a mapping, "
+                f"got {type(settings).__name__}"
+            )
+
+        # Validate required fields
+        if "trigger" not in settings:
+            raise ValueError(
+                f"Action '{action_name}' missing required 'trigger' field"
+            )
+        if "key" not in settings:
+            raise ValueError(
+                f"Action '{action_name}' missing required 'key' field"
+            )
+
+        trigger_string = str(settings["trigger"])
+        key_string = str(settings["key"])
+        hand = str(settings.get("hand", "both")).lower()
+
+        if hand not in _VALID_HANDS:
+            raise ValueError(
+                f"Action '{action_name}' has invalid hand '{hand}'. "
+                f"Valid values: {sorted(_VALID_HANDS)}"
+            )
+
+        # Check trigger uniqueness per hand scope
+        _check_trigger_uniqueness(trigger_string, hand, action_name, seen_triggers)
+
+        # Parse the trigger string (may raise TriggerParseError)
+        trigger = parse_trigger(trigger_string)
+
+        cooldown = settings.get("cooldown")
+        if cooldown is not None:
+            cooldown = float(cooldown)
+
+        threshold = settings.get("threshold")
+        if threshold is not None:
+            threshold = float(threshold)
+
+        entries.append(
+            ActionEntry(
+                name=action_name,
+                trigger=trigger,
+                key=key_string,
+                cooldown=cooldown,
+                bypass_gate=bool(settings.get("bypass_gate", False)),
+                hand=hand,
+                threshold=threshold,
+            )
+        )
+
+    return entries
+
+
+def _check_trigger_uniqueness(
+    trigger_string: str,
+    hand: str,
+    action_name: str,
+    seen: dict[tuple[str, str], str],
+) -> None:
+    """Check that a trigger+hand combination is unique.
+
+    hand='both' conflicts with 'left' and 'right' (and vice versa).
+
+    Args:
+        trigger_string: The raw trigger string.
+        hand: The hand scope ('left', 'right', 'both').
+        action_name: Current action name (for error messages).
+        seen: Mutable dict tracking (trigger_string, hand_scope) -> action_name.
+
+    Raises:
+        ValueError: If a duplicate trigger is found.
+    """
+    if hand == "both":
+        scopes_to_check = ["both", "left", "right"]
+    else:
+        scopes_to_check = [hand, "both"]
+
+    for scope in scopes_to_check:
+        key = (trigger_string, scope)
+        if key in seen:
+            raise ValueError(
+                f"duplicate trigger '{trigger_string}': action '{action_name}' "
+                f"(hand={hand}) conflicts with action '{seen[key]}' (hand={scope})"
+            )
+
+    # Register this trigger for all scopes it covers
+    if hand == "both":
+        seen[(trigger_string, "both")] = action_name
+        seen[(trigger_string, "left")] = action_name
+        seen[(trigger_string, "right")] = action_name
+    else:
+        seen[(trigger_string, hand)] = action_name
 
 
 @dataclass
@@ -48,6 +193,7 @@ class AppConfig:
     activation_gate_enabled: bool = False
     activation_gate_gestures: list[str] = field(default_factory=list)
     activation_gate_duration: float = 3.0
+    activation_gate_bypass: list[str] = field(default_factory=list)
 
 
 class ConfigWatcher:
@@ -88,6 +234,14 @@ class ConfigWatcher:
             self._last_mtime = mtime
             return True
         return False
+
+
+def _extract_bypass_gestures(gestures: dict) -> list[str]:
+    """Extract gesture names with bypass_gate: true."""
+    return [
+        name for name, settings in gestures.items()
+        if isinstance(settings, dict) and settings.get("bypass_gate")
+    ]
 
 
 def _extract_gesture_cooldowns(gestures: dict) -> dict[str, float]:
@@ -391,6 +545,9 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     activation_gate_enabled = bool(activation_gate_raw.get("enabled", False))
     activation_gate_gestures = list(activation_gate_raw.get("gestures", []) or [])
     activation_gate_duration = float(activation_gate_raw.get("duration", 3.0))
+    activation_gate_bypass = list(activation_gate_raw.get("bypass", []) or [])
+    # Merge per-gesture bypass_gate: true into bypass list
+    activation_gate_bypass = list(set(activation_gate_bypass) | set(_extract_bypass_gestures(gestures)))
 
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
@@ -422,4 +579,5 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         activation_gate_enabled=activation_gate_enabled,
         activation_gate_gestures=activation_gate_gestures,
         activation_gate_duration=activation_gate_duration,
+        activation_gate_bypass=activation_gate_bypass,
     )
