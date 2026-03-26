@@ -14,6 +14,7 @@ from gesture_keys.keystroke import parse_key_string
 from gesture_keys.trigger import (
     SequenceTrigger,
     Trigger,
+    TriggerState,
     parse_trigger,
 )
 
@@ -158,6 +159,98 @@ def _check_trigger_uniqueness(
         seen[(trigger_string, "right")] = action_name
     else:
         seen[(trigger_string, hand)] = action_name
+
+
+@dataclass(frozen=True)
+class DerivedConfig:
+    """Orchestrator inputs derived from parsed ActionEntry list.
+
+    Attributes:
+        gesture_modes: Action name -> "tap" or "hold_key" inferred from trigger state.
+        gesture_cooldowns: Action name -> cooldown for actions with overrides.
+        activation_gate_bypass: Action names with bypass_gate=True.
+        right_actions: Action name -> Action for right hand.
+        left_actions: Action name -> Action for left hand.
+    """
+
+    gesture_modes: dict[str, str]
+    gesture_cooldowns: dict[str, float]
+    activation_gate_bypass: list[str]
+    right_actions: dict[str, Action]
+    left_actions: dict[str, Action]
+
+
+def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
+    """Derive orchestrator inputs from parsed ActionEntry list.
+
+    For each ActionEntry:
+    - Infers fire_mode from trigger state (static->tap, holding->hold_key,
+      moving->tap, sequence->tap).
+    - Builds Action objects with pre-parsed key strings.
+    - Places actions into right/left maps based on hand scope.
+    - Collects cooldown overrides and bypass_gate flags.
+
+    Args:
+        actions: List of ActionEntry from parse_actions().
+
+    Returns:
+        DerivedConfig with gesture_modes, cooldowns, bypass list, and per-hand action maps.
+    """
+    _trigger_state_to_fire_mode = {
+        TriggerState.STATIC: FireMode.TAP,
+        TriggerState.HOLDING: FireMode.HOLD_KEY,
+        TriggerState.MOVING: FireMode.TAP,
+    }
+
+    gesture_modes: dict[str, str] = {}
+    gesture_cooldowns: dict[str, float] = {}
+    activation_gate_bypass: list[str] = []
+    right_actions: dict[str, Action] = {}
+    left_actions: dict[str, Action] = {}
+
+    for entry in actions:
+        # Infer fire mode from trigger state
+        if isinstance(entry.trigger, SequenceTrigger):
+            fire_mode = FireMode.TAP
+        else:
+            fire_mode = _trigger_state_to_fire_mode[entry.trigger.state]
+
+        gesture_modes[entry.name] = fire_mode.value
+
+        # Collect cooldown overrides
+        if entry.cooldown is not None:
+            gesture_cooldowns[entry.name] = entry.cooldown
+
+        # Collect bypass_gate
+        if entry.bypass_gate:
+            activation_gate_bypass.append(entry.name)
+
+        # Build Action with pre-parsed key
+        modifiers, key = parse_key_string(entry.key)
+        action = Action(
+            key_string=entry.key,
+            fire_mode=fire_mode,
+            gesture_name=entry.name,
+            modifiers=modifiers,
+            key=key,
+        )
+
+        # Place into per-hand maps
+        if entry.hand == "both":
+            right_actions[entry.name] = action
+            left_actions[entry.name] = action
+        elif entry.hand == "right":
+            right_actions[entry.name] = action
+        elif entry.hand == "left":
+            left_actions[entry.name] = action
+
+    return DerivedConfig(
+        gesture_modes=gesture_modes,
+        gesture_cooldowns=gesture_cooldowns,
+        activation_gate_bypass=activation_gate_bypass,
+        right_actions=right_actions,
+        left_actions=left_actions,
+    )
 
 
 @dataclass
