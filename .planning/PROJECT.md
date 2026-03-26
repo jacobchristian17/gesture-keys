@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard commands via a structured pipeline: activation gate, gesture orchestrator (static + temporal states), action resolver with fire modes, and key lifecycle management. Runs as a Windows system tray app with optional camera preview.
+A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard commands via a structured pipeline: activation gate, gesture orchestrator (tri-state model: static/holding/moving), action resolver with 4 trigger types, and key lifecycle management. Runs as a Windows system tray app with optional camera preview.
 
 ## Core Value
 
@@ -40,13 +40,13 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ New `actions:` config section replacing `gestures:` and `swipe:` sections — v3.0
 - ✓ Orchestrator simplification: remove swipe states, add MOVING_FIRE and SEQUENCE_FIRE signals — v3.0
 - ✓ Sequence gesture support (gesture A then B within time window) — v3.0
-- ✓ ActionResolver/Dispatcher update for 4 trigger types — v3.0
+- ✓ ActionResolver/Dispatcher update for 4 trigger types (static, holding, moving, sequence) — v3.0
 - ✓ Pipeline integration: MotionDetector + DerivedConfig end-to-end — v3.0
 - ✓ Legacy swipe code and config formats removed, clean tri-state codebase — v3.0
 
 ### Active
 
-*All v3.0 requirements validated — moved to Validated section above*
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -57,27 +57,14 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - Gesture profiles / per-app mappings — single global config for now
 - GPU acceleration (onnxruntime-gpu) — MediaPipe Python on Windows is CPU-only; 30+ FPS on CPU is sufficient
 - Simultaneous two-hand detection — one hand at a time; complexity deferred
-- Config auto-migration from v1.x — clean rewrite, manual config update acceptable
-
-## Current Milestone: v3.0 Tri-State Gesture Model + Action Library
-
-**Goal:** Unify gestures and swipes into a tri-state model (static/holding/moving) with an action library using compact trigger strings, replacing the separate gesture + swipe subsystems entirely.
-
-**Target features:**
-- Trigger parser with enums and compact string syntax
-- MotionDetector (continuous per-frame motion state, replaces SwipeDetector)
-- New `actions:` config section with trigger strings
-- Orchestrator refactor (remove swipe states, add motion/sequence signals)
-- ActionResolver/Dispatcher updates for new signal types
-- Pipeline integration swapping SwipeDetector for MotionDetector
-- Cleanup: delete swipe.py, migrate config.yaml
+- MotionDetector config tuning via YAML — motion: section exists but is not parsed (hardcoded defaults sufficient for now)
 
 ## Context
 
-Shipped v2.0 with 54,373 LOC Python. Architecture: unified Pipeline → ActivationGate → GestureOrchestrator (hierarchical FSM) → ActionResolver → ActionDispatcher → KeystrokeSender.
+Shipped v3.0 with ~9,000 LOC Python (down from v2.0's ~12,000 — cleanup removed ~3,000 lines of legacy swipe code). Architecture: unified Pipeline → ActivationGate → GestureOrchestrator (tri-state FSM) → ActionResolver (4 trigger-type maps) → ActionDispatcher → KeystrokeSender. MotionDetector provides continuous per-frame motion state. Config uses compact trigger string syntax (`gesture:state[:direction]`, sequences with `>`).
 Tech stack: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML.
 Platform: Windows 11, CPU inference (30+ FPS sufficient).
-428 tests passing with full TDD coverage across pipeline, orchestrator, action dispatch, and activation gate subsystems.
+405 tests passing with full TDD coverage across pipeline, orchestrator, action dispatch, motion detection, trigger parsing, and activation gate subsystems.
 
 ## Constraints
 
@@ -109,6 +96,11 @@ Platform: Windows 11, CPU inference (30+ FPS sufficient).
 | Resolver-Dispatcher separation (v2.0) | Pure lookup (ActionResolver) separated from stateful dispatch (ActionDispatcher) | ✓ Good — testable, single held-action field prevents state desync |
 | App-controlled tap-repeat (v2.0) | Windows SendInput doesn't auto-repeat key-down events | ✓ Good — 33Hz tap-repeat matches real keyboard behavior |
 | gate=None as bypass mode (v2.0) | Zero overhead for default config, not a disabled flag | ✓ Good — no conditional checks on hot path when gate unused |
+| Tri-state model over separate gesture+swipe (v3.0) | Unified static/holding/moving eliminates dual-system complexity | ✓ Good — single config format, one orchestrator path, ~3k lines removed |
+| Compact trigger string syntax (v3.0) | `fist:holding` more readable than nested YAML for action definitions | ✓ Good — parse_trigger() validates at load time, clear error messages |
+| MotionDetector with velocity hysteresis (v3.0) | Per-frame signal vs SwipeDetector's event-based approach | ✓ Good — simpler integration, no state machine, continuous updates |
+| DerivedConfig for trigger routing (v3.0) | 8 typed maps (4 trigger types × 2 hands) derived once at config load | ✓ Good — O(1) lookup per frame, hot-reload rebuilds maps |
+| Sequence gestures via orchestrator (v3.0) | Two-gesture sequences (A then B within 0.5s window) in FSM | ✓ Good — configurable window, clean signal emission |
 
 ---
-*Last updated: 2026-03-27 after Phase 24 (Cleanup and Config Migration) complete — v3.0 milestone complete*
+*Last updated: 2026-03-27 after v3.0 milestone complete*

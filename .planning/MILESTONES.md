@@ -1,5 +1,22 @@
 # Milestones
 
+## v3.0 Tri-State Gesture Model + Action Library (Shipped: 2026-03-26)
+
+**Phases completed:** 7 phases, 9 plans, 15 tasks
+
+**Key accomplishments:**
+
+- Trigger string parser with TriggerState/Direction enums, Trigger/SequenceTrigger dataclasses, and parse_trigger() supporting static, holding, moving, and sequence formats
+- Continuous per-frame motion detector with velocity hysteresis, cardinal direction classification, and settling-frame suppression using Direction enum from trigger.py
+- ActionEntry frozen dataclass and parse_actions() function with hand-scoped trigger uniqueness validation
+- derive_from_actions() with DerivedConfig, actions: path in load_config, config.yaml conversion to actions format, left-hand parsing removal
+- Stripped all swipe-related code from orchestrator FSM leaving simplified 4-state lifecycle with tap and hold modes, plus downstream fixes in action.py and pipeline.py
+- Orchestrator with MOVING_FIRE (gesture+motion) and SEQUENCE_FIRE (two-gesture sequence within configurable 0.5s window) using TDD
+- ActionResolver refactored to 4 trigger-type maps with MOVING_FIRE/SEQUENCE_FIRE dispatch and backward-compatible legacy constructor
+- Commit:
+
+---
+
 ## v2.0 Structured Gesture Architecture (Shipped: 2026-03-25)
 
 **Phases completed:** 4 phases, 9 plans, 2 tasks
@@ -9,6 +26,7 @@
 **Git range:** e1736f8..1f183b4
 
 **Key accomplishments:**
+
 - Unified Pipeline class eliminating 90% code duplication between preview and tray modes (~70 and ~29 lines respectively)
 - Hierarchical GestureOrchestrator FSM replacing scattered debouncer + main-loop coordination with clean state machine
 - ActionResolver + ActionDispatcher with tap and hold_key fire modes, structured gesture-to-action mappings
@@ -26,6 +44,7 @@
 **Git range:** 5fa3045..f04d74f
 
 **Key accomplishments:**
+
 - Both-hand detection with active hand selection (sticky, preferred, transition jitter prevention)
 - Left-hand classification verified hand-agnostic across all 7 gestures — zero classifier changes needed
 - Deep-merge config resolution for per-hand gesture and swipe mappings via left_gestures YAML section
@@ -43,6 +62,7 @@
 **Git range:** e121508..0df104d
 
 **Key accomplishments:**
+
 - Direct gesture-to-gesture transitions without returning to "none" first (COOLDOWN->ACTIVATING path)
 - Color-coded debounce state indicator (IDLE/ACTIVATING/COOLDOWN) in preview window
 - Swipe-to-static transition latency reduced from ~1.3s to ~300ms via exit resets and settling frame reduction
@@ -59,6 +79,7 @@
 **Timeline:** 1 day (2026-03-21)
 
 **Key accomplishments:**
+
 - 6-gesture classifier from MediaPipe hand landmarks with priority-ordered rules and per-gesture thresholds
 - Threaded camera capture with right-hand-only filtering via MediaPipe Task API
 - Preview window with 21-landmark skeleton overlay, gesture label, and FPS counter
@@ -67,4 +88,3 @@
 - System tray app with Active/Inactive toggle, Edit Config, and clean Quit
 
 ---
-
