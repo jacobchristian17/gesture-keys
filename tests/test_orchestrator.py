@@ -93,6 +93,8 @@ class TestConstructor:
             gesture_cooldowns={"fist": 0.6},
             gesture_modes={"fist": "hold_key"},
             hold_release_delay=0.15,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+            sequence_window=1.0,
         )
         # Should not raise
         result = o.update(None, 0.0)
@@ -865,3 +867,192 @@ class TestMovingFire:
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.FIRE in actions
         assert OrchestratorAction.MOVING_FIRE not in actions
+
+
+# ─── SEQUENCE_FIRE ───
+
+
+class TestSequenceFire:
+    """Test SEQUENCE_FIRE signal emission with sequence tracking."""
+
+    def _fire_gesture(self, o, gesture, t_start):
+        """Helper: fire a gesture via tap (IDLE -> ACTIVATING -> FIRE -> COOLDOWN).
+
+        Returns the result from the firing frame.
+        """
+        o.update(gesture, t_start)  # IDLE -> ACTIVATING
+        return o.update(gesture, t_start + 0.5)  # fires (activation_delay=0.4)
+
+    def _release_cooldown(self, o, t):
+        """Helper: release hand to exit cooldown -> IDLE."""
+        o.update(None, t)
+
+    def test_sequence_fire_on_matching_pair(self):
+        """SEQUENCE_FIRE emitted when second gesture fires within window."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+        )
+        # Fire FIST
+        self._fire_gesture(o, Gesture.FIST, 1.0)  # fires at t=1.5
+        self._release_cooldown(o, 2.5)  # back to IDLE
+
+        # Fire PEACE within 0.5s of FIST fire (t=1.5)
+        o.update(Gesture.PEACE, 1.6)  # IDLE -> ACTIVATING
+        result = o.update(Gesture.PEACE, 2.0)  # fires at t=2.0 (within 0.5s of 1.5? No: 2.0 - 1.5 = 0.5, exactly at boundary)
+        # Actually: FIST fired at t=1.5, PEACE fires at t=2.0, delta=0.5 <= 0.5, should fire
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.SEQUENCE_FIRE in actions
+        seq_sig = [
+            s for s in result.signals
+            if s.action == OrchestratorAction.SEQUENCE_FIRE
+        ][0]
+        assert seq_sig.gesture == Gesture.FIST
+        assert seq_sig.second_gesture == Gesture.PEACE
+
+    def test_no_sequence_fire_for_unregistered_pair(self):
+        """No SEQUENCE_FIRE for pairs not in sequence_definitions."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+        )
+        # Fire FIST
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+
+        # Fire OPEN_PALM (not registered pair)
+        o.update(Gesture.OPEN_PALM, 1.6)
+        result = o.update(Gesture.OPEN_PALM, 2.0)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.SEQUENCE_FIRE not in actions
+
+    def test_no_sequence_fire_for_reversed_pair(self):
+        """No SEQUENCE_FIRE for (B, A) when only (A, B) is registered."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+        )
+        # Fire PEACE first (reversed order)
+        self._fire_gesture(o, Gesture.PEACE, 1.0)
+        self._release_cooldown(o, 2.5)
+
+        # Fire FIST
+        o.update(Gesture.FIST, 1.6)
+        result = o.update(Gesture.FIST, 2.0)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.SEQUENCE_FIRE not in actions
+
+    def test_no_sequence_fire_outside_window(self):
+        """No SEQUENCE_FIRE when time between fires exceeds sequence_window."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+            sequence_window=0.5,
+        )
+        # Fire FIST at t=1.5
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+
+        # Fire PEACE at t=2.6 (1.1s after FIST fired, outside 0.5s window)
+        o.update(Gesture.PEACE, 2.6)
+        result = o.update(Gesture.PEACE, 3.0)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.SEQUENCE_FIRE not in actions
+
+    def test_sequence_fire_at_window_boundary(self):
+        """SEQUENCE_FIRE emitted at exactly the window boundary (<=)."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+            sequence_window=0.5,
+        )
+        # Fire FIST at t=1.5 (start=1.0, delay=0.4, fires at 1.5)
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+
+        # Fire PEACE at exactly t=2.0 (delta = 2.0 - 1.5 = 0.5, exactly at boundary)
+        o.update(Gesture.PEACE, 1.6)
+        result = o.update(Gesture.PEACE, 2.0)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.SEQUENCE_FIRE in actions
+
+    def test_sequence_window_configurable(self):
+        """Custom sequence_window=1.0 allows longer gaps."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+            sequence_window=1.0,
+        )
+        # Fire FIST at t=1.5
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+
+        # Fire PEACE at t=2.3 (0.8s after FIST, within 1.0s window)
+        o.update(Gesture.PEACE, 1.9)
+        result = o.update(Gesture.PEACE, 2.3)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.SEQUENCE_FIRE in actions
+
+    def test_sequence_window_default_half_second(self):
+        """Default sequence_window is 0.5s (no explicit param)."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+        )
+        # Fire FIST at t=1.5
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+
+        # Fire PEACE at t=1.9 (0.4s after FIST, within default 0.5s)
+        o.update(Gesture.PEACE, 1.5)
+        result = o.update(Gesture.PEACE, 1.9)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.SEQUENCE_FIRE in actions
+
+    def test_sequence_fire_includes_both_gestures(self):
+        """SEQUENCE_FIRE signal has gesture=first, second_gesture=second."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+        )
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+        o.update(Gesture.PEACE, 1.6)
+        result = o.update(Gesture.PEACE, 2.0)
+        seq_sig = [
+            s for s in result.signals
+            if s.action == OrchestratorAction.SEQUENCE_FIRE
+        ][0]
+        assert seq_sig.gesture == Gesture.FIST
+        assert seq_sig.second_gesture == Gesture.PEACE
+
+    def test_standalone_fire_also_emitted(self):
+        """Both standalone FIRE for B and SEQUENCE_FIRE are emitted."""
+        o = GestureOrchestrator(
+            activation_delay=0.4,
+            sequence_definitions={(Gesture.FIST, Gesture.PEACE)},
+        )
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+        o.update(Gesture.PEACE, 1.6)
+        result = o.update(Gesture.PEACE, 2.0)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.FIRE in actions
+        assert OrchestratorAction.SEQUENCE_FIRE in actions
+        # Verify FIRE is for PEACE
+        fire_sig = [
+            s for s in result.signals
+            if s.action == OrchestratorAction.FIRE
+        ][0]
+        assert fire_sig.gesture == Gesture.PEACE
+
+    def test_no_sequence_tracking_with_empty_definitions(self):
+        """No SEQUENCE_FIRE when sequence_definitions is not provided."""
+        o = GestureOrchestrator(activation_delay=0.4)
+        self._fire_gesture(o, Gesture.FIST, 1.0)
+        self._release_cooldown(o, 2.5)
+        o.update(Gesture.PEACE, 1.6)
+        result = o.update(Gesture.PEACE, 2.0)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.FIRE in actions
+        assert OrchestratorAction.SEQUENCE_FIRE not in actions
