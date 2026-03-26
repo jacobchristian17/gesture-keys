@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Tri-State Gesture Model + Action Library
 status: completed
-stopped_at: Completed 21-02-PLAN.md
-last_updated: "2026-03-26T13:57:25.346Z"
-last_activity: 2026-03-26 — Completed 21-02 MOVING_FIRE and SEQUENCE_FIRE signals
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-03-26T18:19:44Z"
+last_activity: 2026-03-26 — Completed 22-01 ActionResolver/Dispatcher update
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 5
+  total_plans: 7
+  completed_plans: 7
   percent: 100
 ---
 
@@ -25,17 +25,17 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 ## Current Position
 
-Phase: 21 of 24 (Orchestrator Refactor)
-Plan: 2 of 2 complete
-Status: Phase 21 complete
-Last activity: 2026-03-26 — Completed 21-02 MOVING_FIRE and SEQUENCE_FIRE signals
+Phase: 22 of 24 (ActionResolver and Dispatcher Update)
+Plan: 1 of 1 complete
+Status: Phase 22 complete
+Last activity: 2026-03-26 — Completed 22-01 ActionResolver/Dispatcher update
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 44 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 6)
+- Total plans completed: 45 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 7)
 
 ## Accumulated Context
 
@@ -55,6 +55,9 @@ Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions t
 - [Phase 21]: Sequence tracking uses dict[Gesture, float] for O(1) last-fire-time lookup per gesture
 - [Phase 21]: SEQUENCE_FIRE triggers only on FIRE signals (not HOLD_START) per user constraint
 - [Phase 21]: _last_fire_time cleared on reset() to prevent stale sequence matches
+- [Phase 22]: Legacy 4-arg ActionResolver constructor preserved for pipeline.py backward compatibility
+- [Phase 22]: Trigger-type-specific maps: static/holding keyed by gesture value, moving by (gesture, direction), sequence by (first, second)
+- [Phase 22]: build_compound_action_maps and build_action_maps kept for pipeline.py legacy path
 
 ### Pending Todos
 
@@ -66,5 +69,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-26T13:53:36Z
-Stopped at: Completed 21-02-PLAN.md
+Last session: 2026-03-26T18:13:49Z
+Stopped at: Completed 22-01-PLAN.md

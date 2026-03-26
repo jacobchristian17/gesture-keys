@@ -64,7 +64,7 @@
 - [x] **Phase 19: MotionDetector** - 1 plan - Continuous per-frame motion detection replacing SwipeDetector internals (completed 2026-03-26)
 - [x] **Phase 20: Config Loader for Actions** - New `actions:` config section parsing and orchestrator input derivation (completed 2026-03-26)
 - [x] **Phase 21: Orchestrator Refactor** - Remove swipe states, add motion and sequence signals (completed 2026-03-26)
-- [ ] **Phase 22: ActionResolver and Dispatcher Update** - Resolve and dispatch all new signal types
+- [x] **Phase 22: ActionResolver and Dispatcher Update** - Resolve and dispatch all new signal types (completed 2026-03-26)
 - [ ] **Phase 23: Pipeline Integration** - Wire MotionDetector and new signals through the full pipeline
 - [ ] **Phase 24: Cleanup and Config Migration** - Delete swipe.py, convert config, remove legacy code
 
@@ -134,7 +134,7 @@ Plans:
   3. Old compound fire handling code is removed from both resolver and dispatcher
 **Plans:** 1 plan
 Plans:
-- [ ] 22-01-PLAN.md -- Refactor resolver to 4 trigger-type maps, add MOVING_FIRE/SEQUENCE_FIRE dispatch, update DerivedConfig
+- [x] 22-01-PLAN.md -- Refactor resolver to 4 trigger-type maps, add MOVING_FIRE/SEQUENCE_FIRE dispatch, update DerivedConfig
 
 ### Phase 23: Pipeline Integration
 **Goal**: Full pipeline uses MotionDetector and new signal types end-to-end, with all existing functionality preserved

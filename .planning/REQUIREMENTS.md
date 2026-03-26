@@ -39,9 +39,9 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 ### Action Dispatch
 
-- [ ] **ACTN-01**: ActionResolver resolves static, holding, moving, and sequence triggers to actions via separate lookup maps
-- [ ] **ACTN-02**: ActionDispatcher handles MOVING_FIRE and SEQUENCE_FIRE signals, dispatching correct keystrokes
-- [ ] **ACTN-03**: Old compound fire handling removed from resolver and dispatcher
+- [x] **ACTN-01**: ActionResolver resolves static, holding, moving, and sequence triggers to actions via separate lookup maps
+- [x] **ACTN-02**: ActionDispatcher handles MOVING_FIRE and SEQUENCE_FIRE signals, dispatching correct keystrokes
+- [x] **ACTN-03**: Old compound fire handling removed from resolver and dispatcher
 
 ### Integration
 
@@ -95,9 +95,9 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 | ORCH-02 | Phase 21 | Complete |
 | ORCH-03 | Phase 21 | Complete |
 | ORCH-04 | Phase 21 | Complete |
-| ACTN-01 | Phase 22 | Pending |
-| ACTN-02 | Phase 22 | Pending |
-| ACTN-03 | Phase 22 | Pending |
+| ACTN-01 | Phase 22 | Complete |
+| ACTN-02 | Phase 22 | Complete |
+| ACTN-03 | Phase 22 | Complete |
 | INTG-01 | Phase 23 | Pending |
 | INTG-02 | Phase 23 | Pending |
 | INTG-03 | Phase 23 | Pending |
