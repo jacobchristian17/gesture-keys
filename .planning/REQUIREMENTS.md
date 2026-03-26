@@ -45,10 +45,10 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 ### Integration
 
-- [ ] **INTG-01**: Pipeline uses MotionDetector instead of SwipeDetector for all motion-related processing
-- [ ] **INTG-02**: Pipeline passes motion_state to orchestrator on every frame
-- [ ] **INTG-03**: FrameResult exposes motion_state instead of swiping boolean
-- [ ] **INTG-04**: Activation gate works with all new signal types (MOVING_FIRE, SEQUENCE_FIRE)
+- [x] **INTG-01**: Pipeline uses MotionDetector instead of SwipeDetector for all motion-related processing
+- [x] **INTG-02**: Pipeline passes motion_state to orchestrator on every frame
+- [x] **INTG-03**: FrameResult exposes motion_state instead of swiping boolean
+- [x] **INTG-04**: Activation gate works with all new signal types (MOVING_FIRE, SEQUENCE_FIRE)
 
 ### Cleanup
 
@@ -98,10 +98,10 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 | ACTN-01 | Phase 22 | Complete |
 | ACTN-02 | Phase 22 | Complete |
 | ACTN-03 | Phase 22 | Complete |
-| INTG-01 | Phase 23 | Pending |
-| INTG-02 | Phase 23 | Pending |
-| INTG-03 | Phase 23 | Pending |
-| INTG-04 | Phase 23 | Pending |
+| INTG-01 | Phase 23 | Complete |
+| INTG-02 | Phase 23 | Complete |
+| INTG-03 | Phase 23 | Complete |
+| INTG-04 | Phase 23 | Complete |
 | CLNP-01 | Phase 24 | Pending |
 | CLNP-02 | Phase 24 | Pending |
 | CLNP-03 | Phase 24 | Pending |

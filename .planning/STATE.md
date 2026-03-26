@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Tri-State Gesture Model + Action Library
-status: completed
-stopped_at: Phase 23 context gathered
-last_updated: "2026-03-26T19:48:20.988Z"
-last_activity: 2026-03-26 — Completed 22-01 ActionResolver/Dispatcher update
+status: verifying
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-03-26T20:42:14.480Z"
+last_activity: 2026-03-26
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 7
-  completed_plans: 7
+  completed_plans: 8
   percent: 100
 ---
 
@@ -27,14 +27,15 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 Phase: 22 of 24 (ActionResolver and Dispatcher Update)
 Plan: 1 of 1 complete
-Status: Phase 22 complete
-Last activity: 2026-03-26 — Completed 22-01 ActionResolver/Dispatcher update
+Status: Phase complete — ready for verification
+Last activity: 2026-03-26
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 45 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 7)
 
 ## Accumulated Context
@@ -42,6 +43,7 @@ Progress: [██████████] 100%
 ### Decisions
 
 Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions table for full history.
+
 - [Phase 18]: Direction enum uses clean cardinal names (left/right/up/down) not swipe-prefixed
 - [Phase 19]: MotionState uses frozen dataclass with _NOT_MOVING singleton for zero-alloc not-moving frames
 - [Phase 19]: Direction reused from trigger.py (single source of truth, not duplicated)
@@ -58,6 +60,8 @@ Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions t
 - [Phase 22]: Legacy 4-arg ActionResolver constructor preserved for pipeline.py backward compatibility
 - [Phase 22]: Trigger-type-specific maps: static/holding keyed by gesture value, moving by (gesture, direction), sequence by (first, second)
 - [Phase 22]: build_compound_action_maps and build_action_maps kept for pipeline.py legacy path
+- [Phase 23]: SEQUENCE_FIRE gate filtering falls back to gesture.value when second_gesture is None
+- [Phase 23]: Activation bypass merges config-level and DerivedConfig bypass lists using set union
 
 ### Pending Todos
 
@@ -69,5 +73,5 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-26T19:48:20.974Z
-Stopped at: Phase 23 context gathered
+Last session: 2026-03-26T20:42:14.476Z
+Stopped at: Completed 23-01-PLAN.md
