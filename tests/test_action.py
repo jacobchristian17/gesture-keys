@@ -1,7 +1,7 @@
 """Unit tests for ActionResolver and ActionDispatcher.
 
 Covers: resolver lookup, hand switching, compound resolution, tap dispatch,
-hold_key dispatch, hold-to-hold transition ordering, compound fire dispatch,
+hold_key dispatch, hold-to-hold transition ordering,
 release_all idempotency, unmapped gesture safety.
 """
 
@@ -13,7 +13,6 @@ from gesture_keys.action import Action, ActionDispatcher, ActionResolver, FireMo
 from gesture_keys.classifier import Gesture
 from gesture_keys.keystroke import Key
 from gesture_keys.orchestrator import OrchestratorAction, OrchestratorSignal
-from gesture_keys.swipe import SwipeDirection
 
 
 # ---------------------------------------------------------------------------
@@ -218,44 +217,6 @@ class TestHoldKeyFireMode:
         assert dispatcher._held_action is None
         # No release_held calls -- tap-repeat doesn't use it
         mock_sender.release_held.assert_not_called()
-
-
-# ===========================================================================
-# TestCompoundFire
-# ===========================================================================
-
-class TestCompoundFire:
-    """COMPOUND_FIRE resolves compound mapping and sends."""
-
-    def test_compound_fire_calls_send(self, dispatcher, mock_sender):
-        """dispatch(COMPOUND_FIRE) resolves compound and sends."""
-        signal = OrchestratorSignal(
-            OrchestratorAction.COMPOUND_FIRE,
-            Gesture.OPEN_PALM,
-            SwipeDirection.SWIPE_LEFT,
-        )
-        dispatcher.dispatch(signal)
-        mock_sender.send.assert_called_once_with([], "1")
-
-    def test_compound_fire_unmapped_does_nothing(self, dispatcher, mock_sender):
-        """dispatch(COMPOUND_FIRE for unmapped compound) does nothing."""
-        signal = OrchestratorSignal(
-            OrchestratorAction.COMPOUND_FIRE,
-            Gesture.FIST,
-            SwipeDirection.SWIPE_LEFT,
-        )
-        dispatcher.dispatch(signal)
-        mock_sender.send.assert_not_called()
-
-    def test_compound_fire_no_direction_does_nothing(self, dispatcher, mock_sender):
-        """dispatch(COMPOUND_FIRE with no direction) does nothing."""
-        signal = OrchestratorSignal(
-            OrchestratorAction.COMPOUND_FIRE,
-            Gesture.OPEN_PALM,
-            None,
-        )
-        dispatcher.dispatch(signal)
-        mock_sender.send.assert_not_called()
 
 
 # ===========================================================================

@@ -112,8 +112,8 @@ class ActionResolver:
 class ActionDispatcher:
     """Dispatches orchestrator signals to keyboard actions.
 
-    Owns held-key lifecycle state. Routes FIRE/HOLD_START/HOLD_END/COMPOUND_FIRE
-    signals to the appropriate KeystrokeSender methods.
+    Owns held-key lifecycle state. Routes FIRE/HOLD_START/HOLD_END signals
+    to the appropriate KeystrokeSender methods.
 
     Hold_key fire mode uses app-controlled tap-repeat: tick() sends repeated
     keystrokes at repeat_interval while _held_action is set. This replaces
@@ -152,8 +152,6 @@ class ActionDispatcher:
             self._handle_hold_start(signal)
         elif signal.action == OrchestratorAction.HOLD_END:
             self._handle_hold_end(signal)
-        elif signal.action == OrchestratorAction.COMPOUND_FIRE:
-            self._handle_compound_fire(signal)
 
     def tick(self, current_time: float) -> None:
         """Send repeated keystroke if hold is active and interval elapsed.
@@ -191,16 +189,6 @@ class ActionDispatcher:
     def _handle_hold_end(self, signal: OrchestratorSignal) -> None:
         """Handle HOLD_END -- clear held action (tick becomes no-op)."""
         self._held_action = None
-
-    def _handle_compound_fire(self, signal: OrchestratorSignal) -> None:
-        """Handle COMPOUND_FIRE -- resolve compound and send."""
-        if signal.direction is None:
-            return
-        action = self._resolver.resolve_compound(
-            signal.gesture.value, signal.direction.value
-        )
-        if action is not None:
-            self._sender.send(action.modifiers, action.key)
 
     def release_all(self) -> None:
         """Release all held keys and clear internal state.

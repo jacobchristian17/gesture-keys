@@ -46,7 +46,7 @@ class DebounceState(Enum):
     FIRED = "FIRED"
     COOLDOWN = "COOLDOWN"
     HOLDING = "HOLDING"
-    SWIPE_WINDOW = "SWIPE_WINDOW"
+    SWIPE_WINDOW = "SWIPE_WINDOW"  # Legacy, no longer produced by orchestrator
 
 
 def _map_to_debounce_state(result: OrchestratorResult) -> DebounceState:
@@ -55,12 +55,10 @@ def _map_to_debounce_state(result: OrchestratorResult) -> DebounceState:
         return DebounceState.IDLE
     elif result.outer_state == LifecycleState.ACTIVATING:
         return DebounceState.ACTIVATING
-    elif result.outer_state == LifecycleState.SWIPE_WINDOW:
-        return DebounceState.SWIPE_WINDOW
     elif result.outer_state == LifecycleState.ACTIVE:
         if result.temporal_state == TemporalState.HOLD:
             return DebounceState.HOLDING
-        return DebounceState.FIRED  # CONFIRMED or SWIPING maps to FIRED
+        return DebounceState.FIRED  # CONFIRMED maps to FIRED
     elif result.outer_state == LifecycleState.COOLDOWN:
         return DebounceState.COOLDOWN
     return DebounceState.IDLE
@@ -387,24 +385,11 @@ class Pipeline:
                 suppressed=suppress_swipe,
             )
 
-            # If in SWIPE_WINDOW and swipe fired for unmapped direction,
-            # reset swipe detector to IDLE so it can detect a subsequent
-            # mapped swipe.
-            if self._orchestrator.in_swipe_window and swipe_result is not None:
-                gesture_name = self._orchestrator.activating_gesture.value if self._orchestrator.activating_gesture else None
-                mapped = self._swipe_gesture_directions.get(gesture_name, set())
-                if swipe_result.value not in mapped:
-                    self._swipe_detector.reset()
-                    swipe_result = None
         else:
             self._swipe_detector.update(None, current_time)
 
         # --- Orchestrator update: single call replaces all coordination logic ---
-        orch_result = self._orchestrator.update(
-            gesture, current_time,
-            swipe_direction=swipe_result,
-            swiping=swiping,
-        )
+        orch_result = self._orchestrator.update(gesture, current_time)
 
         # Activation gate: tick, detect expiry, filter signals
         if self._activation_gate is not None:
@@ -429,9 +414,9 @@ class Pipeline:
             self._dispatcher.release_all()
             self._smoother.reset()
 
-        # Standalone swipe handling (gated by orchestrator's suppress flag and activation gate)
+        # Standalone swipe handling (gated by activation gate)
         gate_allows_swipe = self._activation_gate is None or self._activation_gate.is_armed()
-        if swipe_result is not None and not orch_result.suppress_standalone_swipe and gate_allows_swipe:
+        if swipe_result is not None and gate_allows_swipe:
             swipe_name = swipe_result.value
             if swipe_name in self._swipe_key_mappings:
                 modifiers, key, key_string = self._swipe_key_mappings[swipe_name]

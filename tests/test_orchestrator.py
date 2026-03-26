@@ -17,7 +17,6 @@ from gesture_keys.orchestrator import (
     OrchestratorSignal,
     TemporalState,
 )
-from gesture_keys.swipe import SwipeDirection
 
 
 # ─── Type Definitions ───
@@ -30,19 +29,16 @@ class TestTypeDefinitions:
         assert OrchestratorAction.FIRE.value == "fire"
         assert OrchestratorAction.HOLD_START.value == "hold_start"
         assert OrchestratorAction.HOLD_END.value == "hold_end"
-        assert OrchestratorAction.COMPOUND_FIRE.value == "compound_fire"
 
     def test_lifecycle_state_values(self):
         assert LifecycleState.IDLE.value == "IDLE"
         assert LifecycleState.ACTIVATING.value == "ACTIVATING"
-        assert LifecycleState.SWIPE_WINDOW.value == "SWIPE_WINDOW"
         assert LifecycleState.ACTIVE.value == "ACTIVE"
         assert LifecycleState.COOLDOWN.value == "COOLDOWN"
 
     def test_temporal_state_values(self):
         assert TemporalState.CONFIRMED.value == "CONFIRMED"
         assert TemporalState.HOLD.value == "HOLD"
-        assert TemporalState.SWIPING.value == "SWIPING"
 
     def test_orchestrator_signal_creation(self):
         sig = OrchestratorSignal(OrchestratorAction.FIRE, Gesture.FIST)
@@ -50,26 +46,12 @@ class TestTypeDefinitions:
         assert sig.gesture == Gesture.FIST
         assert sig.direction is None
 
-    def test_orchestrator_signal_with_direction(self):
-        sig = OrchestratorSignal(
-            OrchestratorAction.COMPOUND_FIRE, Gesture.PEACE, SwipeDirection.SWIPE_LEFT
-        )
-        assert sig.direction == SwipeDirection.SWIPE_LEFT
-
-    def test_orchestrator_signal_unpacking(self):
-        sig = OrchestratorSignal(OrchestratorAction.HOLD_START, Gesture.PEACE)
-        action, gesture, direction = sig
-        assert action == OrchestratorAction.HOLD_START
-        assert gesture == Gesture.PEACE
-        assert direction is None
-
     def test_orchestrator_result_defaults(self):
         result = OrchestratorResult()
         assert result.base_gesture is None
         assert result.temporal_state is None
         assert result.outer_state == LifecycleState.IDLE
         assert result.signals == []
-        assert result.suppress_standalone_swipe is False
 
 
 # ─── Constructor ───
@@ -90,8 +72,6 @@ class TestConstructor:
             gesture_cooldowns={"fist": 0.6},
             gesture_modes={"fist": "hold_key"},
             hold_release_delay=0.15,
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.3,
         )
         # Should not raise
         result = o.update(None, 0.0)
@@ -452,98 +432,11 @@ class TestHoldModeCooldownCycle:
         assert result.outer_state == LifecycleState.IDLE
 
 
-# ─── SWIPE_WINDOW (ported from TestSwipeWindow*) ───
-
-
-class TestSwipeWindow:
-    """Test SWIPE_WINDOW state basics."""
-
-    def _make_orchestrator(self, directions=None, swipe_window=0.2, activation_delay=0.15):
-        return GestureOrchestrator(
-            activation_delay=activation_delay,
-            swipe_gesture_directions=directions or {"peace": {"swipe_left", "swipe_right"}},
-            swipe_window=swipe_window,
-        )
-
-    def test_gesture_with_swipe_mapping_enters_swipe_window(self):
-        o = self._make_orchestrator()
-        result = o.update(Gesture.PEACE, 0.0)
-        assert result.outer_state == LifecycleState.SWIPE_WINDOW
-
-    def test_gesture_without_swipe_mapping_normal_activating(self):
-        o = self._make_orchestrator()
-        result = o.update(Gesture.FIST, 0.0)
-        assert result.outer_state == LifecycleState.ACTIVATING
-
-    def test_compound_fire_on_mapped_swipe(self):
-        o = self._make_orchestrator()
-        o.update(Gesture.PEACE, 0.0)
-        result = o.update(
-            Gesture.PEACE, 0.05, swipe_direction=SwipeDirection.SWIPE_LEFT
-        )
-        assert len(result.signals) == 1
-        assert result.signals[0].action == OrchestratorAction.COMPOUND_FIRE
-        assert result.signals[0].gesture == Gesture.PEACE
-        assert result.signals[0].direction == SwipeDirection.SWIPE_LEFT
-        assert result.outer_state == LifecycleState.COOLDOWN
-
-    def test_unmapped_direction_ignored(self):
-        o = self._make_orchestrator()  # only left/right mapped
-        o.update(Gesture.PEACE, 0.0)
-        result = o.update(
-            Gesture.PEACE, 0.05, swipe_direction=SwipeDirection.SWIPE_UP
-        )
-        assert result.signals == []
-        assert result.outer_state == LifecycleState.SWIPE_WINDOW
-
-    def test_fires_static_on_window_expiry_gesture_held(self):
-        o = self._make_orchestrator(swipe_window=0.2)
-        o.update(Gesture.PEACE, 0.0)
-        o.update(Gesture.PEACE, 0.1)  # still in window
-        result = o.update(Gesture.PEACE, 0.25)  # window expired, gesture held
-        assert len(result.signals) == 1
-        assert result.signals[0] == OrchestratorSignal(
-            OrchestratorAction.FIRE, Gesture.PEACE
-        )
-
-    def test_idle_on_window_expired_gesture_gone(self):
-        o = self._make_orchestrator(swipe_window=0.2)
-        o.update(Gesture.PEACE, 0.0)
-        o.update(None, 0.05)  # gesture lost mid-window
-        result = o.update(None, 0.25)  # window expires, gesture still gone
-        assert result.outer_state == LifecycleState.IDLE
-        assert result.signals == []
-
-    def test_tolerates_gesture_loss_during_window(self):
-        o = self._make_orchestrator()
-        o.update(Gesture.PEACE, 0.0)
-        result = o.update(None, 0.05)
-        assert result.outer_state == LifecycleState.SWIPE_WINDOW
-
-    def test_gesture_switch_tolerated_during_window(self):
-        o = self._make_orchestrator()
-        o.update(Gesture.PEACE, 0.0)
-        result = o.update(Gesture.THUMBS_UP, 0.05)
-        assert result.outer_state == LifecycleState.SWIPE_WINDOW
-
-    def test_cooldown_to_swipe_window_direct_transition(self):
-        o = GestureOrchestrator(
-            activation_delay=0.1,
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.FIST, 0.0)  # ACTIVATING
-        o.update(Gesture.FIST, 0.15)  # FIRE
-        o.update(Gesture.FIST, 0.16)  # COOLDOWN
-        result = o.update(Gesture.PEACE, 0.17)
-        assert result.outer_state == LifecycleState.SWIPE_WINDOW
-
-
 # ─── Properties ───
 
 
 class TestProperties:
-    """Test is_activating, in_swipe_window, activating_gesture properties."""
+    """Test is_activating and activating_gesture properties."""
 
     def test_is_activating_false_in_idle(self):
         o = GestureOrchestrator()
@@ -569,38 +462,10 @@ class TestProperties:
         o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD)
         assert o.is_activating is False
 
-    def test_in_swipe_window_false_by_default(self):
-        o = GestureOrchestrator()
-        assert o.in_swipe_window is False
-
-    def test_in_swipe_window_true_during_swipe_window(self):
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.PEACE, 0.0)
-        assert o.in_swipe_window is True
-
-    def test_is_activating_false_during_swipe_window(self):
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.PEACE, 0.0)
-        assert o.is_activating is False
-
     def test_activating_gesture_during_activating(self):
         o = GestureOrchestrator()
         o.update(Gesture.FIST, 0.0)
         assert o.activating_gesture == Gesture.FIST
-
-    def test_activating_gesture_during_swipe_window(self):
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.PEACE, 0.0)
-        assert o.activating_gesture == Gesture.PEACE
 
     def test_activating_gesture_none_in_idle(self):
         o = GestureOrchestrator()
@@ -697,20 +562,7 @@ class TestReset:
 
 
 class TestFlushPending:
-    """Test flush_pending() method for SWIPE_WINDOW fire-before-reset."""
-
-    def test_flush_pending_fires_in_swipe_window(self):
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.PEACE, 0.0)
-        assert o.in_swipe_window is True
-        result = o.flush_pending()
-        assert len(result.signals) == 1
-        assert result.signals[0] == OrchestratorSignal(
-            OrchestratorAction.FIRE, Gesture.PEACE
-        )
+    """Test flush_pending() method -- now always returns empty result."""
 
     def test_flush_pending_no_op_in_idle(self):
         o = GestureOrchestrator()
@@ -722,84 +574,6 @@ class TestFlushPending:
         o.update(Gesture.FIST, 0.0)
         result = o.flush_pending()
         assert result.signals == []
-
-
-# ─── Swiping Transitions (NEW -- absorbed from Pipeline) ───
-
-
-class TestSwipingTransitions:
-    """Test swiping entry/exit transitions handled internally by orchestrator."""
-
-    def test_swiping_entry_resets_state(self):
-        """On swiping entry (not swiping -> swiping), orchestrator resets internal state."""
-        o = GestureOrchestrator(activation_delay=0.4)
-        o.update(Gesture.FIST, 0.0)  # ACTIVATING
-        # Now swiping starts
-        result = o.update(Gesture.FIST, 0.1, swiping=True)
-        # Should have reset to idle or appropriate state on swiping entry
-        assert result.outer_state == LifecycleState.IDLE
-
-    def test_swiping_exit_enters_cooldown_with_pre_swipe_gesture(self):
-        """On swiping exit, orchestrator transitions to COOLDOWN suppressing pre-swipe gesture."""
-        o = GestureOrchestrator(activation_delay=0.4)
-        o.update(Gesture.FIST, 0.0)  # Remember FIST as base gesture
-        o.update(Gesture.FIST, 0.1, swiping=True)  # swiping entry
-        result = o.update(Gesture.FIST, 0.5, swiping=False)  # swiping exit
-        assert result.outer_state == LifecycleState.COOLDOWN
-
-    def test_pre_swipe_gesture_blocked_after_swipe_exit(self):
-        """After swipe exit, same gesture is blocked by cooldown."""
-        o = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.3)
-        o.update(Gesture.FIST, 0.0)
-        o.update(Gesture.FIST, 0.1, swiping=True)  # swiping entry
-        o.update(Gesture.FIST, 0.5, swiping=False)  # swiping exit -> COOLDOWN
-        # Same gesture should be blocked
-        result = o.update(Gesture.FIST, 0.6)
-        assert result.outer_state == LifecycleState.COOLDOWN
-
-    def test_different_gesture_after_swipe_exit_starts_activating(self):
-        """After swipe exit, different gesture can start activating."""
-        o = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.3)
-        o.update(Gesture.FIST, 0.0)
-        o.update(Gesture.FIST, 0.1, swiping=True)
-        o.update(Gesture.FIST, 0.5, swiping=False)  # -> COOLDOWN for FIST
-        result = o.update(Gesture.PEACE, 0.6)
-        assert result.outer_state == LifecycleState.ACTIVATING
-
-
-# ─── Compound Swipe Suppression ───
-
-
-class TestCompoundSwipeSuppression:
-    """Test suppress_standalone_swipe field in OrchestratorResult."""
-
-    def test_suppress_during_swipe_window(self):
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        result = o.update(Gesture.PEACE, 0.0)
-        assert result.suppress_standalone_swipe is True
-
-    def test_suppress_continues_after_swipe_window(self):
-        """Suppression continues for swipe_window duration after entering SWIPE_WINDOW."""
-        o = GestureOrchestrator(
-            activation_delay=0.1,
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.PEACE, 0.0)
-        # Window expires, fires static
-        o.update(Gesture.PEACE, 0.25)
-        # Still within suppress window
-        result = o.update(Gesture.PEACE, 0.15)  # suppress_until = 0.0 + 0.2 = 0.2
-        # Check just that suppress field exists in result
-        assert isinstance(result.suppress_standalone_swipe, bool)
-
-    def test_no_suppress_when_no_swipe_mapping(self):
-        o = GestureOrchestrator()
-        result = o.update(Gesture.FIST, 0.0)
-        assert result.suppress_standalone_swipe is False
 
 
 # ─── Temporal State Invariants ───
@@ -823,14 +597,6 @@ class TestTemporalStateInvariants:
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # fires
         result = o.update(Gesture.FIST, 0.6)  # -> cooldown
-        assert result.temporal_state is None
-
-    def test_temporal_state_none_in_swipe_window(self):
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        result = o.update(Gesture.PEACE, 0.0)
         assert result.temporal_state is None
 
     def test_temporal_state_hold_in_active(self):
@@ -867,23 +633,15 @@ class TestBaseGesture:
         result = o.update(Gesture.FIST, 0.5)
         assert result.base_gesture == Gesture.FIST
 
-    def test_base_gesture_set_during_swipe_window(self):
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        result = o.update(Gesture.PEACE, 0.0)
-        assert result.base_gesture == Gesture.PEACE
 
-
-# ─── Edge Cases (10 dedicated tests from CONTEXT.md) ───
+# ─── Edge Cases (dedicated tests from CONTEXT.md) ───
 
 
 class TestEdgeCases:
-    """All 10 v1.3 edge cases with dedicated tests."""
+    """Edge cases with dedicated tests."""
 
     def test_edge_1_direct_gesture_transitions(self):
-        """COOLDOWN + different gesture -> ACTIVATING/SWIPE_WINDOW."""
+        """COOLDOWN + different gesture -> ACTIVATING."""
         o = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.8)
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # fires
@@ -891,54 +649,11 @@ class TestEdgeCases:
         result = o.update(Gesture.PEACE, 0.7)
         assert result.outer_state == LifecycleState.ACTIVATING
 
-    def test_edge_1_direct_transition_to_swipe_window(self):
-        """COOLDOWN + swipe-mapped gesture -> SWIPE_WINDOW."""
-        o = GestureOrchestrator(
-            activation_delay=0.1,
-            cooldown_duration=0.8,
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.FIST, 0.0)
-        o.update(Gesture.FIST, 0.15)  # fires
-        o.update(Gesture.FIST, 0.16)  # -> cooldown
-        result = o.update(Gesture.PEACE, 0.2)
-        assert result.outer_state == LifecycleState.SWIPE_WINDOW
-
     def test_edge_2_static_first_priority_gate(self):
         """is_activating property returns True during ACTIVATING."""
         o = GestureOrchestrator()
         o.update(Gesture.FIST, 0.0)
         assert o.is_activating is True
-
-    def test_edge_3_swipe_exit_reset(self):
-        """On swiping exit, orchestrator enters COOLDOWN with pre-swipe gesture."""
-        o = GestureOrchestrator(activation_delay=0.4)
-        o.update(Gesture.FIST, 0.0)
-        o.update(Gesture.FIST, 0.1, swiping=True)  # swiping entry
-        result = o.update(Gesture.FIST, 0.5, swiping=False)  # swiping exit
-        assert result.outer_state == LifecycleState.COOLDOWN
-
-    def test_edge_4_pre_swipe_gesture_suppression(self):
-        """After swipe exit, same gesture blocked by COOLDOWN."""
-        o = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.3)
-        o.update(Gesture.FIST, 0.0)
-        o.update(Gesture.FIST, 0.1, swiping=True)
-        o.update(Gesture.FIST, 0.5, swiping=False)  # -> COOLDOWN for FIST
-        result = o.update(Gesture.FIST, 0.6)
-        assert result.outer_state == LifecycleState.COOLDOWN
-
-    def test_edge_5_flush_pending(self):
-        """flush_pending() fires pending gesture if in SWIPE_WINDOW."""
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        o.update(Gesture.PEACE, 0.0)
-        result = o.flush_pending()
-        assert len(result.signals) == 1
-        assert result.signals[0].action == OrchestratorAction.FIRE
-        assert result.signals[0].gesture == Gesture.PEACE
 
     def test_edge_6_per_gesture_cooldown_durations(self):
         """Per-gesture cooldown from gesture_cooldowns dict."""
@@ -969,15 +684,6 @@ class TestEdgeCases:
         assert result.outer_state == LifecycleState.ACTIVE
         assert result.temporal_state == TemporalState.HOLD
 
-    def test_edge_8_compound_swipe_suppression(self):
-        """suppress_standalone_swipe=True during SWIPE_WINDOW."""
-        o = GestureOrchestrator(
-            swipe_gesture_directions={"peace": {"swipe_left"}},
-            swipe_window=0.2,
-        )
-        result = o.update(Gesture.PEACE, 0.0)
-        assert result.suppress_standalone_swipe is True
-
     def test_edge_9_same_gesture_cooldown_blocking(self):
         """COOLDOWN + same gesture -> stays COOLDOWN."""
         o = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.8)
@@ -997,6 +703,3 @@ class TestEdgeCases:
         o.reset()
         assert o.activating_gesture is None
         assert o.is_activating is False
-        result = o.update(None, 0.6)
-        assert result.outer_state == LifecycleState.IDLE
-        assert result.temporal_state is None

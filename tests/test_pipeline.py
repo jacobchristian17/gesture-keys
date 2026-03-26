@@ -64,11 +64,6 @@ class TestDebounceStateMapping:
         result = OrchestratorResult(outer_state=LifecycleState.ACTIVATING)
         assert _map_to_debounce_state(result) == DebounceState.ACTIVATING
 
-    def test_swipe_window_maps_to_swipe_window(self):
-        from gesture_keys.pipeline import _map_to_debounce_state, DebounceState
-        result = OrchestratorResult(outer_state=LifecycleState.SWIPE_WINDOW)
-        assert _map_to_debounce_state(result) == DebounceState.SWIPE_WINDOW
-
     def test_active_hold_maps_to_holding(self):
         from gesture_keys.pipeline import _map_to_debounce_state, DebounceState
         result = OrchestratorResult(

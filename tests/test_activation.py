@@ -85,6 +85,22 @@ class TestActivationGateBasics:
         gate.duration = 7.0
         assert gate.duration == 7.0
 
+    def test_keep_alive_resets_timer(self):
+        """keep_alive() resets the expiry timer so gate stays armed longer."""
+        gate = ActivationGate(gesture=Gesture.SCOUT, duration=3.0)
+        gate.arm(0.0)
+        gate.keep_alive(2.0)  # Reset timer at t=2.0
+        gate.tick(4.9)        # 2.0 + 3.0 - epsilon: still armed
+        assert gate.is_armed() is True
+        gate.tick(5.0)        # 2.0 + 3.0: expired
+        assert gate.is_armed() is False
+
+    def test_keep_alive_when_disarmed_is_noop(self):
+        """keep_alive() does nothing when gate is not armed."""
+        gate = ActivationGate(gesture=Gesture.SCOUT, duration=3.0)
+        gate.keep_alive(1.0)  # Should not raise or arm
+        assert gate.is_armed() is False
+
 
 # ---------------------------------------------------------------------------
 # Class 2: Config schema  (ACTV-02)
@@ -154,6 +170,72 @@ activation_gate:
         assert hasattr(cfg, "activation_gate_gestures")
         assert hasattr(cfg, "activation_gate_duration")
 
+    def test_activation_gate_bypass_list(self, tmp_path):
+        """bypass list in activation_gate section is parsed."""
+        from gesture_keys.config import load_config
+        path = self._write_config(tmp_path, """\
+activation_gate:
+  enabled: true
+  gestures:
+    - scout
+  bypass:
+    - peace
+    - open_palm
+""")
+        cfg = load_config(path)
+        assert set(cfg.activation_gate_bypass) >= {"peace", "open_palm"}
+
+    def test_per_gesture_bypass_gate_true(self, tmp_path):
+        """bypass_gate: true on a gesture adds it to activation_gate_bypass."""
+        from gesture_keys.config import load_config
+        content = """\
+camera:
+  index: 0
+detection:
+  smoothing_window: 2
+gestures:
+  open_palm:
+    key: "ctrl+z"
+    bypass_gate: true
+  fist:
+    key: "space"
+activation_gate:
+  enabled: true
+  gestures:
+    - scout
+"""
+        path = tmp_path / "config.yaml"
+        path.write_text(content)
+        cfg = load_config(str(path))
+        assert "open_palm" in cfg.activation_gate_bypass
+        assert "fist" not in cfg.activation_gate_bypass
+
+    def test_per_gesture_bypass_merges_with_explicit_list(self, tmp_path):
+        """bypass_gate: true merges with explicit bypass list."""
+        from gesture_keys.config import load_config
+        content = """\
+camera:
+  index: 0
+detection:
+  smoothing_window: 2
+gestures:
+  open_palm:
+    key: "ctrl+z"
+    bypass_gate: true
+  fist:
+    key: "space"
+activation_gate:
+  enabled: true
+  gestures:
+    - scout
+  bypass:
+    - peace
+"""
+        path = tmp_path / "config.yaml"
+        path.write_text(content)
+        cfg = load_config(str(path))
+        assert set(cfg.activation_gate_bypass) >= {"open_palm", "peace"}
+
     def test_activation_gate_partial_section(self, tmp_path):
         """Only 'enabled' provided — gestures and duration use defaults."""
         from gesture_keys.config import load_config
@@ -183,6 +265,7 @@ class TestSignalFiltering:
         pipeline = Pipeline.__new__(Pipeline)
         pipeline._activation_gate = None
         pipeline._activation_gestures = set()
+        pipeline._activation_bypass = set()
         return pipeline
 
     def test_bypass_mode_passes_all_signals(self):
@@ -242,7 +325,7 @@ class TestSignalFiltering:
         assert gate.is_armed() is True
 
     def test_all_signal_types_for_activation_gesture_consumed(self):
-        """ALL signal types (FIRE, HOLD_START, HOLD_END, COMPOUND_FIRE) are consumed."""
+        """ALL signal types (FIRE, HOLD_START, HOLD_END) are consumed."""
         pipeline = self._make_pipeline()
         gate = ActivationGate(gesture=Gesture.SCOUT, duration=3.0)
         pipeline._activation_gate = gate
@@ -264,6 +347,45 @@ class TestSignalFiltering:
         result = pipeline._filter_signals_through_gate(signals, 1.0)
         assert result == []
         assert gate.is_armed() is True
+
+    def test_gate_armed_action_resets_idle_timer(self):
+        """Firing a non-activation action resets the gate's idle timer."""
+        pipeline = self._make_pipeline()
+        gate = ActivationGate(gesture=Gesture.SCOUT, duration=3.0)
+        gate.arm(0.0)
+        pipeline._activation_gate = gate
+        pipeline._activation_gestures = {"scout"}
+        sig = _make_signal(OrchestratorAction.FIRE, Gesture.OPEN_PALM)
+        pipeline._filter_signals_through_gate([sig], 2.0)
+        # Timer was reset to t=2.0, so gate should survive until t=5.0
+        gate.tick(4.9)
+        assert gate.is_armed() is True
+        gate.tick(5.0)
+        assert gate.is_armed() is False
+
+    def test_bypass_gesture_passes_when_gate_not_armed(self):
+        """Bypass gestures pass through even when gate is not armed."""
+        pipeline = self._make_pipeline()
+        gate = ActivationGate(gesture=Gesture.SCOUT, duration=3.0)
+        pipeline._activation_gate = gate
+        pipeline._activation_gestures = {"scout"}
+        pipeline._activation_bypass = {"peace"}
+        sig = _make_signal(OrchestratorAction.FIRE, Gesture.PEACE)
+        result = pipeline._filter_signals_through_gate([sig], 1.0)
+        assert result == [sig]
+        assert gate.is_armed() is False  # Bypass doesn't arm the gate
+
+    def test_bypass_gesture_passes_when_gate_armed(self):
+        """Bypass gestures also pass through when gate is armed."""
+        pipeline = self._make_pipeline()
+        gate = ActivationGate(gesture=Gesture.SCOUT, duration=3.0)
+        gate.arm(0.0)
+        pipeline._activation_gate = gate
+        pipeline._activation_gestures = {"scout"}
+        pipeline._activation_bypass = {"peace"}
+        sig = _make_signal(OrchestratorAction.FIRE, Gesture.PEACE)
+        result = pipeline._filter_signals_through_gate([sig], 1.0)
+        assert result == [sig]
 
     def test_mixed_signals_partial_filter(self):
         """Activation signal consumed, non-activation suppressed when not armed."""
