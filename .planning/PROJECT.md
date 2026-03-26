@@ -39,10 +39,13 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 - [ ] Tri-state gesture model (static/holding/moving with direction) replacing separate gesture + swipe systems
 - [ ] Compact trigger string syntax for config (`gesture:state[:direction]`, sequences with `>`)
-- [ ] MotionDetector replacing SwipeDetector (continuous per-frame signal, no state machine)
-- [ ] New `actions:` config section replacing `gestures:` and `swipe:` sections
-- [ ] Orchestrator simplification: remove swipe states, add MOVING_FIRE and SEQUENCE_FIRE signals
-- [ ] Sequence gesture support (gesture A then B within time window)
+- ✓ MotionDetector replacing SwipeDetector (continuous per-frame signal, no state machine) — Validated in Phase 19, integrated in Phase 23
+- ✓ New `actions:` config section replacing `gestures:` and `swipe:` sections — Validated in Phase 20
+- ✓ Orchestrator simplification: remove swipe states, add MOVING_FIRE and SEQUENCE_FIRE signals — Validated in Phase 21
+- ✓ Sequence gesture support (gesture A then B within time window) — Validated in Phase 21
+- ✓ ActionResolver/Dispatcher update for 4 trigger types — Validated in Phase 22
+- ✓ Pipeline integration: MotionDetector + DerivedConfig end-to-end — Validated in Phase 23
+- [ ] Cleanup: remove legacy swipe code and migrate config format
 - [ ] Config migration from old format to new `actions:` format
 
 ### Out of Scope
@@ -108,4 +111,4 @@ Platform: Windows 11, CPU inference (30+ FPS sufficient).
 | gate=None as bypass mode (v2.0) | Zero overhead for default config, not a disabled flag | ✓ Good — no conditional checks on hot path when gate unused |
 
 ---
-*Last updated: 2026-03-26 after v3.0 milestone started*
+*Last updated: 2026-03-27 after Phase 23 (Pipeline Integration) complete — 6/7 phases done*
