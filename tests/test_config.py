@@ -1241,25 +1241,65 @@ class TestDeriveFromActions:
         assert "bypass_action" in result.activation_gate_bypass
         assert "normal_action" not in result.activation_gate_bypass
 
-    def test_hand_both_populates_both_maps(self):
-        """hand='both' puts action in both right_actions and left_actions."""
+    def test_static_entry_in_right_static(self):
+        """Static trigger -> appears in right_static keyed by gesture value."""
         entries = [
             ActionEntry(
-                name="both_action",
+                name="tap_action",
                 trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
                 key="space",
-                hand="both",
             ),
         ]
         result = derive_from_actions(entries)
-        assert "both_action" in result.right_actions
-        assert "both_action" in result.left_actions
-        assert isinstance(result.right_actions["both_action"], Action)
-        assert result.right_actions["both_action"].key_string == "space"
-        assert result.right_actions["both_action"].fire_mode == FireMode.TAP
+        assert "fist" in result.right_static
+        assert isinstance(result.right_static["fist"], Action)
+        assert result.right_static["fist"].key_string == "space"
+        assert result.right_static["fist"].fire_mode == FireMode.TAP
 
-    def test_hand_left_only_in_left_map(self):
-        """hand='left' puts action only in left_actions."""
+    def test_holding_entry_in_right_holding(self):
+        """Holding trigger -> appears in right_holding keyed by gesture value."""
+        entries = [
+            ActionEntry(
+                name="hold_action",
+                trigger=Trigger(Gesture.FIST, TriggerState.HOLDING),
+                key="space",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert "fist" in result.right_holding
+        assert result.right_holding["fist"].fire_mode == FireMode.HOLD_KEY
+
+    def test_moving_entry_in_right_moving(self):
+        """Moving trigger -> appears in right_moving keyed by (gesture, direction) tuple."""
+        entries = [
+            ActionEntry(
+                name="move_action",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.LEFT),
+                key="left",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("open_palm", "left") in result.right_moving
+        assert result.right_moving[("open_palm", "left")].key_string == "left"
+
+    def test_sequence_entry_in_right_sequence(self):
+        """Sequence trigger -> appears in right_sequence keyed by (first, second) tuple."""
+        entries = [
+            ActionEntry(
+                name="seq_action",
+                trigger=SequenceTrigger(
+                    first=Trigger(Gesture.FIST, TriggerState.STATIC),
+                    second=Trigger(Gesture.OPEN_PALM, TriggerState.STATIC),
+                ),
+                key="enter",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("fist", "open_palm") in result.right_sequence
+        assert result.right_sequence[("fist", "open_palm")].key_string == "enter"
+
+    def test_hand_left_routes_to_left_maps(self):
+        """hand='left' routes static action to left_static only."""
         entries = [
             ActionEntry(
                 name="left_only",
@@ -1269,11 +1309,27 @@ class TestDeriveFromActions:
             ),
         ]
         result = derive_from_actions(entries)
-        assert "left_only" in result.left_actions
-        assert "left_only" not in result.right_actions
+        assert "fist" in result.left_static
+        assert "fist" not in result.right_static
 
-    def test_hand_right_only_in_right_map(self):
-        """hand='right' puts action only in right_actions."""
+    def test_hand_both_routes_to_both_maps(self):
+        """hand='both' routes action to both right and left maps."""
+        entries = [
+            ActionEntry(
+                name="both_action",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="space",
+                hand="both",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert "fist" in result.right_static
+        assert "fist" in result.left_static
+        assert result.right_static["fist"].key_string == "space"
+        assert result.left_static["fist"].key_string == "space"
+
+    def test_hand_right_routes_to_right_only(self):
+        """hand='right' routes action to right map only."""
         entries = [
             ActionEntry(
                 name="right_only",
@@ -1283,20 +1339,39 @@ class TestDeriveFromActions:
             ),
         ]
         result = derive_from_actions(entries)
-        assert "right_only" in result.right_actions
-        assert "right_only" not in result.left_actions
+        assert "fist" in result.right_static
+        assert "fist" not in result.left_static
 
-    def test_action_has_correct_fire_mode(self):
-        """Built Action uses fire_mode inferred from trigger state."""
+    def test_hand_both_moving_entry(self):
+        """hand='both' routes moving action to both right_moving and left_moving."""
         entries = [
             ActionEntry(
-                name="hold",
-                trigger=Trigger(Gesture.FIST, TriggerState.HOLDING),
-                key="space",
+                name="move_both",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.UP),
+                key="up",
+                hand="both",
             ),
         ]
         result = derive_from_actions(entries)
-        assert result.right_actions["hold"].fire_mode == FireMode.HOLD_KEY
+        assert ("open_palm", "up") in result.right_moving
+        assert ("open_palm", "up") in result.left_moving
+
+    def test_hand_both_sequence_entry(self):
+        """hand='both' routes sequence action to both right_sequence and left_sequence."""
+        entries = [
+            ActionEntry(
+                name="seq_both",
+                trigger=SequenceTrigger(
+                    first=Trigger(Gesture.FIST, TriggerState.STATIC),
+                    second=Trigger(Gesture.PEACE, TriggerState.STATIC),
+                ),
+                key="enter",
+                hand="both",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("fist", "peace") in result.right_sequence
+        assert ("fist", "peace") in result.left_sequence
 
     def test_action_has_parsed_modifiers_and_key(self):
         """Built Action has pre-parsed modifiers and key from parse_key_string."""
@@ -1309,9 +1384,22 @@ class TestDeriveFromActions:
             ),
         ]
         result = derive_from_actions(entries)
-        action = result.right_actions["mod_action"]
+        action = result.right_static["peace"]
         assert Key.ctrl in action.modifiers
         assert action.key == Key.space
+
+    def test_no_right_actions_or_left_actions_fields(self):
+        """DerivedConfig no longer has right_actions/left_actions fields."""
+        entries = [
+            ActionEntry(
+                name="test",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="space",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert not hasattr(result, "right_actions")
+        assert not hasattr(result, "left_actions")
 
     def test_derived_config_is_frozen(self):
         """DerivedConfig is a frozen dataclass."""
