@@ -60,6 +60,15 @@ class ActivationGate:
         self._armed = True
         logger.info("Activation gate ARMED for %.1fs", self._duration)
 
+    def keep_alive(self, timestamp: float) -> None:
+        """Reset the expiry timer without changing armed state.
+
+        Called when an action fires to ensure the gate only expires
+        after continuous idle time.
+        """
+        if self._armed:
+            self._armed_at = timestamp
+
     def reset(self) -> None:
         """Reset the gate to disarmed state."""
         self._armed_at = None

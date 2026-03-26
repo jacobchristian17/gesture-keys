@@ -3,7 +3,14 @@
 from unittest.mock import MagicMock, patch, PropertyMock
 import pytest
 
-from gesture_keys.orchestrator import LifecycleState, TemporalState, OrchestratorResult
+from gesture_keys.orchestrator import (
+    LifecycleState,
+    OrchestratorAction,
+    OrchestratorResult,
+    OrchestratorSignal,
+    TemporalState,
+)
+from gesture_keys.trigger import Direction
 
 
 class TestFrameResult:
@@ -18,18 +25,20 @@ class TestFrameResult:
         assert result.gesture is None
         assert result.raw_gesture is None
         assert result.debounce_state == DebounceState.IDLE
-        assert result.swiping is False
+        assert result.motion_state is None
         assert result.frame_valid is True
         assert result.orchestrator is None
 
     def test_field_assignment(self):
         from gesture_keys.pipeline import FrameResult, DebounceState
         from gesture_keys.classifier import Gesture
+        from gesture_keys.motion import MotionState
 
         orch_result = OrchestratorResult(
             outer_state=LifecycleState.ACTIVE,
             temporal_state=TemporalState.HOLD,
         )
+        motion = MotionState(moving=True, direction=Direction.LEFT)
         landmarks = [[0.1, 0.2, 0.3]]
         result = FrameResult(
             landmarks=landmarks,
@@ -37,7 +46,7 @@ class TestFrameResult:
             gesture=Gesture.FIST,
             raw_gesture=Gesture.OPEN_PALM,
             debounce_state=DebounceState.FIRED,
-            swiping=True,
+            motion_state=motion,
             frame_valid=False,
             orchestrator=orch_result,
         )
@@ -46,7 +55,8 @@ class TestFrameResult:
         assert result.gesture == Gesture.FIST
         assert result.raw_gesture == Gesture.OPEN_PALM
         assert result.debounce_state == DebounceState.FIRED
-        assert result.swiping is True
+        assert result.motion_state.moving is True
+        assert result.motion_state.direction == Direction.LEFT
         assert result.frame_valid is False
         assert result.orchestrator is orch_result
 
@@ -116,7 +126,7 @@ class TestPipelineInit:
         assert pipeline._orchestrator is None
         assert pipeline._sender is None
         assert pipeline._distance_filter is None
-        assert pipeline._swipe_detector is None
+        assert pipeline._motion_detector is None
         assert pipeline._watcher is None
 
     @patch("gesture_keys.pipeline.load_config")
@@ -159,31 +169,39 @@ class TestPipelineStartStop:
             "fist": {"key": "space", "threshold": 0.8},
         }
         config.smoothing_window = 5
-        config.gesture_swipe_mappings = {}
         config.activation_delay = 0.5
         config.cooldown_duration = 0.3
-        config.gesture_cooldowns = {}
-        config.gesture_modes = {}
         config.hold_release_delay = 0.3
         config.swipe_window = 0.5
         config.min_hand_size = 0.15
         config.max_hand_size = 1.0
         config.distance_enabled = True
-        config.swipe_min_velocity = 0.5
-        config.swipe_min_displacement = 0.1
-        config.swipe_axis_ratio = 1.5
-        config.swipe_cooldown = 0.5
-        config.swipe_settling_frames = 3
-        config.swipe_enabled = False
-        config.swipe_mappings = {}
         config.hold_repeat_interval = 0.03
         config.activation_gate_enabled = False
         config.activation_gate_gestures = []
         config.activation_gate_duration = 3.0
+        config.activation_gate_bypass = []
+        config.actions = []
         return config
 
+    def _make_mock_derived_config(self):
+        """Create a mock DerivedConfig with empty maps."""
+        derived = MagicMock()
+        derived.gesture_modes = {}
+        derived.gesture_cooldowns = {}
+        derived.activation_gate_bypass = []
+        derived.right_static = {}
+        derived.left_static = {}
+        derived.right_holding = {}
+        derived.left_holding = {}
+        derived.right_moving = {}
+        derived.left_moving = {}
+        derived.right_sequence = {}
+        derived.left_sequence = {}
+        return derived
+
     @patch("gesture_keys.pipeline.ConfigWatcher")
-    @patch("gesture_keys.pipeline.SwipeDetector")
+    @patch("gesture_keys.pipeline.MotionDetector")
     @patch("gesture_keys.pipeline.DistanceFilter")
     @patch("gesture_keys.pipeline.KeystrokeSender")
     @patch("gesture_keys.pipeline.GestureOrchestrator")
@@ -191,15 +209,17 @@ class TestPipelineStartStop:
     @patch("gesture_keys.pipeline.GestureClassifier")
     @patch("gesture_keys.pipeline.HandDetector")
     @patch("gesture_keys.pipeline.CameraCapture")
+    @patch("gesture_keys.pipeline.derive_from_actions")
     @patch("gesture_keys.pipeline.load_config")
     def test_start_creates_components(
-        self, mock_load_config, mock_camera_cls, mock_detector_cls,
+        self, mock_load_config, mock_derive, mock_camera_cls, mock_detector_cls,
         mock_classifier_cls, mock_smoother_cls, mock_orchestrator_cls,
-        mock_sender_cls, mock_distance_cls, mock_swipe_cls, mock_watcher_cls,
+        mock_sender_cls, mock_distance_cls, mock_motion_cls, mock_watcher_cls,
     ):
         from gesture_keys.pipeline import Pipeline
 
         mock_load_config.return_value = self._make_mock_config()
+        mock_derive.return_value = self._make_mock_derived_config()
         mock_camera_instance = MagicMock()
         mock_camera_cls.return_value.start.return_value = mock_camera_instance
 
@@ -213,7 +233,7 @@ class TestPipelineStartStop:
         assert pipeline._orchestrator is not None
         assert pipeline._sender is not None
         assert pipeline._distance_filter is not None
-        assert pipeline._swipe_detector is not None
+        assert pipeline._motion_detector is not None
         assert pipeline._watcher is not None
 
     @patch("gesture_keys.pipeline.load_config")
@@ -268,12 +288,126 @@ class TestPipelineReset:
 
         pipeline._smoother = MagicMock()
         pipeline._orchestrator = MagicMock()
-        pipeline._swipe_detector = MagicMock()
+        pipeline._motion_detector = MagicMock()
         pipeline._dispatcher = MagicMock()
 
         pipeline.reset_pipeline()
 
         pipeline._smoother.reset.assert_called_once()
         pipeline._orchestrator.reset.assert_called_once()
-        pipeline._swipe_detector.reset.assert_called_once()
+        pipeline._motion_detector.reset.assert_called_once()
         pipeline._dispatcher.release_all.assert_called_once()
+
+
+class TestActivationGateSequenceFire:
+    """Test _filter_signals_through_gate handles SEQUENCE_FIRE using second_gesture."""
+
+    @patch("gesture_keys.pipeline.load_config")
+    def test_sequence_fire_activation_gesture_consumed(self, mock_load_config):
+        """SEQUENCE_FIRE where second_gesture is activation gesture should arm gate."""
+        from gesture_keys.pipeline import Pipeline
+        from gesture_keys.classifier import Gesture
+
+        mock_load_config.return_value = MagicMock()
+        pipeline = Pipeline("config.yaml")
+
+        # Set up activation gate
+        pipeline._activation_gate = MagicMock()
+        pipeline._activation_gate.is_armed.return_value = False
+        pipeline._activation_gestures = {"thumbs_up"}
+        pipeline._activation_bypass = set()
+
+        # SEQUENCE_FIRE: first gesture is fist, second is thumbs_up (activation gesture)
+        signal = OrchestratorSignal(
+            action=OrchestratorAction.SEQUENCE_FIRE,
+            gesture=Gesture.FIST,
+            second_gesture=Gesture("thumbs_up"),
+        )
+
+        result = pipeline._filter_signals_through_gate([signal], 1.0)
+
+        # Signal should be consumed (arms gate), not passed through
+        assert len(result) == 0
+        pipeline._activation_gate.arm.assert_called_once_with(1.0)
+
+    @patch("gesture_keys.pipeline.load_config")
+    def test_sequence_fire_non_activation_passes_when_armed(self, mock_load_config):
+        """SEQUENCE_FIRE where second_gesture is not activation, gate armed -> passes."""
+        from gesture_keys.pipeline import Pipeline
+        from gesture_keys.classifier import Gesture
+
+        mock_load_config.return_value = MagicMock()
+        pipeline = Pipeline("config.yaml")
+
+        # Set up activation gate (armed)
+        pipeline._activation_gate = MagicMock()
+        pipeline._activation_gate.is_armed.return_value = True
+        pipeline._activation_gestures = {"thumbs_up"}
+        pipeline._activation_bypass = set()
+
+        # SEQUENCE_FIRE: second gesture is fist (not activation gesture)
+        signal = OrchestratorSignal(
+            action=OrchestratorAction.SEQUENCE_FIRE,
+            gesture=Gesture("thumbs_up"),
+            second_gesture=Gesture.FIST,
+        )
+
+        result = pipeline._filter_signals_through_gate([signal], 1.0)
+
+        # Signal should pass through (gate is armed, second_gesture is not activation)
+        assert len(result) == 1
+        assert result[0] is signal
+
+    @patch("gesture_keys.pipeline.load_config")
+    def test_sequence_fire_non_activation_blocked_when_disarmed(self, mock_load_config):
+        """SEQUENCE_FIRE where second_gesture is not activation, gate disarmed -> blocked."""
+        from gesture_keys.pipeline import Pipeline
+        from gesture_keys.classifier import Gesture
+
+        mock_load_config.return_value = MagicMock()
+        pipeline = Pipeline("config.yaml")
+
+        # Set up activation gate (not armed)
+        pipeline._activation_gate = MagicMock()
+        pipeline._activation_gate.is_armed.return_value = False
+        pipeline._activation_gestures = {"thumbs_up"}
+        pipeline._activation_bypass = set()
+
+        # SEQUENCE_FIRE: second gesture is fist (not activation gesture)
+        signal = OrchestratorSignal(
+            action=OrchestratorAction.SEQUENCE_FIRE,
+            gesture=Gesture("thumbs_up"),
+            second_gesture=Gesture.FIST,
+        )
+
+        result = pipeline._filter_signals_through_gate([signal], 1.0)
+
+        # Signal should be blocked (gate not armed)
+        assert len(result) == 0
+
+    @patch("gesture_keys.pipeline.load_config")
+    def test_regular_fire_still_uses_gesture_value(self, mock_load_config):
+        """Regular FIRE signal should still use gesture.value for gate check."""
+        from gesture_keys.pipeline import Pipeline
+        from gesture_keys.classifier import Gesture
+
+        mock_load_config.return_value = MagicMock()
+        pipeline = Pipeline("config.yaml")
+
+        # Set up activation gate (not armed)
+        pipeline._activation_gate = MagicMock()
+        pipeline._activation_gate.is_armed.return_value = False
+        pipeline._activation_gestures = {"thumbs_up"}
+        pipeline._activation_bypass = set()
+
+        # Regular FIRE with activation gesture
+        signal = OrchestratorSignal(
+            action=OrchestratorAction.FIRE,
+            gesture=Gesture("thumbs_up"),
+        )
+
+        result = pipeline._filter_signals_through_gate([signal], 1.0)
+
+        # Should arm gate and consume signal
+        assert len(result) == 0
+        pipeline._activation_gate.arm.assert_called_once_with(1.0)

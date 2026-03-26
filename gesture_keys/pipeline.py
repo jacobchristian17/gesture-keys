@@ -267,7 +267,7 @@ class Pipeline:
         filtered = []
         for signal in signals:
             # For SEQUENCE_FIRE, gate decision is based on the second gesture
-            if signal.action == OrchestratorAction.SEQUENCE_FIRE:
+            if signal.action == OrchestratorAction.SEQUENCE_FIRE and signal.second_gesture is not None:
                 gesture_value = signal.second_gesture.value
             else:
                 gesture_value = signal.gesture.value
@@ -279,7 +279,8 @@ class Pipeline:
                 # Activation gesture: arm/re-arm, consume signal
                 self._activation_gate.arm(current_time)
             elif self._activation_gate.is_armed():
-                # Non-activation signal while armed: pass through
+                # Non-activation signal while armed: pass through and reset idle timer
+                self._activation_gate.keep_alive(current_time)
                 filtered.append(signal)
             # else: gate not armed, suppress non-activation signal
         return filtered
