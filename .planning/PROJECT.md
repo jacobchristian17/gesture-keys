@@ -34,19 +34,19 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ ActionResolver + ActionDispatcher with tap and hold_key fire modes — v2.0
 - ✓ Centralized stuck-key prevention across all exit paths — v2.0
 - ✓ Activation gate with configurable arm/disarm, bypass mode, and hot-reload — v2.0
+- ✓ Tri-state gesture model (static/holding/moving with direction) replacing separate gesture + swipe systems — v3.0
+- ✓ Compact trigger string syntax for config (`gesture:state[:direction]`, sequences with `>`) — v3.0
+- ✓ MotionDetector replacing SwipeDetector (continuous per-frame signal, no state machine) — v3.0
+- ✓ New `actions:` config section replacing `gestures:` and `swipe:` sections — v3.0
+- ✓ Orchestrator simplification: remove swipe states, add MOVING_FIRE and SEQUENCE_FIRE signals — v3.0
+- ✓ Sequence gesture support (gesture A then B within time window) — v3.0
+- ✓ ActionResolver/Dispatcher update for 4 trigger types — v3.0
+- ✓ Pipeline integration: MotionDetector + DerivedConfig end-to-end — v3.0
+- ✓ Legacy swipe code and config formats removed, clean tri-state codebase — v3.0
 
 ### Active
 
-- [ ] Tri-state gesture model (static/holding/moving with direction) replacing separate gesture + swipe systems
-- [ ] Compact trigger string syntax for config (`gesture:state[:direction]`, sequences with `>`)
-- ✓ MotionDetector replacing SwipeDetector (continuous per-frame signal, no state machine) — Validated in Phase 19, integrated in Phase 23
-- ✓ New `actions:` config section replacing `gestures:` and `swipe:` sections — Validated in Phase 20
-- ✓ Orchestrator simplification: remove swipe states, add MOVING_FIRE and SEQUENCE_FIRE signals — Validated in Phase 21
-- ✓ Sequence gesture support (gesture A then B within time window) — Validated in Phase 21
-- ✓ ActionResolver/Dispatcher update for 4 trigger types — Validated in Phase 22
-- ✓ Pipeline integration: MotionDetector + DerivedConfig end-to-end — Validated in Phase 23
-- [ ] Cleanup: remove legacy swipe code and migrate config format
-- [ ] Config migration from old format to new `actions:` format
+*All v3.0 requirements validated — moved to Validated section above*
 
 ### Out of Scope
 
@@ -111,4 +111,4 @@ Platform: Windows 11, CPU inference (30+ FPS sufficient).
 | gate=None as bypass mode (v2.0) | Zero overhead for default config, not a disabled flag | ✓ Good — no conditional checks on hot path when gate unused |
 
 ---
-*Last updated: 2026-03-27 after Phase 23 (Pipeline Integration) complete — 6/7 phases done*
+*Last updated: 2026-03-27 after Phase 24 (Cleanup and Config Migration) complete — v3.0 milestone complete*
