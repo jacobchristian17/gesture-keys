@@ -119,7 +119,7 @@ Plans:
   2. Orchestrator tracks recent gestures and emits SEQUENCE_FIRE when two gestures match a registered sequence within the time window
   3. SWIPE_WINDOW, SWIPING, and COMPOUND_FIRE states/signals no longer exist in the codebase
   4. Sequence window duration is configurable (default 0.5s)
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 21-01-PLAN.md -- Strip all swipe code from orchestrator FSM and tests
 - [ ] 21-02-PLAN.md -- Add MOVING_FIRE and SEQUENCE_FIRE signals with TDD
@@ -179,7 +179,7 @@ Plans:
 | 18. Trigger Parser and Data Model | v3.0 | 1/1 | Complete | 2026-03-26 |
 | 19. MotionDetector | 1/1 | Complete    | 2026-03-26 | - |
 | 20. Config Loader for Actions | 2/2 | Complete    | 2026-03-26 | - |
-| 21. Orchestrator Refactor | v3.0 | 0/2 | Not started | - |
+| 21. Orchestrator Refactor | 1/2 | In Progress|  | - |
 | 22. ActionResolver and Dispatcher Update | v3.0 | 0/? | Not started | - |
 | 23. Pipeline Integration | v3.0 | 0/? | Not started | - |
 | 24. Cleanup and Config Migration | v3.0 | 0/? | Not started | - |
