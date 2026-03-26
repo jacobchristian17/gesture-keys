@@ -61,7 +61,7 @@
 ### v3.0 Tri-State Gesture Model + Action Library
 
 - [x] **Phase 18: Trigger Parser and Data Model** - 1 plan (completed 2026-03-26)
-- [ ] **Phase 19: MotionDetector** - Continuous per-frame motion detection replacing SwipeDetector internals
+- [ ] **Phase 19: MotionDetector** - 1 plan - Continuous per-frame motion detection replacing SwipeDetector internals
 - [ ] **Phase 20: Config Loader for Actions** - New `actions:` config section parsing and orchestrator input derivation
 - [ ] **Phase 21: Orchestrator Refactor** - Remove swipe states, add motion and sequence signals
 - [ ] **Phase 22: ActionResolver and Dispatcher Update** - Resolve and dispatch all new signal types
@@ -81,7 +81,7 @@
   4. An invalid trigger string (e.g., `fist:invalid_state`, `fist:moving` without direction) raises a clear validation error with the bad token identified
 **Plans:** 1/1 plans complete
 Plans:
-- [ ] 18-01-PLAN.md -- Trigger data model (enums, dataclasses) and parser with TDD
+- [x] 18-01-PLAN.md -- Trigger data model (enums, dataclasses) and parser with TDD
 
 ### Phase 19: MotionDetector
 **Goal**: System continuously reports per-frame motion state and direction from hand landmarks without maintaining gesture-level state
@@ -92,7 +92,9 @@ Plans:
   2. Given consecutive frames with a stationary hand, MotionDetector reports moving=False
   3. Rapid jitter near the motion threshold does not cause flickering between moving/not-moving (hysteresis works)
   4. A hand appearing in frame for the first time does not trigger false motion detection (settling frames applied)
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 19-01-PLAN.md -- MotionDetector and MotionState with TDD (hysteresis, settling, direction classification)
 
 ### Phase 20: Config Loader for Actions
 **Goal**: Users can define all gesture-to-key mappings in a single `actions:` config section with trigger strings, replacing separate gestures/swipe sections
@@ -168,8 +170,8 @@ Plans:
 | 15. Gesture Orchestrator | v2.0 | 2/2 | Complete | 2026-03-24 |
 | 16. Action Dispatch and Fire Modes | v2.0 | 3/3 | Complete | 2026-03-25 |
 | 17. Activation Gate | v2.0 | 2/2 | Complete | 2026-03-25 |
-| 18. Trigger Parser and Data Model | 1/1 | Complete    | 2026-03-26 | - |
-| 19. MotionDetector | v3.0 | 0/? | Not started | - |
+| 18. Trigger Parser and Data Model | v3.0 | 1/1 | Complete | 2026-03-26 |
+| 19. MotionDetector | v3.0 | 0/1 | Not started | - |
 | 20. Config Loader for Actions | v3.0 | 0/? | Not started | - |
 | 21. Orchestrator Refactor | v3.0 | 0/? | Not started | - |
 | 22. ActionResolver and Dispatcher Update | v3.0 | 0/? | Not started | - |
