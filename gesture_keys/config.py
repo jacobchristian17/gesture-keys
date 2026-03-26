@@ -169,15 +169,27 @@ class DerivedConfig:
         gesture_modes: Action name -> "tap" or "hold_key" inferred from trigger state.
         gesture_cooldowns: Action name -> cooldown for actions with overrides.
         activation_gate_bypass: Action names with bypass_gate=True.
-        right_actions: Action name -> Action for right hand.
-        left_actions: Action name -> Action for left hand.
+        right_static: gesture_value -> Action for right hand static triggers.
+        left_static: gesture_value -> Action for left hand static triggers.
+        right_holding: gesture_value -> Action for right hand holding triggers.
+        left_holding: gesture_value -> Action for left hand holding triggers.
+        right_moving: (gesture_value, direction_value) -> Action for right hand.
+        left_moving: (gesture_value, direction_value) -> Action for left hand.
+        right_sequence: (first_gesture_value, second_gesture_value) -> Action for right hand.
+        left_sequence: (first_gesture_value, second_gesture_value) -> Action for left hand.
     """
 
     gesture_modes: dict[str, str]
     gesture_cooldowns: dict[str, float]
     activation_gate_bypass: list[str]
-    right_actions: dict[str, Action]
-    left_actions: dict[str, Action]
+    right_static: dict[str, Action]
+    left_static: dict[str, Action]
+    right_holding: dict[str, Action]
+    left_holding: dict[str, Action]
+    right_moving: dict[tuple[str, str], Action]
+    left_moving: dict[tuple[str, str], Action]
+    right_sequence: dict[tuple[str, str], Action]
+    left_sequence: dict[tuple[str, str], Action]
 
 
 def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
@@ -187,14 +199,15 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
     - Infers fire_mode from trigger state (static->tap, holding->hold_key,
       moving->tap, sequence->tap).
     - Builds Action objects with pre-parsed key strings.
-    - Places actions into right/left maps based on hand scope.
+    - Routes actions into the correct per-hand, per-trigger-type maps.
     - Collects cooldown overrides and bypass_gate flags.
 
     Args:
         actions: List of ActionEntry from parse_actions().
 
     Returns:
-        DerivedConfig with gesture_modes, cooldowns, bypass list, and per-hand action maps.
+        DerivedConfig with gesture_modes, cooldowns, bypass list,
+        and 8 typed per-hand action maps.
     """
     _trigger_state_to_fire_mode = {
         TriggerState.STATIC: FireMode.TAP,
@@ -205,8 +218,14 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
     gesture_modes: dict[str, str] = {}
     gesture_cooldowns: dict[str, float] = {}
     activation_gate_bypass: list[str] = []
-    right_actions: dict[str, Action] = {}
-    left_actions: dict[str, Action] = {}
+    right_static: dict[str, Action] = {}
+    left_static: dict[str, Action] = {}
+    right_holding: dict[str, Action] = {}
+    left_holding: dict[str, Action] = {}
+    right_moving: dict[tuple[str, str], Action] = {}
+    left_moving: dict[tuple[str, str], Action] = {}
+    right_sequence: dict[tuple[str, str], Action] = {}
+    left_sequence: dict[tuple[str, str], Action] = {}
 
     for entry in actions:
         # Infer fire mode from trigger state
@@ -235,21 +254,47 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
             key=key,
         )
 
-        # Place into per-hand maps
-        if entry.hand == "both":
-            right_actions[entry.name] = action
-            left_actions[entry.name] = action
-        elif entry.hand == "right":
-            right_actions[entry.name] = action
-        elif entry.hand == "left":
-            left_actions[entry.name] = action
+        # Route to correct map based on trigger type and hand
+        if isinstance(entry.trigger, SequenceTrigger):
+            map_key = (
+                entry.trigger.first.gesture.value,
+                entry.trigger.second.gesture.value,
+            )
+            if entry.hand in ("both", "right"):
+                right_sequence[map_key] = action
+            if entry.hand in ("both", "left"):
+                left_sequence[map_key] = action
+        elif entry.trigger.state == TriggerState.STATIC:
+            map_key_str = entry.trigger.gesture.value
+            if entry.hand in ("both", "right"):
+                right_static[map_key_str] = action
+            if entry.hand in ("both", "left"):
+                left_static[map_key_str] = action
+        elif entry.trigger.state == TriggerState.HOLDING:
+            map_key_str = entry.trigger.gesture.value
+            if entry.hand in ("both", "right"):
+                right_holding[map_key_str] = action
+            if entry.hand in ("both", "left"):
+                left_holding[map_key_str] = action
+        elif entry.trigger.state == TriggerState.MOVING:
+            map_key = (entry.trigger.gesture.value, entry.trigger.direction.value)
+            if entry.hand in ("both", "right"):
+                right_moving[map_key] = action
+            if entry.hand in ("both", "left"):
+                left_moving[map_key] = action
 
     return DerivedConfig(
         gesture_modes=gesture_modes,
         gesture_cooldowns=gesture_cooldowns,
         activation_gate_bypass=activation_gate_bypass,
-        right_actions=right_actions,
-        left_actions=left_actions,
+        right_static=right_static,
+        left_static=left_static,
+        right_holding=right_holding,
+        left_holding=left_holding,
+        right_moving=right_moving,
+        left_moving=left_moving,
+        right_sequence=right_sequence,
+        left_sequence=left_sequence,
     )
 
 
