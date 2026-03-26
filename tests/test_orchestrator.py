@@ -898,9 +898,8 @@ class TestSequenceFire:
         self._release_cooldown(o, 2.5)  # back to IDLE
 
         # Fire PEACE within 0.5s of FIST fire (t=1.5)
-        o.update(Gesture.PEACE, 1.6)  # IDLE -> ACTIVATING
-        result = o.update(Gesture.PEACE, 2.0)  # fires at t=2.0 (within 0.5s of 1.5? No: 2.0 - 1.5 = 0.5, exactly at boundary)
-        # Actually: FIST fired at t=1.5, PEACE fires at t=2.0, delta=0.5 <= 0.5, should fire
+        o.update(Gesture.PEACE, 1.5)  # IDLE -> ACTIVATING
+        result = o.update(Gesture.PEACE, 2.0)  # fires at t=2.0 (delta from FIST fire: 2.0 - 1.5 = 0.5 <= 0.5)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.SEQUENCE_FIRE in actions
         seq_sig = [
@@ -921,7 +920,7 @@ class TestSequenceFire:
         self._release_cooldown(o, 2.5)
 
         # Fire OPEN_PALM (not registered pair)
-        o.update(Gesture.OPEN_PALM, 1.6)
+        o.update(Gesture.OPEN_PALM, 1.5)
         result = o.update(Gesture.OPEN_PALM, 2.0)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.SEQUENCE_FIRE not in actions
@@ -937,7 +936,7 @@ class TestSequenceFire:
         self._release_cooldown(o, 2.5)
 
         # Fire FIST
-        o.update(Gesture.FIST, 1.6)
+        o.update(Gesture.FIST, 1.5)
         result = o.update(Gesture.FIST, 2.0)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.SEQUENCE_FIRE not in actions
@@ -971,7 +970,7 @@ class TestSequenceFire:
         self._release_cooldown(o, 2.5)
 
         # Fire PEACE at exactly t=2.0 (delta = 2.0 - 1.5 = 0.5, exactly at boundary)
-        o.update(Gesture.PEACE, 1.6)
+        o.update(Gesture.PEACE, 1.5)
         result = o.update(Gesture.PEACE, 2.0)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.SEQUENCE_FIRE in actions
@@ -987,9 +986,9 @@ class TestSequenceFire:
         self._fire_gesture(o, Gesture.FIST, 1.0)
         self._release_cooldown(o, 2.5)
 
-        # Fire PEACE at t=2.3 (0.8s after FIST, within 1.0s window)
-        o.update(Gesture.PEACE, 1.9)
-        result = o.update(Gesture.PEACE, 2.3)
+        # Fire PEACE at t=2.5 (1.0s after FIST, within 1.0s window)
+        o.update(Gesture.PEACE, 2.0)
+        result = o.update(Gesture.PEACE, 2.5)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.SEQUENCE_FIRE in actions
 
@@ -1003,9 +1002,9 @@ class TestSequenceFire:
         self._fire_gesture(o, Gesture.FIST, 1.0)
         self._release_cooldown(o, 2.5)
 
-        # Fire PEACE at t=1.9 (0.4s after FIST, within default 0.5s)
+        # Fire PEACE at t=2.0 (0.5s after FIST, within default 0.5s)
         o.update(Gesture.PEACE, 1.5)
-        result = o.update(Gesture.PEACE, 1.9)
+        result = o.update(Gesture.PEACE, 2.0)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.SEQUENCE_FIRE in actions
 
@@ -1017,7 +1016,7 @@ class TestSequenceFire:
         )
         self._fire_gesture(o, Gesture.FIST, 1.0)
         self._release_cooldown(o, 2.5)
-        o.update(Gesture.PEACE, 1.6)
+        o.update(Gesture.PEACE, 1.5)
         result = o.update(Gesture.PEACE, 2.0)
         seq_sig = [
             s for s in result.signals
@@ -1034,7 +1033,7 @@ class TestSequenceFire:
         )
         self._fire_gesture(o, Gesture.FIST, 1.0)
         self._release_cooldown(o, 2.5)
-        o.update(Gesture.PEACE, 1.6)
+        o.update(Gesture.PEACE, 1.5)
         result = o.update(Gesture.PEACE, 2.0)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.FIRE in actions
@@ -1051,7 +1050,7 @@ class TestSequenceFire:
         o = GestureOrchestrator(activation_delay=0.4)
         self._fire_gesture(o, Gesture.FIST, 1.0)
         self._release_cooldown(o, 2.5)
-        o.update(Gesture.PEACE, 1.6)
+        o.update(Gesture.PEACE, 1.5)
         result = o.update(Gesture.PEACE, 2.0)
         actions = [s.action for s in result.signals]
         assert OrchestratorAction.FIRE in actions

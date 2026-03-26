@@ -31,6 +31,7 @@ class OrchestratorAction(Enum):
     HOLD_START = "hold_start"
     HOLD_END = "hold_end"
     MOVING_FIRE = "moving_fire"
+    SEQUENCE_FIRE = "sequence_fire"
 
 
 class LifecycleState(Enum):
@@ -77,6 +78,8 @@ class GestureOrchestrator:
         gesture_cooldowns: Per-gesture cooldown overrides (gesture name -> seconds).
         gesture_modes: Per-gesture mode overrides (gesture name -> "tap" or "hold_key").
         hold_release_delay: Seconds to wait after gesture loss before releasing hold.
+        sequence_definitions: Registered two-gesture sequence pairs (first, second).
+        sequence_window: Max seconds between first FIRE and second FIRE for sequence.
     """
 
     def __init__(
@@ -86,12 +89,17 @@ class GestureOrchestrator:
         gesture_cooldowns: dict[str, float] | None = None,
         gesture_modes: dict[str, str] | None = None,
         hold_release_delay: float = 0.1,
+        sequence_definitions: set[tuple[Gesture, Gesture]] | None = None,
+        sequence_window: float = 0.5,
     ) -> None:
         self._activation_delay = activation_delay
         self._cooldown_duration = cooldown_duration
         self._gesture_cooldowns = gesture_cooldowns or {}
         self._gesture_modes = gesture_modes or {}
         self._hold_release_delay = hold_release_delay
+        self._sequence_definitions = sequence_definitions or set()
+        self._sequence_window = sequence_window
+        self._last_fire_time: dict[Gesture, float] = {}
 
         # Outer FSM state
         self._outer_state = LifecycleState.IDLE
@@ -132,6 +140,7 @@ class GestureOrchestrator:
         self._cooldown_duration_active = self._cooldown_duration
         self._holding_gesture = None
         self._release_delay_start = None
+        self._last_fire_time = {}
 
     def flush_pending(self) -> OrchestratorResult:
         """Flush any pending state. Used before config reload.
@@ -236,6 +245,8 @@ class GestureOrchestrator:
                 self._maybe_emit_moving_fire(
                     gesture, motion_state, signals
                 )
+                # Check for sequence completion
+                self._check_sequences(gesture, timestamp, signals)
 
     def _handle_active(
         self,
@@ -334,6 +345,35 @@ class GestureOrchestrator:
             self._outer_state = LifecycleState.IDLE
             self._cooldown_gesture = None
             logger.debug("COOLDOWN -> IDLE: released")
+
+    def _check_sequences(
+        self,
+        fired_gesture: Gesture,
+        timestamp: float,
+        signals: list[OrchestratorSignal],
+    ) -> None:
+        """Check if this FIRE completes any registered sequence.
+
+        For each (first, second) in sequence_definitions: if second matches
+        the fired gesture and first fired within the sequence window, emit
+        SEQUENCE_FIRE with gesture=first, second_gesture=second.
+
+        Always records the fire timestamp for future sequence checks.
+        """
+        for first, second in self._sequence_definitions:
+            if (
+                second == fired_gesture
+                and first in self._last_fire_time
+                and timestamp - self._last_fire_time[first] <= self._sequence_window
+            ):
+                signals.append(
+                    OrchestratorSignal(
+                        OrchestratorAction.SEQUENCE_FIRE,
+                        gesture=first,
+                        second_gesture=fired_gesture,
+                    )
+                )
+        self._last_fire_time[fired_gesture] = timestamp
 
     def _maybe_emit_moving_fire(
         self,
