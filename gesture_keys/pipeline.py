@@ -46,7 +46,6 @@ class DebounceState(Enum):
     FIRED = "FIRED"
     COOLDOWN = "COOLDOWN"
     HOLDING = "HOLDING"
-    SWIPE_WINDOW = "SWIPE_WINDOW"  # Legacy, no longer produced by orchestrator
 
 
 def _map_to_debounce_state(result: OrchestratorResult) -> DebounceState:
@@ -147,11 +146,10 @@ class Pipeline:
         self._camera = CameraCapture(config.camera_index).start()
         self._detector = HandDetector(preferred_hand=config.preferred_hand)
 
-        # Extract per-gesture thresholds from nested config structure
+        # Extract per-gesture thresholds from action entries
         thresholds = {
-            name: settings.get("threshold", 0.7)
-            for name, settings in config.gestures.items()
-            if isinstance(settings, dict)
+            entry.name: entry.threshold if entry.threshold is not None else 0.7
+            for entry in config.actions
         }
         self._classifier = GestureClassifier(thresholds)
         self._smoother = GestureSmoother(config.smoothing_window)
@@ -174,7 +172,7 @@ class Pipeline:
             gesture_modes=derived.gesture_modes,
             hold_release_delay=config.hold_release_delay,
             sequence_definitions=sequence_definitions,
-            sequence_window=config.swipe_window,
+            sequence_window=config.sequence_window,
         )
         self._sender = KeystrokeSender()
 
@@ -206,7 +204,7 @@ class Pipeline:
             enabled=config.distance_enabled,
         )
 
-        # Motion detection (continuous per-frame state, replaces SwipeDetector)
+        # Motion detection (continuous per-frame state)
         self._motion_detector = MotionDetector()
 
         # Activation gate (None = bypass mode when disabled or no gestures)

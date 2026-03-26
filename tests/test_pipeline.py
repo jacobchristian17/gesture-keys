@@ -151,9 +151,6 @@ class TestPipelineInit:
         pipeline = Pipeline("config.yaml")
 
         # These attributes should NOT exist anymore (orchestrator owns them)
-        assert not hasattr(pipeline, '_pre_swipe_gesture')
-        assert not hasattr(pipeline, '_was_swiping')
-        assert not hasattr(pipeline, '_compound_swipe_suppress_until')
         assert not hasattr(pipeline, '_debouncer')
 
 
@@ -165,14 +162,11 @@ class TestPipelineStartStop:
         config = MagicMock()
         config.camera_index = 0
         config.preferred_hand = "Right"
-        config.gestures = {
-            "fist": {"key": "space", "threshold": 0.8},
-        }
         config.smoothing_window = 5
         config.activation_delay = 0.5
         config.cooldown_duration = 0.3
         config.hold_release_delay = 0.3
-        config.swipe_window = 0.5
+        config.sequence_window = 0.5
         config.min_hand_size = 0.15
         config.max_hand_size = 1.0
         config.distance_enabled = True

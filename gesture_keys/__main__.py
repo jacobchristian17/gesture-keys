@@ -32,7 +32,7 @@ def parse_args():
     )
     parser.add_argument(
         "--debug", action="store_true",
-        help="Enable debug logging (shows every frame's gesture, state, swipe)",
+        help="Enable debug logging (shows every frame's gesture and state)",
     )
     return parser.parse_args()
 
@@ -61,10 +61,10 @@ def print_banner(config, config_path):
         config: AppConfig instance.
         config_path: Path string used to load the config.
     """
-    gesture_count = len(config.gestures)
+    gesture_count = len(config.actions)
     print(f"Gesture Keys v{__version__}")
     print(f"Camera: index {config.camera_index}")
-    print(f"Config: {config_path} ({gesture_count} gestures loaded)")
+    print(f"Config: {config_path} ({gesture_count} actions loaded)")
     print("Detection started...")
 
 
