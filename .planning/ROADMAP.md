@@ -105,7 +105,7 @@ Plans:
   2. User can set per-action cooldown and bypass_gate overrides that take effect
   3. System derives gesture_modes, cooldown maps, and gate bypass sets from action definitions (no manual orchestrator config needed)
   4. Old `gestures:` and `swipe:` config sections are no longer read or required
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 20-01-PLAN.md -- ActionEntry dataclass and parse_actions() with TDD
 - [ ] 20-02-PLAN.md -- Derive orchestrator inputs, wire into load_config, convert config.yaml
@@ -175,7 +175,7 @@ Plans:
 | 17. Activation Gate | v2.0 | 2/2 | Complete | 2026-03-25 |
 | 18. Trigger Parser and Data Model | v3.0 | 1/1 | Complete | 2026-03-26 |
 | 19. MotionDetector | 1/1 | Complete    | 2026-03-26 | - |
-| 20. Config Loader for Actions | v3.0 | 0/2 | Not started | - |
+| 20. Config Loader for Actions | 1/2 | In Progress|  | - |
 | 21. Orchestrator Refactor | v3.0 | 0/? | Not started | - |
 | 22. ActionResolver and Dispatcher Update | v3.0 | 0/? | Not started | - |
 | 23. Pipeline Integration | v3.0 | 0/? | Not started | - |
