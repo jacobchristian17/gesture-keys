@@ -52,9 +52,9 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 ### Cleanup
 
-- [ ] **CLNP-01**: swipe.py and test_swipe.py deleted with no remaining imports
-- [ ] **CLNP-02**: config.yaml converted to new `actions:` format
-- [ ] **CLNP-03**: Old gestures/swipe parsing code removed from config.py
+- [x] **CLNP-01**: swipe.py and test_swipe.py deleted with no remaining imports
+- [x] **CLNP-02**: config.yaml converted to new `actions:` format
+- [x] **CLNP-03**: Old gestures/swipe parsing code removed from config.py
 
 ## Future Requirements
 
@@ -102,9 +102,9 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 | INTG-02 | Phase 23 | Complete |
 | INTG-03 | Phase 23 | Complete |
 | INTG-04 | Phase 23 | Complete |
-| CLNP-01 | Phase 24 | Pending |
-| CLNP-02 | Phase 24 | Pending |
-| CLNP-03 | Phase 24 | Pending |
+| CLNP-01 | Phase 24 | Complete |
+| CLNP-02 | Phase 24 | Complete |
+| CLNP-03 | Phase 24 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 28 total
