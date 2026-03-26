@@ -16,23 +16,23 @@ from gesture_keys.activation import ActivationGate
 from gesture_keys.classifier import Gesture, GestureClassifier
 from gesture_keys.config import (
     ConfigWatcher,
-    build_action_maps,
-    build_compound_action_maps,
-    extract_gesture_swipe_mappings,
     load_config,
-    resolve_hand_gestures,
+    parse_actions,
+    derive_from_actions,
 )
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.distance import DistanceFilter
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
+from gesture_keys.motion import MotionDetector, MotionState
 from gesture_keys.orchestrator import (
     GestureOrchestrator,
     LifecycleState,
+    OrchestratorAction,
     OrchestratorResult,
+    OrchestratorSignal,
     TemporalState,
 )
 from gesture_keys.smoother import GestureSmoother
-from gesture_keys.swipe import SwipeDetector
 
 logger = logging.getLogger("gesture_keys")
 
@@ -73,34 +73,18 @@ class FrameResult:
     gesture: Gesture | None = None
     raw_gesture: Gesture | None = None
     debounce_state: DebounceState = DebounceState.IDLE
-    swiping: bool = False
+    motion_state: MotionState | None = None
     frame_valid: bool = True
     orchestrator: OrchestratorResult | None = None
     activation_armed: bool = False
-
-
-def _parse_swipe_key_mappings(swipe_mappings: dict[str, str]) -> dict:
-    """Pre-parse swipe direction key strings into pynput objects.
-
-    Args:
-        swipe_mappings: Dict mapping direction name -> key string.
-
-    Returns:
-        Dict mapping direction_name -> (modifiers, key, original_key_string).
-    """
-    mappings = {}
-    for direction_name, key_string in swipe_mappings.items():
-        modifiers, key = parse_key_string(key_string)
-        mappings[direction_name] = (modifiers, key, key_string)
-    return mappings
 
 
 class Pipeline:
     """Unified gesture detection pipeline.
 
     Owns: camera, detector, classifier, smoother, orchestrator,
-          swipe_detector, distance_filter, sender, config_watcher,
-          key mappings, and all per-frame state variables.
+          motion_detector, distance_filter, sender, config_watcher,
+          action resolver/dispatcher, and all per-frame state variables.
 
     Usage:
         pipeline = Pipeline("config.yaml")
@@ -127,18 +111,15 @@ class Pipeline:
         self._orchestrator = None
         self._sender = None
         self._distance_filter = None
-        self._swipe_detector = None
+        self._motion_detector = None
         self._watcher = None
-
-        # Swipe key mapping sets (populated in start())
-        self._right_swipe_key_mappings = None
-        self._left_swipe_key_mappings = None
-        self._swipe_key_mappings = None
-        self._swipe_gesture_directions = None
 
         # Action dispatch (created in start())
         self._resolver = None
         self._dispatcher = None
+
+        # DerivedConfig (populated in start(), rebuilt on reload)
+        self._derived_config = None
 
         # Activation gate (created in start() when config enabled)
         self._activation_gate: ActivationGate | None = None
@@ -175,35 +156,40 @@ class Pipeline:
         self._classifier = GestureClassifier(thresholds)
         self._smoother = GestureSmoother(config.smoothing_window)
 
-        # Build swipe direction sets for orchestrator
-        self._swipe_gesture_directions = {
-            name: set(dirs.keys())
-            for name, dirs in config.gesture_swipe_mappings.items()
-        }
+        # Build DerivedConfig from actions
+        derived = derive_from_actions(config.actions)
+        self._derived_config = derived
 
-        # Orchestrator and keystroke components
+        # Build sequence definitions from DerivedConfig's sequence maps
+        sequence_definitions = set()
+        for first_val, second_val in derived.right_sequence:
+            sequence_definitions.add((Gesture(first_val), Gesture(second_val)))
+        for first_val, second_val in derived.left_sequence:
+            sequence_definitions.add((Gesture(first_val), Gesture(second_val)))
+
+        # Orchestrator
         self._orchestrator = GestureOrchestrator(
             config.activation_delay, config.cooldown_duration,
-            gesture_cooldowns=config.gesture_cooldowns,
-            gesture_modes=config.gesture_modes,
+            gesture_cooldowns=derived.gesture_cooldowns,
+            gesture_modes=derived.gesture_modes,
             hold_release_delay=config.hold_release_delay,
-            swipe_gesture_directions=self._swipe_gesture_directions,
-            swipe_window=config.swipe_window,
+            sequence_definitions=sequence_definitions,
+            sequence_window=config.swipe_window,
         )
         self._sender = KeystrokeSender()
 
-        # Build Action maps for both hands (fail fast on invalid config)
+        # Build ActionResolver with 8-map constructor from DerivedConfig
         try:
-            right_actions = build_action_maps(config.gestures, config.gesture_modes)
-            left_gestures_resolved = resolve_hand_gestures("Left", config)
-            left_actions = build_action_maps(left_gestures_resolved, config.gesture_modes)
-
-            # Build compound Action maps
-            right_compound = build_compound_action_maps(config.gesture_swipe_mappings)
-            left_gestures_swipe = extract_gesture_swipe_mappings(left_gestures_resolved, config.gesture_modes)
-            left_compound = build_compound_action_maps(left_gestures_swipe)
-
-            self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
+            self._resolver = ActionResolver(
+                right_static=derived.right_static,
+                left_static=derived.left_static,
+                right_holding=derived.right_holding,
+                left_holding=derived.left_holding,
+                right_moving=derived.right_moving,
+                left_moving=derived.left_moving,
+                right_sequence=derived.right_sequence,
+                left_sequence=derived.left_sequence,
+            )
             self._dispatcher = ActionDispatcher(
                 self._sender, self._resolver,
                 repeat_interval=config.hold_repeat_interval,
@@ -220,18 +206,8 @@ class Pipeline:
             enabled=config.distance_enabled,
         )
 
-        # Swipe detection (parallel path, bypasses smoother/orchestrator)
-        self._swipe_detector = SwipeDetector(
-            min_velocity=config.swipe_min_velocity,
-            min_displacement=config.swipe_min_displacement,
-            axis_ratio=config.swipe_axis_ratio,
-            cooldown_duration=config.swipe_cooldown,
-            settling_frames=config.swipe_settling_frames,
-        )
-        self._swipe_detector.enabled = config.swipe_enabled
-        self._right_swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
-        self._left_swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
-        self._swipe_key_mappings = self._right_swipe_key_mappings
+        # Motion detection (continuous per-frame state, replaces SwipeDetector)
+        self._motion_detector = MotionDetector()
 
         # Activation gate (None = bypass mode when disabled or no gestures)
         if config.activation_gate_enabled and config.activation_gate_gestures:
@@ -240,7 +216,7 @@ class Pipeline:
                 duration=config.activation_gate_duration,
             )
             self._activation_gestures = set(config.activation_gate_gestures)
-            self._activation_bypass = set(config.activation_gate_bypass)
+            self._activation_bypass = set(config.activation_gate_bypass) | set(derived.activation_gate_bypass)
         else:
             self._activation_gate = None
             self._activation_gestures = set()
@@ -259,10 +235,10 @@ class Pipeline:
             self._detector.close()
 
     def reset_pipeline(self) -> None:
-        """Reset smoother, orchestrator, swipe_detector, and release held keys."""
+        """Reset smoother, orchestrator, motion_detector, and release held keys."""
         self._smoother.reset()
         self._orchestrator.reset()
-        self._swipe_detector.reset()
+        self._motion_detector.reset()
         self._dispatcher.release_all()
 
     def _filter_signals_through_gate(
@@ -276,6 +252,7 @@ class Pipeline:
         When gate is active:
           - Activation gesture signals arm/re-arm the gate and are consumed.
           - Non-activation signals pass only when the gate is armed.
+          - For SEQUENCE_FIRE, checks second_gesture for gate decision.
 
         Args:
             signals: List of OrchestratorSignal from the orchestrator.
@@ -289,7 +266,12 @@ class Pipeline:
 
         filtered = []
         for signal in signals:
-            gesture_value = signal.gesture.value
+            # For SEQUENCE_FIRE, gate decision is based on the second gesture
+            if signal.action == OrchestratorAction.SEQUENCE_FIRE:
+                gesture_value = signal.second_gesture.value
+            else:
+                gesture_value = signal.gesture.value
+
             if gesture_value in self._activation_bypass:
                 # Bypass gesture: always passes through, ignores gate state
                 filtered.append(signal)
@@ -297,8 +279,7 @@ class Pipeline:
                 # Activation gesture: arm/re-arm, consume signal
                 self._activation_gate.arm(current_time)
             elif self._activation_gate.is_armed():
-                # Non-activation signal while armed: pass through and reset idle timer
-                self._activation_gate.keep_alive(current_time)
+                # Non-activation signal while armed: pass through
                 filtered.append(signal)
             # else: gate not armed, suppress non-activation signal
         return filtered
@@ -327,21 +308,13 @@ class Pipeline:
             self._dispatcher.release_all()
             self._smoother.reset()
             self._orchestrator.reset()
-            self._swipe_detector.reset()
+            self._motion_detector.reset()
             self._resolver.set_hand(handedness)
             logger.info("Hand switch: %s -> %s", self._prev_handedness, handedness)
-            if handedness == "Left":
-                self._swipe_key_mappings = self._left_swipe_key_mappings
-            else:
-                self._swipe_key_mappings = self._right_swipe_key_mappings
 
         # Initial hand detection: set mappings on first hand appearance
         if self._prev_handedness is None and handedness is not None:
             self._resolver.set_hand(handedness)
-            if handedness == "Left":
-                self._swipe_key_mappings = self._left_swipe_key_mappings
-            else:
-                self._swipe_key_mappings = self._right_swipe_key_mappings
 
         self._prev_handedness = handedness if handedness is not None else self._prev_handedness
 
@@ -353,7 +326,7 @@ class Pipeline:
                     self._dispatcher.release_all()
                     self._smoother.reset()
                     self._orchestrator.reset()
-                    self._swipe_detector.reset()
+                    self._motion_detector.reset()
                 self._hand_was_in_range = False
                 landmarks = None
             else:
@@ -361,9 +334,8 @@ class Pipeline:
         else:
             self._hand_was_in_range = True  # No hand = reset tracking for next appearance
 
-        # --- Static gesture classification ---
-        swiping = self._config.swipe_enabled and self._swipe_detector.is_swiping
-        if landmarks and not swiping:
+        # --- Gesture classification (always runs when landmarks present) ---
+        if landmarks:
             raw_gesture = self._classifier.classify(landmarks)
             gesture = self._smoother.update(raw_gesture)
         else:
@@ -376,20 +348,11 @@ class Pipeline:
             logger.debug("Gesture: %s", gesture_name)
             self._prev_gesture = gesture
 
-        # --- Swipe detection (BEFORE orchestrator so result can be passed in) ---
-        swipe_result = None
-        if self._config.swipe_enabled:
-            suppress_swipe = self._orchestrator.is_activating
-            swipe_result = self._swipe_detector.update(
-                landmarks or None, current_time,
-                suppressed=suppress_swipe,
-            )
-
-        else:
-            self._swipe_detector.update(None, current_time)
+        # --- Motion detection (every frame) ---
+        motion_state = self._motion_detector.update(landmarks, current_time)
 
         # --- Orchestrator update: single call replaces all coordination logic ---
-        orch_result = self._orchestrator.update(gesture, current_time)
+        orch_result = self._orchestrator.update(gesture, current_time, motion_state=motion_state)
 
         # Activation gate: tick, detect expiry, filter signals
         if self._activation_gate is not None:
@@ -409,22 +372,6 @@ class Pipeline:
         # Tick tap-repeat: sends held keystroke if interval elapsed
         self._dispatcher.tick(current_time)
 
-        # Safety: release held keys when entering swiping state
-        if swiping and self._dispatcher._held_action is not None:
-            self._dispatcher.release_all()
-            self._smoother.reset()
-
-        # Standalone swipe handling (gated by activation gate)
-        gate_allows_swipe = self._activation_gate is None or self._activation_gate.is_armed()
-        if swipe_result is not None and gate_allows_swipe:
-            swipe_name = swipe_result.value
-            if swipe_name in self._swipe_key_mappings:
-                modifiers, key, key_string = self._swipe_key_mappings[swipe_name]
-                self._sender.send(modifiers, key)
-                logger.info("SWIPE: %s -> %s", swipe_name, key_string)
-                if self._activation_gate is not None:
-                    self._activation_gate.keep_alive(current_time)
-
         # Config hot-reload check
         if self._watcher.check(current_time):
             self.reload_config()
@@ -440,7 +387,7 @@ class Pipeline:
             gesture=gesture,
             raw_gesture=raw_gesture,
             debounce_state=_map_to_debounce_state(orch_result),
-            swiping=swiping,
+            motion_state=motion_state,
             frame_valid=True,
             orchestrator=orch_result,
             activation_armed=activation_armed,
@@ -458,14 +405,21 @@ class Pipeline:
             for signal in flush_result.signals:
                 self._dispatcher.dispatch(signal)
 
-            # Rebuild ActionResolver with new action maps
-            new_left_gestures_resolved = resolve_hand_gestures("Left", new_config)
-            right_actions = build_action_maps(new_config.gestures, new_config.gesture_modes)
-            left_actions = build_action_maps(new_left_gestures_resolved, new_config.gesture_modes)
-            right_compound = build_compound_action_maps(new_config.gesture_swipe_mappings)
-            new_left_gestures_swipe = extract_gesture_swipe_mappings(new_left_gestures_resolved, new_config.gesture_modes)
-            left_compound = build_compound_action_maps(new_left_gestures_swipe)
-            self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
+            # Rebuild DerivedConfig from new config
+            derived = derive_from_actions(new_config.actions)
+            self._derived_config = derived
+
+            # Rebuild ActionResolver with new 8-map constructor
+            self._resolver = ActionResolver(
+                right_static=derived.right_static,
+                left_static=derived.left_static,
+                right_holding=derived.right_holding,
+                left_holding=derived.left_holding,
+                right_moving=derived.right_moving,
+                left_moving=derived.left_moving,
+                right_sequence=derived.right_sequence,
+                left_sequence=derived.left_sequence,
+            )
             self._dispatcher._resolver = self._resolver
             self._dispatcher._repeat_interval = new_config.hold_repeat_interval
             if self._prev_handedness is not None:
@@ -474,41 +428,27 @@ class Pipeline:
             # Update orchestrator config params
             self._orchestrator._activation_delay = new_config.activation_delay
             self._orchestrator._cooldown_duration = new_config.cooldown_duration
-
-            self._orchestrator._gesture_cooldowns = new_config.gesture_cooldowns
-            self._orchestrator._gesture_modes = new_config.gesture_modes
+            self._orchestrator._gesture_cooldowns = derived.gesture_cooldowns
+            self._orchestrator._gesture_modes = derived.gesture_modes
             self._orchestrator._hold_release_delay = new_config.hold_release_delay
 
-            # Update compound swipe config
-            new_gesture_swipe_mappings = new_config.gesture_swipe_mappings
-            new_swipe_gesture_directions = {
-                name: set(dirs.keys())
-                for name, dirs in new_gesture_swipe_mappings.items()
-            }
-            self._orchestrator._swipe_gesture_directions = new_swipe_gesture_directions
-            self._orchestrator._swipe_window = new_config.swipe_window
-            self._swipe_gesture_directions = new_swipe_gesture_directions
+            # Rebuild sequence definitions from DerivedConfig
+            sequence_definitions = set()
+            for first_val, second_val in derived.right_sequence:
+                sequence_definitions.add((Gesture(first_val), Gesture(second_val)))
+            for first_val, second_val in derived.left_sequence:
+                sequence_definitions.add((Gesture(first_val), Gesture(second_val)))
+            self._orchestrator._sequence_definitions = sequence_definitions
 
             self._orchestrator.reset()
             self._smoother.reset()
-            self._swipe_detector.settling_frames = new_config.swipe_settling_frames
-            self._swipe_detector._settling_frames_remaining = 0
+
+            # MotionDetector hot-reload: reset state (no config fields for motion thresholds yet)
+            self._motion_detector.reset()
+
             self._distance_filter.enabled = new_config.distance_enabled
             self._distance_filter.min_hand_size = new_config.min_hand_size
             self._distance_filter.max_hand_size = new_config.max_hand_size
-
-            # Swipe hot-reload (both hands)
-            self._swipe_detector.min_velocity = new_config.swipe_min_velocity
-            self._swipe_detector.min_displacement = new_config.swipe_min_displacement
-            self._swipe_detector.axis_ratio = new_config.swipe_axis_ratio
-            self._swipe_detector.cooldown_duration = new_config.swipe_cooldown
-            self._swipe_detector.enabled = new_config.swipe_enabled
-            self._right_swipe_key_mappings = _parse_swipe_key_mappings(new_config.swipe_mappings) if new_config.swipe_enabled else {}
-            self._left_swipe_key_mappings = _parse_swipe_key_mappings(new_config.swipe_mappings) if new_config.swipe_enabled else {}
-            if self._prev_handedness == "Left":
-                self._swipe_key_mappings = self._left_swipe_key_mappings
-            else:
-                self._swipe_key_mappings = self._right_swipe_key_mappings
 
             # Activation gate hot-reload
             old_gate = self._activation_gate
@@ -517,7 +457,7 @@ class Pipeline:
                     # Update existing gate in-place
                     old_gate.duration = new_config.activation_gate_duration
                     self._activation_gestures = set(new_config.activation_gate_gestures)
-                    self._activation_bypass = set(new_config.activation_gate_bypass)
+                    self._activation_bypass = set(new_config.activation_gate_bypass) | set(derived.activation_gate_bypass)
                 else:
                     # Enable: create new gate
                     self._activation_gate = ActivationGate(
@@ -525,7 +465,7 @@ class Pipeline:
                         duration=new_config.activation_gate_duration,
                     )
                     self._activation_gestures = set(new_config.activation_gate_gestures)
-                    self._activation_bypass = set(new_config.activation_gate_bypass)
+                    self._activation_bypass = set(new_config.activation_gate_bypass) | set(derived.activation_gate_bypass)
             else:
                 if old_gate is not None:
                     # Disable: destroy gate and release held keys
@@ -536,12 +476,10 @@ class Pipeline:
 
             self._config = new_config
             logger.info(
-                "Config reloaded: %d gestures, delay=%.1fs, cooldown=%.1fs, distance=%s, swipe=%s",
-                len(new_config.gestures),
+                "Config reloaded: delay=%.1fs, cooldown=%.1fs, distance=%s",
                 new_config.activation_delay,
                 new_config.cooldown_duration,
                 "on" if new_config.distance_enabled else "off",
-                "on" if new_config.swipe_enabled else "off",
             )
         except Exception as e:
             logger.warning("Config reload failed: %s", e)
