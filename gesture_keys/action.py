@@ -1,6 +1,7 @@
 """Action resolution and dispatch for gesture-to-keystroke mapping.
 
-ActionResolver: Pure lookup mapping (gesture_name, hand) to Action.
+ActionResolver: Pure lookup mapping gestures to Actions via four trigger-type
+maps (static, holding, moving, sequence) per hand.
 ActionDispatcher: Stateful key lifecycle manager routing orchestrator
 signals to KeystrokeSender methods.
 
@@ -18,8 +19,10 @@ from typing import Optional, Union
 
 from pynput.keyboard import Key
 
+from gesture_keys.classifier import Gesture
 from gesture_keys.keystroke import KeystrokeSender
 from gesture_keys.orchestrator import OrchestratorAction, OrchestratorSignal
+from gesture_keys.trigger import Direction
 
 logger = logging.getLogger("gesture_keys")
 
@@ -51,69 +54,129 @@ class Action:
 
 
 class ActionResolver:
-    """Resolves gesture signals to keyboard actions.
+    """Resolves gesture signals to keyboard actions using four trigger-type maps.
 
-    Holds pre-parsed action maps for both hands. Pure lookup, no state
-    beyond hand selection.
+    Holds pre-parsed action maps for both hands across four trigger types:
+    static, holding, moving, and sequence. Pure lookup, no state beyond
+    hand selection.
 
-    Args:
-        right_actions: Gesture name -> Action map for right hand.
-        left_actions: Gesture name -> Action map for left hand.
-        right_compound: (gesture_name, direction) -> Action for right hand.
-        left_compound: (gesture_name, direction) -> Action for left hand.
+    Supports two construction patterns:
+    - New 8-map keyword args (right_static, left_static, etc.)
+    - Legacy 4-arg positional (right_actions, left_actions, right_compound,
+      left_compound) for backward compatibility with pipeline.py.
     """
 
     def __init__(
         self,
-        right_actions: dict[str, Action],
-        left_actions: dict[str, Action],
-        right_compound: dict[tuple[str, str], Action],
-        left_compound: dict[tuple[str, str], Action],
+        right_actions: Optional[dict[str, Action]] = None,
+        left_actions: Optional[dict[str, Action]] = None,
+        right_compound: Optional[dict[tuple[str, str], Action]] = None,
+        left_compound: Optional[dict[tuple[str, str], Action]] = None,
+        *,
+        right_static: Optional[dict[str, Action]] = None,
+        left_static: Optional[dict[str, Action]] = None,
+        right_holding: Optional[dict[str, Action]] = None,
+        left_holding: Optional[dict[str, Action]] = None,
+        right_moving: Optional[dict[tuple[str, str], Action]] = None,
+        left_moving: Optional[dict[tuple[str, str], Action]] = None,
+        right_sequence: Optional[dict[tuple[str, str], Action]] = None,
+        left_sequence: Optional[dict[tuple[str, str], Action]] = None,
     ) -> None:
-        self._right_actions = right_actions
-        self._left_actions = left_actions
-        self._right_compound = right_compound
-        self._left_compound = left_compound
-        self._active_actions = right_actions
-        self._active_compound = right_compound
+        if right_static is not None:
+            # New 8-map path
+            self._right_static = right_static
+            self._left_static = left_static or {}
+            self._right_holding = right_holding or {}
+            self._left_holding = left_holding or {}
+            self._right_moving = right_moving or {}
+            self._left_moving = left_moving or {}
+            self._right_sequence = right_sequence or {}
+            self._left_sequence = left_sequence or {}
+        else:
+            # Legacy 4-arg path: static+holding combined in right_actions/left_actions
+            self._right_static = right_actions or {}
+            self._left_static = left_actions or {}
+            self._right_holding = right_actions or {}
+            self._left_holding = left_actions or {}
+            self._right_moving = right_compound or {}
+            self._left_moving = left_compound or {}
+            self._right_sequence = {}
+            self._left_sequence = {}
+
+        self._active_static = self._right_static
+        self._active_holding = self._right_holding
+        self._active_moving = self._right_moving
+        self._active_sequence = self._right_sequence
 
     def set_hand(self, handedness: str) -> None:
-        """Switch active action map based on detected hand.
+        """Switch active action maps based on detected hand.
 
         Args:
             handedness: 'Left' or 'Right' (from MediaPipe).
         """
         if handedness == "Left":
-            self._active_actions = self._left_actions
-            self._active_compound = self._left_compound
+            self._active_static = self._left_static
+            self._active_holding = self._left_holding
+            self._active_moving = self._left_moving
+            self._active_sequence = self._left_sequence
         else:
-            self._active_actions = self._right_actions
-            self._active_compound = self._right_compound
+            self._active_static = self._right_static
+            self._active_holding = self._right_holding
+            self._active_moving = self._right_moving
+            self._active_sequence = self._right_sequence
 
-    def resolve(self, gesture_name: str) -> Optional[Action]:
-        """Look up action for a gesture. Returns None if unmapped."""
-        return self._active_actions.get(gesture_name)
+    def resolve_static(self, gesture_name: str) -> Optional[Action]:
+        """Look up action for a static gesture. Returns None if unmapped."""
+        return self._active_static.get(gesture_name)
 
-    def resolve_compound(
-        self, gesture_name: str, direction: str
+    def resolve_holding(self, gesture_name: str) -> Optional[Action]:
+        """Look up action for a holding gesture. Returns None if unmapped."""
+        return self._active_holding.get(gesture_name)
+
+    def resolve_moving(
+        self, gesture_name: str, direction: Direction
     ) -> Optional[Action]:
-        """Look up action for a compound gesture (gesture + swipe direction).
+        """Look up action for a moving gesture (gesture + direction).
 
         Args:
-            gesture_name: The base gesture name.
-            direction: The swipe direction string.
+            gesture_name: The gesture value string (e.g. 'open_palm').
+            direction: The Direction enum member.
 
         Returns:
             Action if mapped, None otherwise.
         """
-        return self._active_compound.get((gesture_name, direction))
+        return self._active_moving.get((gesture_name, direction.value))
+
+    def resolve_sequence(
+        self, first: Gesture, second: Gesture
+    ) -> Optional[Action]:
+        """Look up action for a sequence (first_gesture -> second_gesture).
+
+        Args:
+            first: First gesture in the sequence.
+            second: Second gesture in the sequence.
+
+        Returns:
+            Action if mapped, None otherwise.
+        """
+        return self._active_sequence.get((first.value, second.value))
+
+    # Legacy resolve() for backward compatibility with pipeline.py dispatcher path
+    def resolve(self, gesture_name: str) -> Optional[Action]:
+        """Legacy: look up action by gesture name in static map.
+
+        Provided for backward compatibility. New code should use
+        resolve_static() or resolve_holding().
+        """
+        return self._active_static.get(gesture_name)
 
 
 class ActionDispatcher:
     """Dispatches orchestrator signals to keyboard actions.
 
-    Owns held-key lifecycle state. Routes FIRE/HOLD_START/HOLD_END signals
-    to the appropriate KeystrokeSender methods.
+    Owns held-key lifecycle state. Routes FIRE/HOLD_START/HOLD_END/
+    MOVING_FIRE/SEQUENCE_FIRE signals to the appropriate KeystrokeSender
+    methods.
 
     Hold_key fire mode uses app-controlled tap-repeat: tick() sends repeated
     keystrokes at repeat_interval while _held_action is set. This replaces
@@ -152,6 +215,10 @@ class ActionDispatcher:
             self._handle_hold_start(signal)
         elif signal.action == OrchestratorAction.HOLD_END:
             self._handle_hold_end(signal)
+        elif signal.action == OrchestratorAction.MOVING_FIRE:
+            self._handle_moving_fire(signal)
+        elif signal.action == OrchestratorAction.SEQUENCE_FIRE:
+            self._handle_sequence_fire(signal)
 
     def tick(self, current_time: float) -> None:
         """Send repeated keystroke if hold is active and interval elapsed.
@@ -172,7 +239,7 @@ class ActionDispatcher:
 
     def _handle_fire(self, signal: OrchestratorSignal) -> None:
         """Handle FIRE signal -- always tap behavior regardless of fire_mode."""
-        action = self._resolver.resolve(signal.gesture.value)
+        action = self._resolver.resolve_static(signal.gesture.value)
         if action is not None:
             self._sender.send(action.modifiers, action.key)
 
@@ -181,7 +248,7 @@ class ActionDispatcher:
 
         Sets _last_repeat_time to 0.0 so the next tick() fires immediately.
         """
-        action = self._resolver.resolve(signal.gesture.value)
+        action = self._resolver.resolve_holding(signal.gesture.value)
         if action is not None and action.fire_mode == FireMode.HOLD_KEY:
             self._held_action = action
             self._last_repeat_time = 0.0  # Next tick() fires immediately
@@ -189,6 +256,22 @@ class ActionDispatcher:
     def _handle_hold_end(self, signal: OrchestratorSignal) -> None:
         """Handle HOLD_END -- clear held action (tick becomes no-op)."""
         self._held_action = None
+
+    def _handle_moving_fire(self, signal: OrchestratorSignal) -> None:
+        """Handle MOVING_FIRE -- resolve moving action and send keystroke."""
+        action = self._resolver.resolve_moving(
+            signal.gesture.value, signal.direction
+        )
+        if action is not None:
+            self._sender.send(action.modifiers, action.key)
+
+    def _handle_sequence_fire(self, signal: OrchestratorSignal) -> None:
+        """Handle SEQUENCE_FIRE -- resolve sequence action and send keystroke."""
+        action = self._resolver.resolve_sequence(
+            signal.gesture, signal.second_gesture
+        )
+        if action is not None:
+            self._sender.send(action.modifiers, action.key)
 
     def release_all(self) -> None:
         """Release all held keys and clear internal state.
