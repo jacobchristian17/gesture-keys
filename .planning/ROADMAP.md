@@ -145,7 +145,9 @@ Plans:
   2. Pipeline passes motion_state from MotionDetector to orchestrator on every frame
   3. FrameResult contains motion_state (moving bool + direction) instead of the old swiping boolean
   4. Activation gate correctly gates MOVING_FIRE and SEQUENCE_FIRE signals (fires only when gate is open or bypass is set)
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 23-01-PLAN.md -- Replace SwipeDetector with MotionDetector, switch to DerivedConfig, update FrameResult and tests
 
 ### Phase 24: Cleanup and Config Migration
 **Goal**: All legacy swipe code and config formats are removed, leaving a clean codebase with only the tri-state model
@@ -183,5 +185,5 @@ Plans:
 | 20. Config Loader for Actions | 2/2 | Complete    | 2026-03-26 | - |
 | 21. Orchestrator Refactor | 2/2 | Complete    | 2026-03-26 | - |
 | 22. ActionResolver and Dispatcher Update | v3.0 | Complete    | 2026-03-26 | - |
-| 23. Pipeline Integration | v3.0 | 0/? | Not started | - |
+| 23. Pipeline Integration | v3.0 | 0/1 | Not started | - |
 | 24. Cleanup and Config Migration | v3.0 | 0/? | Not started | - |
