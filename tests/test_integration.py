@@ -137,7 +137,7 @@ class TestConsoleOutput:
         assert "Gesture Keys v" in lines[0]
         assert "Camera:" in lines[1]
         assert "Config:" in lines[2]
-        assert "gestures loaded" in lines[2]
+        assert "actions loaded" in lines[2]
         assert "Detection started" in lines[3]
 
     @patch.object(_main_mod, "cv2")

@@ -7,7 +7,7 @@ detection:
   smoothing_window: 2
   activation_delay: 0.2
   cooldown_duration: 0.1
-  swipe_window: 0.5          # seconds to wait for static-to-swipe compound gesture
+  sequence_window: 0.5       # seconds window for sequence gesture detection
 
 distance:
   enabled: true

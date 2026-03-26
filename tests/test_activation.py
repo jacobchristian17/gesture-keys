@@ -116,9 +116,10 @@ camera:
   index: 0
 detection:
   smoothing_window: 2
-gestures:
-  open_palm:
-    key: "ctrl+z"
+actions:
+  tap_palm:
+    trigger: "open_palm:static"
+    key: ctrl+z
 """
         if extra_yaml:
             content += extra_yaml
@@ -185,20 +186,22 @@ activation_gate:
         cfg = load_config(path)
         assert set(cfg.activation_gate_bypass) >= {"peace", "open_palm"}
 
-    def test_per_gesture_bypass_gate_true(self, tmp_path):
-        """bypass_gate: true on a gesture adds it to activation_gate_bypass."""
+    def test_per_action_bypass_gate_true(self, tmp_path):
+        """bypass_gate: true on an action adds it to activation_gate_bypass."""
         from gesture_keys.config import load_config
         content = """\
 camera:
   index: 0
 detection:
   smoothing_window: 2
-gestures:
-  open_palm:
-    key: "ctrl+z"
+actions:
+  tap_palm:
+    trigger: "open_palm:static"
+    key: ctrl+z
     bypass_gate: true
-  fist:
-    key: "space"
+  tap_fist:
+    trigger: "fist:static"
+    key: space
 activation_gate:
   enabled: true
   gestures:
@@ -207,10 +210,10 @@ activation_gate:
         path = tmp_path / "config.yaml"
         path.write_text(content)
         cfg = load_config(str(path))
-        assert "open_palm" in cfg.activation_gate_bypass
-        assert "fist" not in cfg.activation_gate_bypass
+        assert "tap_palm" in cfg.activation_gate_bypass
+        assert "tap_fist" not in cfg.activation_gate_bypass
 
-    def test_per_gesture_bypass_merges_with_explicit_list(self, tmp_path):
+    def test_per_action_bypass_merges_with_explicit_list(self, tmp_path):
         """bypass_gate: true merges with explicit bypass list."""
         from gesture_keys.config import load_config
         content = """\
@@ -218,12 +221,14 @@ camera:
   index: 0
 detection:
   smoothing_window: 2
-gestures:
-  open_palm:
-    key: "ctrl+z"
+actions:
+  tap_palm:
+    trigger: "open_palm:static"
+    key: ctrl+z
     bypass_gate: true
-  fist:
-    key: "space"
+  tap_fist:
+    trigger: "fist:static"
+    key: space
 activation_gate:
   enabled: true
   gestures:
@@ -234,7 +239,7 @@ activation_gate:
         path = tmp_path / "config.yaml"
         path.write_text(content)
         cfg = load_config(str(path))
-        assert set(cfg.activation_gate_bypass) >= {"open_palm", "peace"}
+        assert set(cfg.activation_gate_bypass) >= {"tap_palm", "peace"}
 
     def test_activation_gate_partial_section(self, tmp_path):
         """Only 'enabled' provided — gestures and duration use defaults."""

@@ -137,9 +137,7 @@ class TestDetectionLoopPausesOnInactive:
         from gesture_keys.tray import TrayApp
 
         # Configure mock config
-        mock_load_config.return_value = AppConfig(
-            gestures={"fist": {"key": "ctrl+z", "threshold": 0.7}}
-        )
+        mock_load_config.return_value = AppConfig()
 
         # Setup pipeline mock
         mock_pipeline = MagicMock()
