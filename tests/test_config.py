@@ -83,7 +83,7 @@ class TestLoadConfigDefault:
             "open_palm": "win+tab",
             "fist": "space",
             "thumbs_up": "enter",
-            "peace": "win+ctrl+left",
+            "peace": "win+ctrl+right",
             "pointing": "alt+tab",
             "pinch": "win+down",
         }
