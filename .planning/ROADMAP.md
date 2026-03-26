@@ -65,7 +65,7 @@
 - [x] **Phase 20: Config Loader for Actions** - New `actions:` config section parsing and orchestrator input derivation (completed 2026-03-26)
 - [x] **Phase 21: Orchestrator Refactor** - Remove swipe states, add motion and sequence signals (completed 2026-03-26)
 - [x] **Phase 22: ActionResolver and Dispatcher Update** - Resolve and dispatch all new signal types (completed 2026-03-26)
-- [x] **Phase 23: Pipeline Integration** - Wire MotionDetector and new signals through the full pipeline (completed 2026-03-26)
+- [x] **Phase 23: Pipeline Integration** - Wire MotionDetector and new signals through the full pipeline (completed 2026-03-26)
 - [ ] **Phase 24: Cleanup and Config Migration** - Delete swipe.py, convert config, remove legacy code
 
 ## Phase Details
@@ -157,7 +157,9 @@ Plans:
   1. swipe.py and test_swipe.py are deleted and no file in the project imports from them
   2. config.yaml uses the new `actions:` format with no `gestures:` or `swipe:` sections
   3. Config parsing code in config.py has no references to old gestures/swipe field names
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 24-01-PLAN.md -- Delete swipe files, remove legacy config code, clean up tests
 
 ## Progress
 
@@ -186,4 +188,4 @@ Plans:
 | 21. Orchestrator Refactor | 2/2 | Complete    | 2026-03-26 | - |
 | 22. ActionResolver and Dispatcher Update | v3.0 | Complete    | 2026-03-26 | - |
 | 23. Pipeline Integration | v3.0 | 0/1 | Complete    | 2026-03-26 |
-| 24. Cleanup and Config Migration | v3.0 | 0/? | Not started | - |
+| 24. Cleanup and Config Migration | v3.0 | 0/1 | Not started | - |
