@@ -18,6 +18,7 @@ from enum import Enum
 from typing import NamedTuple, Optional
 
 from gesture_keys.classifier import Gesture
+from gesture_keys.motion import MotionState
 from gesture_keys.trigger import Direction
 
 logger = logging.getLogger("gesture_keys")
@@ -29,6 +30,7 @@ class OrchestratorAction(Enum):
     FIRE = "fire"
     HOLD_START = "hold_start"
     HOLD_END = "hold_end"
+    MOVING_FIRE = "moving_fire"
 
 
 class LifecycleState(Enum):
@@ -53,6 +55,7 @@ class OrchestratorSignal(NamedTuple):
     action: OrchestratorAction
     gesture: Gesture
     direction: Optional[Direction] = None
+    second_gesture: Optional[Gesture] = None
 
 
 @dataclass
@@ -142,12 +145,15 @@ class GestureOrchestrator:
         self,
         gesture: Optional[Gesture],
         timestamp: float,
+        *,
+        motion_state: Optional[MotionState] = None,
     ) -> OrchestratorResult:
         """Process one frame of gesture input.
 
         Args:
             gesture: Smoothed gesture from classifier+smoother, or None.
             timestamp: Current time (perf_counter).
+            motion_state: Per-frame motion report, or None if unavailable.
 
         Returns:
             OrchestratorResult with current state and any signals to act on.
@@ -158,9 +164,9 @@ class GestureOrchestrator:
         if self._outer_state == LifecycleState.IDLE:
             self._handle_idle(gesture, timestamp, signals)
         elif self._outer_state == LifecycleState.ACTIVATING:
-            self._handle_activating(gesture, timestamp, signals)
+            self._handle_activating(gesture, timestamp, signals, motion_state)
         elif self._outer_state == LifecycleState.ACTIVE:
-            self._handle_active(gesture, timestamp, signals)
+            self._handle_active(gesture, timestamp, signals, motion_state)
         elif self._outer_state == LifecycleState.COOLDOWN:
             self._handle_cooldown(gesture, timestamp, signals)
 
@@ -184,6 +190,7 @@ class GestureOrchestrator:
         gesture: Optional[Gesture],
         timestamp: float,
         signals: list[OrchestratorSignal],
+        motion_state: Optional[MotionState] = None,
     ) -> None:
         if gesture is None:
             self._outer_state = LifecycleState.IDLE
@@ -225,16 +232,21 @@ class GestureOrchestrator:
                 signals.append(
                     OrchestratorSignal(OrchestratorAction.FIRE, gesture)
                 )
+                # Emit MOVING_FIRE alongside FIRE if moving with direction
+                self._maybe_emit_moving_fire(
+                    gesture, motion_state, signals
+                )
 
     def _handle_active(
         self,
         gesture: Optional[Gesture],
         timestamp: float,
         signals: list[OrchestratorSignal],
+        motion_state: Optional[MotionState] = None,
     ) -> None:
         """Dispatch to inner FSM based on temporal_state."""
         if self._temporal_state == TemporalState.HOLD:
-            self._handle_hold(gesture, timestamp, signals)
+            self._handle_hold(gesture, timestamp, signals, motion_state)
         elif self._temporal_state == TemporalState.CONFIRMED:
             # Tap mode: auto-transition to COOLDOWN (1-frame ACTIVE)
             self._outer_state = LifecycleState.COOLDOWN
@@ -247,6 +259,7 @@ class GestureOrchestrator:
         gesture: Optional[Gesture],
         timestamp: float,
         signals: list[OrchestratorSignal],
+        motion_state: Optional[MotionState] = None,
     ) -> None:
         """Handle ACTIVE(HOLD) inner state -- same logic as GestureDebouncer._handle_holding()."""
         held = self._holding_gesture
@@ -254,6 +267,8 @@ class GestureOrchestrator:
         # Same gesture still active -> stay holding, cancel any release delay
         if gesture == held:
             self._release_delay_start = None
+            # Emit MOVING_FIRE each frame while holding and moving
+            self._maybe_emit_moving_fire(held, motion_state, signals)
             return
 
         # Different gesture -> release current, start activating new
@@ -319,6 +334,26 @@ class GestureOrchestrator:
             self._outer_state = LifecycleState.IDLE
             self._cooldown_gesture = None
             logger.debug("COOLDOWN -> IDLE: released")
+
+    def _maybe_emit_moving_fire(
+        self,
+        gesture: Gesture,
+        motion_state: Optional[MotionState],
+        signals: list[OrchestratorSignal],
+    ) -> None:
+        """Append MOVING_FIRE signal if motion_state indicates movement with direction."""
+        if (
+            motion_state is not None
+            and motion_state.moving
+            and motion_state.direction is not None
+        ):
+            signals.append(
+                OrchestratorSignal(
+                    OrchestratorAction.MOVING_FIRE,
+                    gesture,
+                    direction=motion_state.direction,
+                )
+            )
 
     def _build_result(
         self, signals: list[OrchestratorSignal]

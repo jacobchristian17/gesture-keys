@@ -9,6 +9,7 @@ Ported from test_debounce.py with adaptations for hierarchical state model:
 import pytest
 
 from gesture_keys.classifier import Gesture
+from gesture_keys.motion import MotionState
 from gesture_keys.orchestrator import (
     GestureOrchestrator,
     LifecycleState,
@@ -17,6 +18,7 @@ from gesture_keys.orchestrator import (
     OrchestratorSignal,
     TemporalState,
 )
+from gesture_keys.trigger import Direction
 
 
 # ─── Type Definitions ───
@@ -29,6 +31,7 @@ class TestTypeDefinitions:
         assert OrchestratorAction.FIRE.value == "fire"
         assert OrchestratorAction.HOLD_START.value == "hold_start"
         assert OrchestratorAction.HOLD_END.value == "hold_end"
+        assert OrchestratorAction.MOVING_FIRE.value == "moving_fire"
 
     def test_lifecycle_state_values(self):
         assert LifecycleState.IDLE.value == "IDLE"
@@ -45,6 +48,24 @@ class TestTypeDefinitions:
         assert sig.action == OrchestratorAction.FIRE
         assert sig.gesture == Gesture.FIST
         assert sig.direction is None
+        assert sig.second_gesture is None
+
+    def test_orchestrator_signal_with_direction(self):
+        sig = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.FIST, direction=Direction.LEFT
+        )
+        assert sig.action == OrchestratorAction.MOVING_FIRE
+        assert sig.gesture == Gesture.FIST
+        assert sig.direction == Direction.LEFT
+        assert sig.second_gesture is None
+
+    def test_orchestrator_signal_with_second_gesture(self):
+        sig = OrchestratorSignal(
+            OrchestratorAction.SEQUENCE_FIRE, Gesture.FIST,
+            second_gesture=Gesture.PEACE,
+        )
+        assert sig.gesture == Gesture.FIST
+        assert sig.second_gesture == Gesture.PEACE
 
     def test_orchestrator_result_defaults(self):
         result = OrchestratorResult()
@@ -703,3 +724,144 @@ class TestEdgeCases:
         o.reset()
         assert o.activating_gesture is None
         assert o.is_activating is False
+
+
+# ─── MOVING_FIRE ───
+
+
+class TestMovingFire:
+    """Test MOVING_FIRE signal emission with motion_state parameter."""
+
+    def test_moving_fire_on_tap_fire(self):
+        """MOVING_FIRE emitted alongside FIRE on tap when moving."""
+        o = GestureOrchestrator(activation_delay=0.4)
+        o.update(Gesture.FIST, 0.0)
+        result = o.update(
+            Gesture.FIST, 0.5,
+            motion_state=MotionState(moving=True, direction=Direction.LEFT),
+        )
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.FIRE in actions
+        assert OrchestratorAction.MOVING_FIRE in actions
+        moving_sig = [
+            s for s in result.signals
+            if s.action == OrchestratorAction.MOVING_FIRE
+        ][0]
+        assert moving_sig.gesture == Gesture.FIST
+        assert moving_sig.direction == Direction.LEFT
+
+    def test_moving_fire_during_hold(self):
+        """MOVING_FIRE emitted each frame during ACTIVE(HOLD) when moving."""
+        o = GestureOrchestrator(
+            activation_delay=0.4, gesture_modes={"fist": "hold_key"}
+        )
+        o.update(Gesture.FIST, 0.0)
+        o.update(Gesture.FIST, 0.5)  # -> ACTIVE(HOLD) + HOLD_START
+        result = o.update(
+            Gesture.FIST, 0.6,
+            motion_state=MotionState(moving=True, direction=Direction.RIGHT),
+        )
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.MOVING_FIRE in actions
+        moving_sig = [
+            s for s in result.signals
+            if s.action == OrchestratorAction.MOVING_FIRE
+        ][0]
+        assert moving_sig.gesture == Gesture.FIST
+        assert moving_sig.direction == Direction.RIGHT
+
+    def test_no_moving_fire_during_activating(self):
+        """No MOVING_FIRE during ACTIVATING (gesture not yet confirmed)."""
+        o = GestureOrchestrator(activation_delay=0.4)
+        o.update(Gesture.FIST, 0.0)
+        result = o.update(
+            Gesture.FIST, 0.3,
+            motion_state=MotionState(moving=True, direction=Direction.LEFT),
+        )
+        assert result.outer_state == LifecycleState.ACTIVATING
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.MOVING_FIRE not in actions
+
+    def test_no_moving_fire_during_cooldown(self):
+        """No MOVING_FIRE during COOLDOWN."""
+        o = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.8)
+        o.update(Gesture.FIST, 0.0)
+        o.update(Gesture.FIST, 0.5)  # fires -> cooldown
+        o.update(Gesture.FIST, 0.6)  # in cooldown
+        result = o.update(
+            Gesture.FIST, 0.7,
+            motion_state=MotionState(moving=True, direction=Direction.LEFT),
+        )
+        assert result.outer_state == LifecycleState.COOLDOWN
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.MOVING_FIRE not in actions
+
+    def test_no_moving_fire_when_motion_state_none(self):
+        """No MOVING_FIRE when motion_state is None."""
+        o = GestureOrchestrator(activation_delay=0.4)
+        o.update(Gesture.FIST, 0.0)
+        result = o.update(Gesture.FIST, 0.5, motion_state=None)
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.FIRE in actions
+        assert OrchestratorAction.MOVING_FIRE not in actions
+
+    def test_no_moving_fire_when_not_moving(self):
+        """No MOVING_FIRE when motion_state.moving is False."""
+        o = GestureOrchestrator(activation_delay=0.4)
+        o.update(Gesture.FIST, 0.0)
+        result = o.update(
+            Gesture.FIST, 0.5,
+            motion_state=MotionState(moving=False),
+        )
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.FIRE in actions
+        assert OrchestratorAction.MOVING_FIRE not in actions
+
+    def test_moving_fire_has_correct_direction(self):
+        """MOVING_FIRE signal.direction matches motion_state.direction."""
+        o = GestureOrchestrator(activation_delay=0.4)
+        o.update(Gesture.FIST, 0.0)
+        result = o.update(
+            Gesture.FIST, 0.5,
+            motion_state=MotionState(moving=True, direction=Direction.UP),
+        )
+        moving_sig = [
+            s for s in result.signals
+            if s.action == OrchestratorAction.MOVING_FIRE
+        ][0]
+        assert moving_sig.direction == Direction.UP
+
+    def test_motion_state_none_no_crash(self):
+        """update() with motion_state=None in every state does not crash."""
+        o = GestureOrchestrator(
+            activation_delay=0.4, cooldown_duration=0.3,
+            gesture_modes={"peace": "hold_key"},
+        )
+        # IDLE
+        o.update(None, 0.0, motion_state=None)
+        # ACTIVATING
+        o.update(Gesture.FIST, 0.1, motion_state=None)
+        o.update(Gesture.FIST, 0.3, motion_state=None)
+        # ACTIVE(CONFIRMED) -> COOLDOWN (tap fires)
+        o.update(Gesture.FIST, 0.6, motion_state=None)
+        # COOLDOWN
+        o.update(Gesture.FIST, 0.7, motion_state=None)
+        # Back to idle
+        o.update(None, 1.5, motion_state=None)
+        # Hold mode
+        o.update(Gesture.PEACE, 2.0, motion_state=None)
+        o.update(Gesture.PEACE, 2.5, motion_state=None)  # ACTIVE(HOLD)
+        o.update(Gesture.PEACE, 2.6, motion_state=None)  # still holding
+        # No crash = pass
+
+    def test_no_moving_fire_when_direction_none(self):
+        """No MOVING_FIRE when motion_state.moving is True but direction is None."""
+        o = GestureOrchestrator(activation_delay=0.4)
+        o.update(Gesture.FIST, 0.0)
+        result = o.update(
+            Gesture.FIST, 0.5,
+            motion_state=MotionState(moving=True, direction=None),
+        )
+        actions = [s.action for s in result.signals]
+        assert OrchestratorAction.FIRE in actions
+        assert OrchestratorAction.MOVING_FIRE not in actions
