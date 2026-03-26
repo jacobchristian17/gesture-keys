@@ -21,7 +21,6 @@ from gesture_keys.config import (
     extract_gesture_swipe_mappings,
     load_config,
     resolve_hand_gestures,
-    resolve_hand_swipe_mappings,
 )
 from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.distance import DistanceFilter
@@ -146,6 +145,7 @@ class Pipeline:
         # Activation gate (created in start() when config enabled)
         self._activation_gate: ActivationGate | None = None
         self._activation_gestures: set[str] = set()
+        self._activation_bypass: set[str] = set()
 
         # Per-frame state
         self._prev_gesture = None
@@ -198,12 +198,11 @@ class Pipeline:
         try:
             right_actions = build_action_maps(config.gestures, config.gesture_modes)
             left_gestures_resolved = resolve_hand_gestures("Left", config)
-            left_modes = {**config.gesture_modes, **config.left_gesture_modes} if config.left_gesture_modes else config.gesture_modes
-            left_actions = build_action_maps(left_gestures_resolved, left_modes)
+            left_actions = build_action_maps(left_gestures_resolved, config.gesture_modes)
 
             # Build compound Action maps
             right_compound = build_compound_action_maps(config.gesture_swipe_mappings)
-            left_gestures_swipe = extract_gesture_swipe_mappings(left_gestures_resolved, left_modes)
+            left_gestures_swipe = extract_gesture_swipe_mappings(left_gestures_resolved, config.gesture_modes)
             left_compound = build_compound_action_maps(left_gestures_swipe)
 
             self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
@@ -233,8 +232,7 @@ class Pipeline:
         )
         self._swipe_detector.enabled = config.swipe_enabled
         self._right_swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
-        left_swipe_resolved = resolve_hand_swipe_mappings("Left", config)
-        self._left_swipe_key_mappings = _parse_swipe_key_mappings(left_swipe_resolved) if config.swipe_enabled else {}
+        self._left_swipe_key_mappings = _parse_swipe_key_mappings(config.swipe_mappings) if config.swipe_enabled else {}
         self._swipe_key_mappings = self._right_swipe_key_mappings
 
         # Activation gate (None = bypass mode when disabled or no gestures)
@@ -244,9 +242,11 @@ class Pipeline:
                 duration=config.activation_gate_duration,
             )
             self._activation_gestures = set(config.activation_gate_gestures)
+            self._activation_bypass = set(config.activation_gate_bypass)
         else:
             self._activation_gate = None
             self._activation_gestures = set()
+            self._activation_bypass = set()
 
         # Config hot-reload watcher
         self._watcher = ConfigWatcher(self._config_path)
@@ -292,11 +292,15 @@ class Pipeline:
         filtered = []
         for signal in signals:
             gesture_value = signal.gesture.value
-            if gesture_value in self._activation_gestures:
+            if gesture_value in self._activation_bypass:
+                # Bypass gesture: always passes through, ignores gate state
+                filtered.append(signal)
+            elif gesture_value in self._activation_gestures:
                 # Activation gesture: arm/re-arm, consume signal
                 self._activation_gate.arm(current_time)
             elif self._activation_gate.is_armed():
-                # Non-activation signal while armed: pass through
+                # Non-activation signal while armed: pass through and reset idle timer
+                self._activation_gate.keep_alive(current_time)
                 filtered.append(signal)
             # else: gate not armed, suppress non-activation signal
         return filtered
@@ -425,13 +429,16 @@ class Pipeline:
             self._dispatcher.release_all()
             self._smoother.reset()
 
-        # Standalone swipe handling (gated by orchestrator's suppress flag)
-        if swipe_result is not None and not orch_result.suppress_standalone_swipe:
+        # Standalone swipe handling (gated by orchestrator's suppress flag and activation gate)
+        gate_allows_swipe = self._activation_gate is None or self._activation_gate.is_armed()
+        if swipe_result is not None and not orch_result.suppress_standalone_swipe and gate_allows_swipe:
             swipe_name = swipe_result.value
             if swipe_name in self._swipe_key_mappings:
                 modifiers, key, key_string = self._swipe_key_mappings[swipe_name]
                 self._sender.send(modifiers, key)
                 logger.info("SWIPE: %s -> %s", swipe_name, key_string)
+                if self._activation_gate is not None:
+                    self._activation_gate.keep_alive(current_time)
 
         # Config hot-reload check
         if self._watcher.check(current_time):
@@ -468,11 +475,10 @@ class Pipeline:
 
             # Rebuild ActionResolver with new action maps
             new_left_gestures_resolved = resolve_hand_gestures("Left", new_config)
-            new_left_modes = {**new_config.gesture_modes, **new_config.left_gesture_modes} if new_config.left_gesture_modes else new_config.gesture_modes
             right_actions = build_action_maps(new_config.gestures, new_config.gesture_modes)
-            left_actions = build_action_maps(new_left_gestures_resolved, new_left_modes)
+            left_actions = build_action_maps(new_left_gestures_resolved, new_config.gesture_modes)
             right_compound = build_compound_action_maps(new_config.gesture_swipe_mappings)
-            new_left_gestures_swipe = extract_gesture_swipe_mappings(new_left_gestures_resolved, new_left_modes)
+            new_left_gestures_swipe = extract_gesture_swipe_mappings(new_left_gestures_resolved, new_config.gesture_modes)
             left_compound = build_compound_action_maps(new_left_gestures_swipe)
             self._resolver = ActionResolver(right_actions, left_actions, right_compound, left_compound)
             self._dispatcher._resolver = self._resolver
@@ -484,14 +490,8 @@ class Pipeline:
             self._orchestrator._activation_delay = new_config.activation_delay
             self._orchestrator._cooldown_duration = new_config.cooldown_duration
 
-            if self._prev_handedness == "Left" and new_config.left_gesture_cooldowns:
-                merged_cooldowns = {**new_config.gesture_cooldowns, **new_config.left_gesture_cooldowns}
-                merged_modes = {**new_config.gesture_modes, **new_config.left_gesture_modes}
-            else:
-                merged_cooldowns = new_config.gesture_cooldowns
-                merged_modes = new_config.gesture_modes
-            self._orchestrator._gesture_cooldowns = merged_cooldowns
-            self._orchestrator._gesture_modes = merged_modes
+            self._orchestrator._gesture_cooldowns = new_config.gesture_cooldowns
+            self._orchestrator._gesture_modes = new_config.gesture_modes
             self._orchestrator._hold_release_delay = new_config.hold_release_delay
 
             # Update compound swipe config
@@ -519,8 +519,7 @@ class Pipeline:
             self._swipe_detector.cooldown_duration = new_config.swipe_cooldown
             self._swipe_detector.enabled = new_config.swipe_enabled
             self._right_swipe_key_mappings = _parse_swipe_key_mappings(new_config.swipe_mappings) if new_config.swipe_enabled else {}
-            left_swipe_resolved = resolve_hand_swipe_mappings("Left", new_config)
-            self._left_swipe_key_mappings = _parse_swipe_key_mappings(left_swipe_resolved) if new_config.swipe_enabled else {}
+            self._left_swipe_key_mappings = _parse_swipe_key_mappings(new_config.swipe_mappings) if new_config.swipe_enabled else {}
             if self._prev_handedness == "Left":
                 self._swipe_key_mappings = self._left_swipe_key_mappings
             else:
@@ -533,6 +532,7 @@ class Pipeline:
                     # Update existing gate in-place
                     old_gate.duration = new_config.activation_gate_duration
                     self._activation_gestures = set(new_config.activation_gate_gestures)
+                    self._activation_bypass = set(new_config.activation_gate_bypass)
                 else:
                     # Enable: create new gate
                     self._activation_gate = ActivationGate(
@@ -540,12 +540,14 @@ class Pipeline:
                         duration=new_config.activation_gate_duration,
                     )
                     self._activation_gestures = set(new_config.activation_gate_gestures)
+                    self._activation_bypass = set(new_config.activation_gate_bypass)
             else:
                 if old_gate is not None:
                     # Disable: destroy gate and release held keys
                     self._dispatcher.release_all()
                 self._activation_gate = None
                 self._activation_gestures = set()
+                self._activation_bypass = set()
 
             self._config = new_config
             logger.info(

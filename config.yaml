@@ -14,62 +14,67 @@ distance:
   min_hand_size: 0.12
   max_hand_size: 0.4
 
-gestures:
-  open_palm: # open 5 fingers
-    # key: space     
+actions:
+  open_palm_switch:
+    trigger: "open_palm:static"
     key: win+tab
     threshold: 0.7
-    swipe:
-      swipe_left:
-        key: "1"
-      swipe_right:
-        key: "2"
-  fist: # close 5 fingers
-    # key: space     
+
+  fist_hold:
+    trigger: "fist:holding"
     key: space
-    mode: hold
     threshold: 0.7
 
-  thumbs_up: 
-    # key: space     
-    key: enter 
+  thumbs_up_tap:
+    trigger: "thumbs_up:static"
+    key: enter
     threshold: 0.9
-  pointing: # 1 finger up: index
-    # key: space     
+
+  pointing_switch:
+    trigger: "pointing:static"
     key: alt+tab
     threshold: 0.7
-  peace: # 2 fingers up: index + middle
-    # key: space
-    key: win+ctrl+left
-    threshold: 0.7
-    
-  scout: # 3 fingers up:  index + middle + ring
-    # key: space     
+
+  peace_desktop_right:
+    trigger: "peace:static"
     key: win+ctrl+right
     threshold: 0.7
- 
- 
-  pinch: # action: index + thumb together
-    # key: space
+    bypass_gate: true
+
+  scout_desktop_left:
+    trigger: "scout:static"
+    key: win+ctrl+left
+    threshold: 0.7
+    bypass_gate: true
+
+  pinch_minimize:
+    trigger: "pinch:static"
     key: win+down
     threshold: 0.06
-    # cooldown: 0.6  # optional: override global cooldown for this gesture
 
-      
-swipe:
+  swipe_left:
+    trigger: "open_palm:moving:right"
+    key: right
+
+  swipe_right:
+    trigger: "open_palm:moving:left"
+    key: left
+
+  swipe_up:
+    trigger: "open_palm:moving:up"
+    key: up
+
+  swipe_down:
+    trigger: "open_palm:moving:down"
+    key: down
+
+# Motion detection settings (consumed by Phase 23 MotionDetector)
+motion:
   settling_frames: 2
   cooldown: 0.3
   min_velocity: 0.15
   min_displacement: 0.03
   axis_ratio: 1.5
-  swipe_left:
-    key: right
-  swipe_right:
-    key: left
-  swipe_up:
-    key: up
-  swipe_down:
-    key: down                                                                        
 
 # Activation gate: arm/disarm gesture detection with an activation gesture.
 # When enabled, gestures only fire actions while the gate is armed.
@@ -77,6 +82,8 @@ swipe:
 activation_gate:
   enabled: true          # Set to true to enable activation gating (default: bypass, v1.x behavior)
   gestures:               # Gestures that arm the gate (perform any of these to activate)
-    - scout
-    - peace
+    - pointing
+  bypass:
+    - peace_desktop_right
+    - scout_desktop_left
   duration: 3.0           # Seconds the gate stays armed after activation

@@ -181,10 +181,6 @@ class TestPipelineStartStop:
         config.swipe_settling_frames = 3
         config.swipe_enabled = False
         config.swipe_mappings = {}
-        config.left_gesture_cooldowns = {}
-        config.left_gesture_modes = {}
-        config.left_gestures = {}
-        config.left_swipe_mappings = {}
         config.hold_repeat_interval = 0.03
         config.activation_gate_enabled = False
         config.activation_gate_gestures = []

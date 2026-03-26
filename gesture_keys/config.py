@@ -277,16 +277,13 @@ class AppConfig:
     hold_release_delay: float = 0.1
     hold_repeat_interval: float = 0.03
     preferred_hand: str = "left"
-    left_gestures: dict[str, dict[str, Any]] = field(default_factory=dict)
-    left_swipe_mappings: dict[str, str] = field(default_factory=dict)
-    left_gesture_cooldowns: dict[str, float] = field(default_factory=dict)
-    left_gesture_modes: dict[str, str] = field(default_factory=dict)
     swipe_window: float = 0.2
     gesture_swipe_mappings: dict[str, dict[str, str]] = field(default_factory=dict)
     activation_gate_enabled: bool = False
     activation_gate_gestures: list[str] = field(default_factory=list)
     activation_gate_duration: float = 3.0
     activation_gate_bypass: list[str] = field(default_factory=list)
+    actions: list = field(default_factory=list)
 
 
 class ConfigWatcher:
@@ -507,10 +504,8 @@ def build_compound_action_maps(
 def resolve_hand_gestures(handedness: str, config: AppConfig) -> dict:
     """Return the gesture dict for the given hand.
 
-    When handedness is "Right" or left_gestures is empty, returns
-    config.gestures unchanged (mirroring). When "Left" and left_gestures
-    has entries, deep-merges left overrides onto right-hand defaults so
-    that only explicitly overridden per-gesture settings change.
+    In the legacy gestures: path, both hands share the same gesture dict
+    (left-hand overrides removed). Always returns config.gestures.
 
     Args:
         handedness: "Left" or "Right" (MediaPipe format).
@@ -519,25 +514,7 @@ def resolve_hand_gestures(handedness: str, config: AppConfig) -> dict:
     Returns:
         Gesture config dict for the active hand.
     """
-    if handedness != "Left" or not config.left_gestures:
-        return config.gestures
-
-    import copy
-
-    merged = copy.deepcopy(config.gestures)
-    for gesture_name, left_settings in config.left_gestures.items():
-        if gesture_name in merged:
-            # Deep-merge swipe sub-dict so partial left overrides
-            # preserve unmapped directions from the right-hand defaults
-            if "swipe" in left_settings and "swipe" in merged[gesture_name]:
-                merged[gesture_name]["swipe"].update(left_settings["swipe"])
-                remaining = {k: v for k, v in left_settings.items() if k != "swipe"}
-                merged[gesture_name].update(remaining)
-            else:
-                merged[gesture_name].update(left_settings)
-        else:
-            merged[gesture_name] = dict(left_settings)
-    return merged
+    return config.gestures
 
 
 def resolve_hand_swipe_mappings(
@@ -545,9 +522,8 @@ def resolve_hand_swipe_mappings(
 ) -> dict[str, str]:
     """Return the swipe mappings for the given hand.
 
-    When handedness is "Right" or left_swipe_mappings is empty, returns
-    config.swipe_mappings. When "Left" and left_swipe_mappings has entries,
-    returns left_swipe_mappings (full replacement, not merged).
+    In the legacy swipe: path, both hands share the same swipe mappings
+    (left-hand overrides removed). Always returns config.swipe_mappings.
 
     Args:
         handedness: "Left" or "Right" (MediaPipe format).
@@ -556,9 +532,7 @@ def resolve_hand_swipe_mappings(
     Returns:
         Swipe mappings dict for the active hand.
     """
-    if handedness != "Left" or not config.left_swipe_mappings:
-        return config.swipe_mappings
-    return config.left_swipe_mappings
+    return config.swipe_mappings
 
 
 def load_config(path: str = "config.yaml") -> AppConfig:
@@ -595,28 +569,25 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         raise ValueError(
             f"Config file {path} missing required 'camera' section"
         )
-    if "gestures" not in raw:
+
+    # Mutual exclusion: actions: and gestures:/swipe: cannot coexist
+    has_actions = "actions" in raw
+    has_legacy = "gestures" in raw or "swipe" in raw
+    if has_actions and has_legacy:
+        raise ValueError(
+            "config.yaml cannot contain both 'actions:' and 'gestures:'/'swipe:' "
+            "sections. Use only 'actions:' (new format) or 'gestures:'+'swipe:' "
+            "(legacy format)."
+        )
+
+    if not has_actions and "gestures" not in raw:
         raise ValueError(
             f"Config file {path} missing required 'gestures' section"
         )
 
     camera = raw.get("camera", {})
     detection = raw.get("detection", {})
-    gestures = raw.get("gestures", {})
-
     distance = raw.get("distance", {})
-
-    swipe = raw.get("swipe", {})
-    swipe_directions = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
-    swipe_mappings: dict[str, str] = {}
-    for direction in swipe_directions:
-        mapping = swipe.get(direction)
-        if isinstance(mapping, dict) and "key" in mapping:
-            swipe_mappings[direction] = mapping["key"]
-    swipe_enabled = bool(swipe) and len(swipe_mappings) > 0
-
-    gesture_modes = _extract_gesture_modes(gestures)
-    gesture_swipe_mappings = extract_gesture_swipe_mappings(gestures, gesture_modes)
 
     preferred_hand = str(raw.get("preferred_hand", "left")).lower()
     if preferred_hand not in ("left", "right"):
@@ -624,53 +595,82 @@ def load_config(path: str = "config.yaml") -> AppConfig:
             f"preferred_hand must be 'left' or 'right', got '{preferred_hand}'"
         )
 
-    # Parse optional left-hand override sections
-    left_gestures = raw.get("left_gestures", {}) or {}
-    left_swipe_raw = raw.get("left_swipe", {}) or {}
-    left_swipe_mappings: dict[str, str] = {}
-    for direction in swipe_directions:
-        mapping = left_swipe_raw.get(direction)
-        if isinstance(mapping, dict) and "key" in mapping:
-            left_swipe_mappings[direction] = mapping["key"]
-
     # Parse optional activation_gate section
     activation_gate_raw = raw.get("activation_gate", {}) or {}
     activation_gate_enabled = bool(activation_gate_raw.get("enabled", False))
     activation_gate_gestures = list(activation_gate_raw.get("gestures", []) or [])
     activation_gate_duration = float(activation_gate_raw.get("duration", 3.0))
-    activation_gate_bypass = list(activation_gate_raw.get("bypass", []) or [])
-    # Merge per-gesture bypass_gate: true into bypass list
-    activation_gate_bypass = list(set(activation_gate_bypass) | set(_extract_bypass_gestures(gestures)))
+    activation_gate_bypass_cfg = list(activation_gate_raw.get("bypass", []) or [])
 
-    return AppConfig(
+    # Common AppConfig fields (shared by both paths)
+    common_kwargs = dict(
         camera_index=int(camera.get("index", 0)),
         smoothing_window=int(detection.get("smoothing_window", 2)),
         activation_delay=float(detection.get("activation_delay", 0.15)),
         cooldown_duration=float(detection.get("cooldown_duration", 0.3)),
-        gestures=gestures,
         distance_enabled=bool(distance.get("enabled", False)),
         min_hand_size=float(distance.get("min_hand_size", 0.15)),
         max_hand_size=float(distance.get("max_hand_size", 0.0)),
-        swipe_enabled=swipe_enabled,
-        swipe_cooldown=float(swipe.get("cooldown", 0.5)),
-        swipe_min_velocity=float(swipe.get("min_velocity", 0.4)),
-        swipe_min_displacement=float(swipe.get("min_displacement", 0.08)),
-        swipe_axis_ratio=float(swipe.get("axis_ratio", 2.0)),
-        swipe_mappings=swipe_mappings,
-        swipe_settling_frames=int(swipe.get("settling_frames", 3)),
-        gesture_cooldowns=_extract_gesture_cooldowns(gestures),
-        gesture_modes=gesture_modes,
         hold_release_delay=float(detection.get("hold_release_delay", 0.1)),
         hold_repeat_interval=float(detection.get("hold_repeat_interval", 0.03)),
         preferred_hand=preferred_hand,
-        left_gestures=left_gestures,
-        left_swipe_mappings=left_swipe_mappings,
-        left_gesture_cooldowns=_extract_gesture_cooldowns(left_gestures),
-        left_gesture_modes=_extract_gesture_modes(left_gestures),
         swipe_window=float(detection.get("swipe_window", 0.2)),
-        gesture_swipe_mappings=gesture_swipe_mappings,
         activation_gate_enabled=activation_gate_enabled,
         activation_gate_gestures=activation_gate_gestures,
         activation_gate_duration=activation_gate_duration,
-        activation_gate_bypass=activation_gate_bypass,
     )
+
+    if has_actions:
+        # --- New actions: path ---
+        action_entries = parse_actions(raw["actions"])
+        derived = derive_from_actions(action_entries)
+
+        # Merge activation_gate bypass from config + derived bypass_gate flags
+        activation_gate_bypass = list(
+            set(activation_gate_bypass_cfg) | set(derived.activation_gate_bypass)
+        )
+
+        return AppConfig(
+            **common_kwargs,
+            gestures={},
+            gesture_modes=derived.gesture_modes,
+            gesture_cooldowns=derived.gesture_cooldowns,
+            activation_gate_bypass=activation_gate_bypass,
+            actions=action_entries,
+        )
+    else:
+        # --- Legacy gestures:/swipe: path ---
+        gestures = raw.get("gestures", {})
+
+        swipe = raw.get("swipe", {})
+        swipe_directions = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
+        swipe_mappings: dict[str, str] = {}
+        for direction in swipe_directions:
+            mapping = swipe.get(direction)
+            if isinstance(mapping, dict) and "key" in mapping:
+                swipe_mappings[direction] = mapping["key"]
+        swipe_enabled = bool(swipe) and len(swipe_mappings) > 0
+
+        gesture_modes = _extract_gesture_modes(gestures)
+        gesture_swipe_mappings = extract_gesture_swipe_mappings(gestures, gesture_modes)
+
+        # Merge per-gesture bypass_gate: true into bypass list
+        activation_gate_bypass = list(
+            set(activation_gate_bypass_cfg) | set(_extract_bypass_gestures(gestures))
+        )
+
+        return AppConfig(
+            **common_kwargs,
+            gestures=gestures,
+            swipe_enabled=swipe_enabled,
+            swipe_cooldown=float(swipe.get("cooldown", 0.5)),
+            swipe_min_velocity=float(swipe.get("min_velocity", 0.4)),
+            swipe_min_displacement=float(swipe.get("min_displacement", 0.08)),
+            swipe_axis_ratio=float(swipe.get("axis_ratio", 2.0)),
+            swipe_mappings=swipe_mappings,
+            swipe_settling_frames=int(swipe.get("settling_frames", 3)),
+            gesture_cooldowns=_extract_gesture_cooldowns(gestures),
+            gesture_modes=gesture_modes,
+            gesture_swipe_mappings=gesture_swipe_mappings,
+            activation_gate_bypass=activation_gate_bypass,
+        )

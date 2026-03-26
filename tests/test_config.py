@@ -18,7 +18,6 @@ from gesture_keys.config import (
     load_config,
     parse_actions,
     resolve_hand_gestures,
-    resolve_hand_swipe_mappings,
 )
 from gesture_keys.action import Action, FireMode
 from gesture_keys.trigger import (
@@ -36,7 +35,7 @@ DEFAULT_CONFIG = os.path.join(PROJECT_ROOT, "config.yaml")
 
 
 class TestLoadConfigDefault:
-    """Test loading the default config.yaml."""
+    """Test loading the default config.yaml (actions: format)."""
 
     def test_loads_default_config(self):
         config = load_config(DEFAULT_CONFIG)
@@ -50,57 +49,34 @@ class TestLoadConfigDefault:
         config = load_config(DEFAULT_CONFIG)
         assert config.smoothing_window == 2
 
-    def test_has_seven_gestures(self):
+    def test_has_eleven_actions(self):
         config = load_config(DEFAULT_CONFIG)
-        assert len(config.gestures) == 7
+        assert len(config.actions) == 11
 
-    def test_gesture_names(self):
+    def test_action_names(self):
         config = load_config(DEFAULT_CONFIG)
-        expected = {"open_palm", "fist", "thumbs_up", "peace", "pointing", "pinch", "scout"}
-        assert set(config.gestures.keys()) == expected
-
-    def test_gesture_has_key_and_threshold(self):
-        config = load_config(DEFAULT_CONFIG)
-        for name, gesture in config.gestures.items():
-            assert "key" in gesture, f"{name} missing 'key'"
-            assert "threshold" in gesture, f"{name} missing 'threshold'"
-
-    def test_gesture_thresholds_are_floats(self):
-        config = load_config(DEFAULT_CONFIG)
-        for name, gesture in config.gestures.items():
-            assert isinstance(gesture["threshold"], float), (
-                f"{name} threshold is not float"
-            )
-
-    def test_default_threshold_values(self):
-        config = load_config(DEFAULT_CONFIG)
-        expected_thresholds = {
-            "open_palm": 0.7,
-            "fist": 0.7,
-            "thumbs_up": 0.9,
-            "peace": 0.7,
-            "pointing": 0.7,
-            "pinch": 0.06,
-            "scout": 0.7,
+        names = {a.name for a in config.actions}
+        expected = {
+            "open_palm_switch", "fist_hold", "thumbs_up_tap",
+            "pointing_switch", "peace_desktop_right", "scout_desktop_left",
+            "pinch_minimize", "swipe_left", "swipe_right", "swipe_up", "swipe_down",
         }
-        for name, gesture in config.gestures.items():
-            expected = expected_thresholds[name]
-            assert gesture["threshold"] == expected, (
-                f"{name} threshold should be {expected}"
-            )
+        assert names == expected
 
-    def test_key_mappings(self):
+    def test_actions_have_keys(self):
         config = load_config(DEFAULT_CONFIG)
-        expected_keys = {
-            "open_palm": "win+tab",
-            "fist": "space",
-            "thumbs_up": "enter",
-            "peace": "win+ctrl+right",
-            "pointing": "alt+tab",
-            "pinch": "win+down",
-        }
-        for name, expected_key in expected_keys.items():
-            assert config.gestures[name]["key"] == expected_key
+        for action in config.actions:
+            assert action.key, f"{action.name} missing 'key'"
+
+    def test_gesture_modes_derived(self):
+        config = load_config(DEFAULT_CONFIG)
+        assert config.gesture_modes["fist_hold"] == "hold_key"
+        assert config.gesture_modes["open_palm_switch"] == "tap"
+
+    def test_bypass_gate_derived(self):
+        config = load_config(DEFAULT_CONFIG)
+        assert "peace_desktop_right" in config.activation_gate_bypass
+        assert "scout_desktop_left" in config.activation_gate_bypass
 
 
 class TestLoadConfigCustomPath:
@@ -153,7 +129,7 @@ class TestLoadConfigErrors:
         with pytest.raises(ValueError):
             load_config(str(bad))
 
-    def test_missing_gestures_section_raises_value_error(self, tmp_path):
+    def test_missing_gestures_and_actions_raises_value_error(self, tmp_path):
         bad = tmp_path / "no_gestures.yaml"
         bad.write_text(
             "camera:\n  index: 0\n"
@@ -442,8 +418,9 @@ class TestSettlingFramesConfig:
         assert config.swipe_settling_frames == 5
 
     def test_load_config_settling_frames_from_default_config(self):
+        """Default config uses actions: format -- swipe_settling_frames defaults to 3."""
         config = load_config(DEFAULT_CONFIG)
-        assert config.swipe_settling_frames == 2
+        assert config.swipe_settling_frames == 3
 
 
 class TestGestureCooldownsConfig:
@@ -495,6 +472,7 @@ class TestGestureCooldownsConfig:
     def test_default_config_yaml_no_gesture_cooldowns(self):
         """Default config.yaml should have no per-gesture cooldown overrides."""
         config = load_config(DEFAULT_CONFIG)
+        # actions: format -- no cooldown overrides specified
         assert config.gesture_cooldowns == {}
 
 
@@ -626,166 +604,19 @@ class TestGestureModesConfig:
         }
 
 
-class TestLeftHandConfig:
-    """Tests for left-hand config fields, parsing, and resolution functions."""
-
-    MINIMAL_YAML = (
-        "camera:\n  index: 0\n"
-        "gestures:\n"
-        "  open_palm:\n    key: space\n    threshold: 0.7\n"
-    )
-
-    # --- AppConfig default fields ---
-
-    def test_appconfig_default_left_gestures_empty(self):
-        config = AppConfig()
-        assert config.left_gestures == {}
-
-    def test_appconfig_default_left_swipe_mappings_empty(self):
-        config = AppConfig()
-        assert config.left_swipe_mappings == {}
-
-    def test_appconfig_default_left_gesture_cooldowns_empty(self):
-        config = AppConfig()
-        assert config.left_gesture_cooldowns == {}
-
-    def test_appconfig_default_left_gesture_modes_empty(self):
-        config = AppConfig()
-        assert config.left_gesture_modes == {}
-
-    # --- load_config parsing ---
-
-    def test_load_config_parses_left_gestures(self, tmp_path):
-        cfg = tmp_path / "cfg.yaml"
-        cfg.write_text(
-            self.MINIMAL_YAML
-            + "left_gestures:\n"
-            "  open_palm:\n    key: ctrl+w\n    threshold: 0.8\n"
-        )
-        config = load_config(str(cfg))
-        assert config.left_gestures == {
-            "open_palm": {"key": "ctrl+w", "threshold": 0.8}
-        }
-
-    def test_load_config_parses_left_swipe(self, tmp_path):
-        cfg = tmp_path / "cfg.yaml"
-        cfg.write_text(
-            self.MINIMAL_YAML
-            + "left_swipe:\n"
-            "  swipe_left:\n    key: alt+right\n"
-            "  swipe_right:\n    key: alt+left\n"
-        )
-        config = load_config(str(cfg))
-        assert config.left_swipe_mappings == {
-            "swipe_left": "alt+right",
-            "swipe_right": "alt+left",
-        }
-
-    def test_no_left_gestures_section_leaves_empty(self, tmp_path):
-        cfg = tmp_path / "cfg.yaml"
-        cfg.write_text(self.MINIMAL_YAML)
-        config = load_config(str(cfg))
-        assert config.left_gestures == {}
-
-    def test_left_gesture_cooldowns_extracted(self, tmp_path):
-        cfg = tmp_path / "cfg.yaml"
-        cfg.write_text(
-            self.MINIMAL_YAML
-            + "left_gestures:\n"
-            "  open_palm:\n    key: ctrl+w\n    threshold: 0.8\n    cooldown: 0.5\n"
-        )
-        config = load_config(str(cfg))
-        assert config.left_gesture_cooldowns == {"open_palm": 0.5}
-
-    def test_left_gesture_modes_extracted(self, tmp_path):
-        cfg = tmp_path / "cfg.yaml"
-        cfg.write_text(
-            self.MINIMAL_YAML
-            + "left_gestures:\n"
-            "  open_palm:\n    key: ctrl+w\n    threshold: 0.8\n    mode: hold\n"
-        )
-        config = load_config(str(cfg))
-        assert config.left_gesture_modes == {"open_palm": "hold_key"}
-
-    # --- resolve_hand_gestures ---
+class TestHandResolution:
+    """Tests for resolve_hand_gestures (simplified after left-hand removal)."""
 
     def test_resolve_right_hand_returns_gestures(self):
         config = AppConfig(gestures={"fist": {"key": "esc", "threshold": 0.7}})
         result = resolve_hand_gestures("Right", config)
         assert result == {"fist": {"key": "esc", "threshold": 0.7}}
 
-    def test_resolve_left_hand_mirrors_when_no_overrides(self):
+    def test_resolve_left_hand_mirrors_right(self):
+        """After left-hand removal, Left returns same gestures as Right."""
         config = AppConfig(gestures={"fist": {"key": "esc", "threshold": 0.7}})
         result = resolve_hand_gestures("Left", config)
         assert result == {"fist": {"key": "esc", "threshold": 0.7}}
-
-    def test_resolve_left_hand_merges_overrides(self):
-        config = AppConfig(
-            gestures={
-                "fist": {"key": "esc", "threshold": 0.7},
-                "open_palm": {"key": "space", "threshold": 0.8},
-            },
-            left_gestures={
-                "fist": {"key": "ctrl+z"},
-            },
-        )
-        result = resolve_hand_gestures("Left", config)
-        # fist overridden key, threshold inherited
-        assert result["fist"] == {"key": "ctrl+z", "threshold": 0.7}
-        # open_palm unchanged
-        assert result["open_palm"] == {"key": "space", "threshold": 0.8}
-
-    def test_resolve_left_merges_all_settings(self):
-        """Left override only changes key; threshold, cooldown, mode inherited."""
-        config = AppConfig(
-            gestures={
-                "fist": {
-                    "key": "esc",
-                    "threshold": 0.7,
-                    "cooldown": 0.5,
-                    "mode": "hold",
-                },
-            },
-            left_gestures={
-                "fist": {"key": "ctrl+z"},
-            },
-        )
-        result = resolve_hand_gestures("Left", config)
-        assert result["fist"] == {
-            "key": "ctrl+z",
-            "threshold": 0.7,
-            "cooldown": 0.5,
-            "mode": "hold",
-        }
-
-    def test_resolve_does_not_mutate_original(self):
-        """Resolution should not modify the original config.gestures."""
-        config = AppConfig(
-            gestures={"fist": {"key": "esc", "threshold": 0.7}},
-            left_gestures={"fist": {"key": "ctrl+z"}},
-        )
-        resolve_hand_gestures("Left", config)
-        assert config.gestures["fist"]["key"] == "esc"
-
-    # --- resolve_hand_swipe_mappings ---
-
-    def test_resolve_swipe_right_returns_swipe_mappings(self):
-        config = AppConfig(swipe_mappings={"swipe_left": "alt+left"})
-        result = resolve_hand_swipe_mappings("Right", config)
-        assert result == {"swipe_left": "alt+left"}
-
-    def test_resolve_swipe_left_mirrors_when_no_overrides(self):
-        config = AppConfig(swipe_mappings={"swipe_left": "alt+left"})
-        result = resolve_hand_swipe_mappings("Left", config)
-        assert result == {"swipe_left": "alt+left"}
-
-    def test_resolve_swipe_left_returns_left_when_defined(self):
-        config = AppConfig(
-            swipe_mappings={"swipe_left": "alt+left"},
-            left_swipe_mappings={"swipe_left": "alt+right"},
-        )
-        result = resolve_hand_swipe_mappings("Left", config)
-        assert result == {"swipe_left": "alt+right"}
 
 
 class TestSwipeWindowConfig:
@@ -878,85 +709,113 @@ gestures:
         assert "swipe_right" not in config.gesture_swipe_mappings["peace"]
 
 
-class TestLeftHandSwipeMerge:
-    """Tests for left-hand gesture override with swipe blocks."""
+class TestLoadConfigActions:
+    """Tests for actions: path in load_config."""
 
-    def test_left_gestures_swipe_override(self, tmp_path):
-        cfg = tmp_path / "config.yaml"
-        cfg.write_text("""
-camera:
-  index: 0
-gestures:
-  peace:
-    key: ctrl+z
-    threshold: 0.7
-    swipe:
-      swipe_left:
-        key: ctrl+shift+left
-      swipe_right:
-        key: ctrl+shift+right
-left_gestures:
-  peace:
-    swipe:
-      swipe_left:
-        key: ctrl+shift+right
-      swipe_right:
-        key: ctrl+shift+left
-""")
+    def test_actions_path_returns_appconfig(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "actions:\n"
+            "  tap_it:\n"
+            "    trigger: 'fist:static'\n"
+            "    key: space\n"
+        )
         config = load_config(str(cfg))
-        resolved = resolve_hand_gestures("Left", config)
-        assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+right"
-        assert resolved["peace"]["swipe"]["swipe_right"]["key"] == "ctrl+shift+left"
+        assert isinstance(config, AppConfig)
+        assert len(config.actions) == 1
+        assert config.actions[0].name == "tap_it"
 
-    def test_right_hand_unaffected(self, tmp_path):
-        cfg = tmp_path / "config.yaml"
-        cfg.write_text("""
-camera:
-  index: 0
-gestures:
-  peace:
-    key: ctrl+z
-    threshold: 0.7
-    swipe:
-      swipe_left:
-        key: ctrl+shift+left
-left_gestures:
-  peace:
-    swipe:
-      swipe_left:
-        key: ctrl+shift+right
-""")
+    def test_actions_derives_gesture_modes(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "actions:\n"
+            "  hold_it:\n"
+            "    trigger: 'fist:holding'\n"
+            "    key: space\n"
+        )
         config = load_config(str(cfg))
-        resolved = resolve_hand_gestures("Right", config)
-        assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+left"
+        assert config.gesture_modes["hold_it"] == "hold_key"
 
-    def test_left_partial_override_preserves_other_directions(self, tmp_path):
-        """Left-hand overriding only swipe_left should keep swipe_right from right-hand."""
-        cfg = tmp_path / "config.yaml"
-        cfg.write_text("""
-camera:
-  index: 0
-gestures:
-  peace:
-    key: ctrl+z
-    threshold: 0.7
-    swipe:
-      swipe_left:
-        key: ctrl+shift+left
-      swipe_right:
-        key: ctrl+shift+right
-left_gestures:
-  peace:
-    swipe:
-      swipe_left:
-        key: ctrl+shift+right
-""")
+    def test_actions_derives_cooldowns(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "actions:\n"
+            "  slow_tap:\n"
+            "    trigger: 'fist:static'\n"
+            "    key: up\n"
+            "    cooldown: 0.8\n"
+        )
         config = load_config(str(cfg))
-        resolved = resolve_hand_gestures("Left", config)
-        # Left override applied
-        assert resolved["peace"]["swipe"]["swipe_left"]["key"] == "ctrl+shift+right"
-        # Right-hand swipe_right preserved
-        assert resolved["peace"]["swipe"]["swipe_right"]["key"] == "ctrl+shift+right"
+        assert config.gesture_cooldowns == {"slow_tap": 0.8}
+
+    def test_actions_derives_bypass(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "actions:\n"
+            "  bypass_it:\n"
+            "    trigger: 'peace:static'\n"
+            "    key: win+ctrl+right\n"
+            "    bypass_gate: true\n"
+        )
+        config = load_config(str(cfg))
+        assert "bypass_it" in config.activation_gate_bypass
+
+    def test_mutual_exclusion_raises(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "actions:\n"
+            "  tap_it:\n"
+            "    trigger: 'fist:static'\n"
+            "    key: space\n"
+            "gestures:\n"
+            "  fist:\n    key: space\n    threshold: 0.7\n"
+        )
+        with pytest.raises(ValueError, match="cannot contain both"):
+            load_config(str(cfg))
+
+    def test_mutual_exclusion_with_swipe_raises(self, tmp_path):
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "actions:\n"
+            "  tap_it:\n"
+            "    trigger: 'fist:static'\n"
+            "    key: space\n"
+            "swipe:\n"
+            "  swipe_left:\n    key: left\n"
+        )
+        with pytest.raises(ValueError, match="cannot contain both"):
+            load_config(str(cfg))
+
+    def test_fallback_to_gestures_when_no_actions(self, tmp_path):
+        """Legacy gestures: path still works when actions: absent."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "gestures:\n"
+            "  open_palm:\n    key: space\n    threshold: 0.7\n"
+        )
+        config = load_config(str(cfg))
+        assert len(config.gestures) == 1
+        assert config.actions == []
+
+    def test_actions_path_gestures_empty(self, tmp_path):
+        """When using actions: path, config.gestures is empty dict."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            "camera:\n  index: 0\n"
+            "actions:\n"
+            "  tap_it:\n"
+            "    trigger: 'fist:static'\n"
+            "    key: space\n"
+        )
+        config = load_config(str(cfg))
+        assert config.gestures == {}
 
 
 class TestFireModeConfig:
