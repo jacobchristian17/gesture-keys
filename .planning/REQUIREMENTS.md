@@ -9,11 +9,11 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 ### Trigger Model
 
-- [ ] **TRIG-01**: User can define static triggers (`gesture:static`) that fire on gesture detection
-- [ ] **TRIG-02**: User can define holding triggers (`gesture:holding`) that hold a key while gesture persists
-- [ ] **TRIG-03**: User can define moving triggers (`gesture:moving:direction`) that fire on hand motion in a cardinal direction
-- [ ] **TRIG-04**: User can define sequence triggers (`gesture > gesture`) that fire when two gestures occur in succession
-- [ ] **TRIG-05**: System validates trigger strings and raises clear errors on invalid syntax
+- [x] **TRIG-01**: User can define static triggers (`gesture:static`) that fire on gesture detection
+- [x] **TRIG-02**: User can define holding triggers (`gesture:holding`) that hold a key while gesture persists
+- [x] **TRIG-03**: User can define moving triggers (`gesture:moving:direction`) that fire on hand motion in a cardinal direction
+- [x] **TRIG-04**: User can define sequence triggers (`gesture > gesture`) that fire when two gestures occur in succession
+- [x] **TRIG-05**: System validates trigger strings and raises clear errors on invalid syntax
 
 ### Motion Detection
 
@@ -77,11 +77,11 @@ Requirements for tri-state gesture model and action library. Each maps to roadma
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TRIG-01 | Phase 18 | Pending |
-| TRIG-02 | Phase 18 | Pending |
-| TRIG-03 | Phase 18 | Pending |
-| TRIG-04 | Phase 18 | Pending |
-| TRIG-05 | Phase 18 | Pending |
+| TRIG-01 | Phase 18 | Complete |
+| TRIG-02 | Phase 18 | Complete |
+| TRIG-03 | Phase 18 | Complete |
+| TRIG-04 | Phase 18 | Complete |
+| TRIG-05 | Phase 18 | Complete |
 | MOTN-01 | Phase 19 | Pending |
 | MOTN-02 | Phase 19 | Pending |
 | MOTN-03 | Phase 19 | Pending |

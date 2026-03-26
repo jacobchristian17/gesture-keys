@@ -60,7 +60,7 @@
 
 ### v3.0 Tri-State Gesture Model + Action Library
 
-- [ ] **Phase 18: Trigger Parser and Data Model** - 1 plan
+- [x] **Phase 18: Trigger Parser and Data Model** - 1 plan (completed 2026-03-26)
 - [ ] **Phase 19: MotionDetector** - Continuous per-frame motion detection replacing SwipeDetector internals
 - [ ] **Phase 20: Config Loader for Actions** - New `actions:` config section parsing and orchestrator input derivation
 - [ ] **Phase 21: Orchestrator Refactor** - Remove swipe states, add motion and sequence signals
@@ -79,7 +79,7 @@
   2. A trigger string like `open_palm:moving:left` parses into gesture=open_palm, state=moving, direction=left
   3. A sequence trigger string like `fist > open_palm` parses into a two-gesture sequence with both gestures identified
   4. An invalid trigger string (e.g., `fist:invalid_state`, `fist:moving` without direction) raises a clear validation error with the bad token identified
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 18-01-PLAN.md -- Trigger data model (enums, dataclasses) and parser with TDD
 
@@ -168,7 +168,7 @@ Plans:
 | 15. Gesture Orchestrator | v2.0 | 2/2 | Complete | 2026-03-24 |
 | 16. Action Dispatch and Fire Modes | v2.0 | 3/3 | Complete | 2026-03-25 |
 | 17. Activation Gate | v2.0 | 2/2 | Complete | 2026-03-25 |
-| 18. Trigger Parser and Data Model | v3.0 | 0/1 | Not started | - |
+| 18. Trigger Parser and Data Model | 1/1 | Complete   | 2026-03-26 | - |
 | 19. MotionDetector | v3.0 | 0/? | Not started | - |
 | 20. Config Loader for Actions | v3.0 | 0/? | Not started | - |
 | 21. Orchestrator Refactor | v3.0 | 0/? | Not started | - |
