@@ -81,6 +81,7 @@ class ActionResolver:
         left_moving: Optional[dict[tuple[str, str], Action]] = None,
         right_sequence: Optional[dict[tuple[str, str], Action]] = None,
         left_sequence: Optional[dict[tuple[str, str], Action]] = None,
+        velocity_overrides: Optional[dict[tuple[str, str], float]] = None,
     ) -> None:
         if right_static is not None:
             # New 8-map path
@@ -107,6 +108,7 @@ class ActionResolver:
         self._active_holding = self._right_holding
         self._active_moving = self._right_moving
         self._active_sequence = self._right_sequence
+        self._velocity_overrides: dict[tuple[str, str], float] = velocity_overrides or {}
 
     def set_hand(self, handedness: str) -> None:
         """Switch active action maps based on detected hand.
@@ -160,6 +162,30 @@ class ActionResolver:
             Action if mapped, None otherwise.
         """
         return self._active_sequence.get((first.value, second.value))
+
+    def get_min_velocity(
+        self, gesture_name: str, direction: Direction,
+    ) -> Optional[float]:
+        """Look up per-action velocity override for a moving gesture.
+
+        Args:
+            gesture_name: The gesture value string (e.g. 'open_palm').
+            direction: The Direction enum member.
+
+        Returns:
+            Minimum velocity threshold, or None if no override is set.
+        """
+        return self._velocity_overrides.get((gesture_name, direction.value))
+
+    def set_velocity_overrides(
+        self, overrides: dict[tuple[str, str], float],
+    ) -> None:
+        """Replace the velocity overrides dict (used during hot-reload).
+
+        Args:
+            overrides: Dict mapping (gesture_value, direction_value) -> min_velocity.
+        """
+        self._velocity_overrides = overrides
 
     # Legacy resolve() for backward compatibility with pipeline.py dispatcher path
     def resolve(self, gesture_name: str) -> Optional[Action]:
@@ -258,11 +284,20 @@ class ActionDispatcher:
         self._held_action = None
 
     def _handle_moving_fire(self, signal: OrchestratorSignal) -> None:
-        """Handle MOVING_FIRE -- resolve moving action and send keystroke."""
+        """Handle MOVING_FIRE -- resolve moving action, check velocity, send keystroke."""
         action = self._resolver.resolve_moving(
             signal.gesture.value, signal.direction
         )
         if action is not None:
+            min_vel = self._resolver.get_min_velocity(
+                signal.gesture.value, signal.direction
+            )
+            if min_vel is not None and signal.velocity < min_vel:
+                logger.debug(
+                    "MOVING_FIRE skipped: velocity %.3f < min_velocity %.3f for %s",
+                    signal.velocity, min_vel, action.gesture_name,
+                )
+                return
             self._sender.send(action.modifiers, action.key)
 
     def _handle_sequence_fire(self, signal: OrchestratorSignal) -> None:

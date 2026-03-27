@@ -187,6 +187,7 @@ class Pipeline:
                 left_moving=derived.left_moving,
                 right_sequence=derived.right_sequence,
                 left_sequence=derived.left_sequence,
+                velocity_overrides=derived.moving_velocity_overrides,
             )
             self._dispatcher = ActionDispatcher(
                 self._sender, self._resolver,
@@ -421,7 +422,7 @@ class Pipeline:
             derived = derive_from_actions(new_config.actions)
             self._derived_config = derived
 
-            # Rebuild ActionResolver with new 8-map constructor
+            # Rebuild ActionResolver with new 8-map constructor + velocity overrides
             self._resolver = ActionResolver(
                 right_static=derived.right_static,
                 left_static=derived.left_static,
@@ -431,6 +432,7 @@ class Pipeline:
                 left_moving=derived.left_moving,
                 right_sequence=derived.right_sequence,
                 left_sequence=derived.left_sequence,
+                velocity_overrides=derived.moving_velocity_overrides,
             )
             self._dispatcher._resolver = self._resolver
             self._dispatcher._repeat_interval = new_config.hold_repeat_interval
