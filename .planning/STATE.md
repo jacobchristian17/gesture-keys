@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 Phase: 24
 Plan: Not started
 Status: Executing Phase 24
-Last activity: 2026-03-26
+Last activity: 2026-03-27 - Completed quick task 260327-jjq: Add per-action motion sensitivity overrides for moving gestures
 
 Progress: [██████████] 100%
 
@@ -68,6 +68,12 @@ None.
 ### Blockers/Concerns
 
 None.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260327-jjq | Add per-action motion sensitivity overrides for moving gestures | 2026-03-27 | b1f8d0d | [260327-jjq-add-per-action-motion-sensitivity-overri](./quick/260327-jjq-add-per-action-motion-sensitivity-overri/) |
 
 ## Session Continuity
 
