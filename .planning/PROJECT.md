@@ -44,9 +44,18 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Pipeline integration: MotionDetector + DerivedConfig end-to-end — v3.0
 - ✓ Legacy swipe code and config formats removed, clean tri-state codebase — v3.0
 
+## Current Milestone: v3.1 Moving Fire Dispatch Throttling
+
+**Goal:** Add configurable rate-limiting for moving_fire dispatches so users can control how frequently movement triggers fire during continuous motion.
+
+**Target features:**
+- Configurable moving_fire dispatch interval/cooldown (throttle to max N dispatches per second)
+- Global default + per-action override capability (consistent with existing per-action motion sensitivity pattern)
+
 ### Active
 
-(None — planning next milestone)
+- [ ] Configurable moving_fire dispatch throttling
+- [ ] Per-action dispatch interval override for moving triggers
 
 ### Out of Scope
 
@@ -103,4 +112,22 @@ Platform: Windows 11, CPU inference (30+ FPS sufficient).
 | Sequence gestures via orchestrator (v3.0) | Two-gesture sequences (A then B within 0.5s window) in FSM | ✓ Good — configurable window, clean signal emission |
 
 ---
-*Last updated: 2026-03-27 after v3.0 milestone complete*
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
+---
+*Last updated: 2026-03-27 after v3.1 milestone started*

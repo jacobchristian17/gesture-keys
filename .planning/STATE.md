@@ -1,36 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Tri-State Gesture Model + Action Library
-status: executing
-stopped_at: Phase 23 context gathered
-last_updated: "2026-03-26T21:16:35.591Z"
-last_activity: 2026-03-26
+milestone: v3.1
+milestone_name: Moving Fire Dispatch Throttling
+status: defining
+stopped_at: null
+last_updated: "2026-03-27"
+last_activity: 2026-03-27
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-26)
+See: .planning/PROJECT.md (updated 2026-03-27)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 24 — cleanup-and-config-migration
+**Current focus:** Defining requirements
 
 ## Current Position
 
-Phase: 24
-Plan: Not started
-Status: Executing Phase 24
-Last activity: 2026-03-27 - Completed quick task 260327-jjq: Add per-action motion sensitivity overrides for moving gestures
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-27 — Milestone v3.1 started
 
 ## Performance Metrics
 
