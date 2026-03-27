@@ -5,7 +5,7 @@ milestone_name: Moving Fire Dispatch Throttling
 status: executing
 stopped_at: Completed 25-dispatch-throttling-25-01-PLAN.md
 last_updated: "2026-03-27T08:18:13.237Z"
-last_activity: 2026-03-27
+last_activity: 2026-03-27 - Completed quick task 260327-nrq: debug: dispatch_interval not working
 progress:
   total_phases: 1
   completed_phases: 0
@@ -59,8 +59,7 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260327-jjq | Add per-action motion sensitivity overrides for moving gestures | 2026-03-27 | b1f8d0d | [260327-jjq-add-per-action-motion-sensitivity-overri](./quick/260327-jjq-add-per-action-motion-sensitivity-overri/) |
-| Phase 25-dispatch-throttling P01 | 3m | 2 tasks | 4 files |
-| 260327-nrq | Wire dispatch_interval throttling end-to-end | 2026-03-27 | d4c54d8 | [260327-nrq-debug-dispatch-interval-not-working](./quick/260327-nrq-debug-dispatch-interval-not-working/) |
+| 260327-nrq | debug: dispatch_interval not working | 2026-03-27 | a5a6d1c | [260327-nrq-debug-dispatch-interval-not-working](./quick/260327-nrq-debug-dispatch-interval-not-working/) |
 
 ## Session Continuity
 
