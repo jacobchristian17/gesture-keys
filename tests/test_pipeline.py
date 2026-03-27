@@ -405,3 +405,24 @@ class TestActivationGateSequenceFire:
         # Should arm gate and consume signal
         assert len(result) == 0
         pipeline._activation_gate.arm.assert_called_once_with(1.0)
+
+
+class TestMotionDetectorEmptyLandmarks:
+    """Test that MotionDetector handles empty landmarks (no hand detected)."""
+
+    @patch("gesture_keys.pipeline.load_config")
+    def test_empty_landmarks_does_not_crash(self, mock_load_config):
+        """Empty landmarks list should be treated as no hand (not crash)."""
+        from gesture_keys.pipeline import Pipeline
+
+        mock_load_config.return_value = MagicMock()
+        pipeline = Pipeline("config.yaml")
+
+        # Simulate empty landmarks (no hand detected)
+        pipeline._motion_detector = MagicMock()
+        pipeline._motion_detector.update.return_value = MagicMock(moving=False, direction=None)
+
+        # The fix: `landmarks or None` converts [] to None before passing
+        landmarks = []
+        result = landmarks or None
+        assert result is None

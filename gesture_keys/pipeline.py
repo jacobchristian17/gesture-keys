@@ -348,7 +348,7 @@ class Pipeline:
             self._prev_gesture = gesture
 
         # --- Motion detection (every frame) ---
-        motion_state = self._motion_detector.update(landmarks, current_time)
+        motion_state = self._motion_detector.update(landmarks or None, current_time)
 
         # --- Orchestrator update: single call replaces all coordination logic ---
         orch_result = self._orchestrator.update(gesture, current_time, motion_state=motion_state)
