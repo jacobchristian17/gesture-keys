@@ -657,3 +657,56 @@ class TestVelocityOverrides:
         )
         dispatcher.dispatch(signal)
         mock_sender.send.assert_called_once_with([], Key.left)
+
+
+# ===========================================================================
+# TestDispatchIntervalOverrides -- per-action dispatch_interval support
+# ===========================================================================
+
+class TestDispatchIntervalOverrides:
+    """Per-action dispatch_interval overrides in ActionResolver."""
+
+    def test_resolver_get_dispatch_interval_returns_override(self):
+        """get_dispatch_interval returns override for mapped (gesture, direction)."""
+        overrides = {("open_palm", "left"): 0.2}
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+            dispatch_interval_overrides=overrides,
+        )
+        assert resolver.get_dispatch_interval("open_palm", Direction.LEFT) == 0.2
+
+    def test_resolver_get_dispatch_interval_returns_none_for_unmapped(self):
+        """get_dispatch_interval returns None for unmapped (gesture, direction)."""
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+        )
+        assert resolver.get_dispatch_interval("open_palm", Direction.UP) is None
+
+    def test_resolver_set_dispatch_interval_overrides(self):
+        """set_dispatch_interval_overrides updates the overrides dict."""
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+        )
+        resolver.set_dispatch_interval_overrides({("fist", "right"): 0.3})
+        assert resolver.get_dispatch_interval("fist", Direction.RIGHT) == 0.3
