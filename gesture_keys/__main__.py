@@ -105,12 +105,39 @@ def run_preview_mode(args):
 
             # Per-frame debug logging (preview-only)
             if args.debug and result.landmarks:
+                motion_info = ""
+                if result.motion_state and result.motion_state.moving:
+                    motion_info = f" motion={result.motion_state.direction.value if result.motion_state.direction else '?'}"
                 logger.debug(
-                    "FRAME raw=%s smooth=%s state=%s",
+                    "FRAME raw=%s smooth=%s state=%s%s",
                     result.raw_gesture.value if result.raw_gesture else "None",
                     result.gesture.value if result.gesture else "None",
                     result.debounce_state.value,
+                    motion_info,
                 )
+
+            # Log orchestrator signals at INFO level (visible in normal --preview)
+            if result.orchestrator and result.orchestrator.signals:
+                for sig in result.orchestrator.signals:
+                    parts = [f"SIGNAL {sig.action.value}"]
+                    if sig.gesture:
+                        parts.append(f"gesture={sig.gesture.value}")
+                    if sig.direction:
+                        parts.append(f"dir={sig.direction.value}")
+                    if sig.second_gesture:
+                        parts.append(f"seq={sig.second_gesture.value}")
+                    logger.info(" ".join(parts))
+
+            # Log motion state transitions
+            if result.motion_state and result.motion_state.moving:
+                if not getattr(run_preview_mode, '_was_moving', False):
+                    dir_name = result.motion_state.direction.value if result.motion_state.direction else "unknown"
+                    logger.info("MOTION started dir=%s", dir_name)
+                    run_preview_mode._was_moving = True
+            else:
+                if getattr(run_preview_mode, '_was_moving', False):
+                    logger.info("MOTION stopped")
+                    run_preview_mode._was_moving = False
 
             # Preview rendering
             if args.preview:
