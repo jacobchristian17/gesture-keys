@@ -332,3 +332,51 @@ class TestEdgeCases:
         assert len(not_moving) >= 1
         for s in not_moving:
             assert s.direction is None, "Direction should be None when not moving"
+
+
+class TestMotionStateVelocity:
+    """Tests for MotionState.velocity field."""
+
+    def test_motion_state_has_velocity_field(self):
+        """MotionState(moving=True, direction=Direction.RIGHT).velocity returns a float."""
+        state = MotionState(moving=True, direction=Direction.RIGHT, velocity=0.35)
+        assert state.velocity == 0.35
+
+    def test_motion_state_not_moving_velocity_zero(self):
+        """MotionState(moving=False).velocity returns 0.0."""
+        state = MotionState(moving=False)
+        assert state.velocity == 0.0
+
+    def test_motion_state_velocity_default_is_zero(self):
+        """MotionState velocity defaults to 0.0 when not specified."""
+        state = MotionState(moving=True, direction=Direction.LEFT)
+        assert state.velocity == 0.0
+
+    def test_not_moving_singleton_velocity_zero(self):
+        """The _NOT_MOVING singleton has velocity=0.0."""
+        from gesture_keys.motion import _NOT_MOVING
+        assert _NOT_MOVING.velocity == 0.0
+
+    def test_moving_detector_reports_velocity(self):
+        """MotionDetector.update() returns MotionState with non-zero velocity when moving."""
+        det = MotionDetector(
+            buffer_size=5, arm_threshold=0.2, settling_frames=0,
+        )
+        # Large rightward motion
+        positions = _generate_linear_positions((0.2, 0.5), (0.8, 0.5), 10)
+        results = _feed_positions(det, positions, dt=0.033)
+        moving_states = [s for s in results if s.moving]
+        assert len(moving_states) >= 1
+        for s in moving_states:
+            assert s.velocity > 0.0, "Moving state should have positive velocity"
+
+    def test_custom_arm_threshold_in_constructor(self):
+        """MotionDetector initialized with arm_threshold=0.5 arms at 0.5."""
+        det = MotionDetector(
+            buffer_size=5, arm_threshold=0.5, settling_frames=0,
+        )
+        # Moderate motion that exceeds 0.25 but not 0.5
+        moderate_positions = _generate_linear_positions((0.5, 0.5), (0.55, 0.5), 10)
+        results = _feed_positions(det, moderate_positions, dt=0.033)
+        # With threshold 0.5, moderate motion should NOT arm
+        assert all(not s.moving for s in results), "Should NOT arm with velocity below 0.5"

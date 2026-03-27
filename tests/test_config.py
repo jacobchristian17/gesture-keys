@@ -869,3 +869,166 @@ class TestDeriveFromActions:
         result = derive_from_actions(entries)
         with pytest.raises(AttributeError):
             result.gesture_modes = {}
+
+
+class TestMotionConfig:
+    """Tests for motion config fields in AppConfig and load_config."""
+
+    MINIMAL_YAML = (
+        "camera:\n  index: 0\n"
+        "actions:\n"
+        "  tap_palm:\n"
+        "    trigger: 'open_palm:static'\n"
+        "    key: space\n"
+    )
+
+    def test_appconfig_motion_defaults(self):
+        """AppConfig has motion fields with MotionDetector defaults."""
+        config = AppConfig()
+        assert config.motion_arm_threshold == 0.25
+        assert config.motion_disarm_threshold == 0.15
+        assert config.motion_axis_ratio == 2.0
+        assert config.motion_settling_frames == 3
+
+    def test_load_config_reads_motion_section(self, tmp_path):
+        """load_config with motion: section populates AppConfig motion fields."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "motion:\n"
+            + "  min_velocity: 0.5\n"
+            + "  axis_ratio: 3.0\n"
+            + "  settling_frames: 5\n"
+        )
+        config = load_config(str(cfg))
+        assert config.motion_arm_threshold == 0.5
+        assert config.motion_axis_ratio == 3.0
+        assert config.motion_settling_frames == 5
+
+    def test_load_config_without_motion_uses_defaults(self, tmp_path):
+        """load_config without motion: section uses MotionDetector defaults."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.motion_arm_threshold == 0.25
+        assert config.motion_disarm_threshold == 0.15
+        assert config.motion_axis_ratio == 2.0
+        assert config.motion_settling_frames == 3
+
+    def test_default_config_yaml_motion_values(self):
+        """Default config.yaml motion section populates AppConfig."""
+        config = load_config(DEFAULT_CONFIG)
+        assert config.motion_arm_threshold == 0.15  # min_velocity in YAML
+        assert config.motion_axis_ratio == 1.5
+        assert config.motion_settling_frames == 2
+
+
+class TestActionEntryMinVelocity:
+    """Tests for ActionEntry.min_velocity field."""
+
+    def test_action_entry_with_min_velocity(self):
+        """ActionEntry with min_velocity=0.5 stores the value."""
+        trigger = Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.UP)
+        entry = ActionEntry(
+            name="fast_swipe",
+            trigger=trigger,
+            key="up",
+            min_velocity=0.5,
+        )
+        assert entry.min_velocity == 0.5
+
+    def test_action_entry_without_min_velocity(self):
+        """ActionEntry without min_velocity has min_velocity=None."""
+        trigger = Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.UP)
+        entry = ActionEntry(
+            name="swipe",
+            trigger=trigger,
+            key="up",
+        )
+        assert entry.min_velocity is None
+
+    def test_parse_actions_min_velocity(self):
+        """parse_actions reads min_velocity from YAML dict."""
+        actions_dict = {
+            "fast_swipe": {
+                "trigger": "open_palm:moving:up",
+                "key": "up",
+                "min_velocity": 0.5,
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].min_velocity == 0.5
+
+    def test_parse_actions_no_min_velocity(self):
+        """parse_actions without min_velocity -> None."""
+        actions_dict = {
+            "swipe": {
+                "trigger": "open_palm:moving:up",
+                "key": "up",
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].min_velocity is None
+
+
+class TestDerivedConfigVelocityOverrides:
+    """Tests for DerivedConfig.moving_velocity_overrides."""
+
+    def test_moving_velocity_overrides_populated(self):
+        """MOVING trigger with min_velocity adds entry to moving_velocity_overrides."""
+        entries = [
+            ActionEntry(
+                name="fast_swipe",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.UP),
+                key="up",
+                min_velocity=0.5,
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("open_palm", "up") in result.moving_velocity_overrides
+        assert result.moving_velocity_overrides[("open_palm", "up")] == 0.5
+
+    def test_moving_without_min_velocity_not_in_overrides(self):
+        """MOVING trigger without min_velocity does NOT appear in overrides."""
+        entries = [
+            ActionEntry(
+                name="swipe",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.LEFT),
+                key="left",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("open_palm", "left") not in result.moving_velocity_overrides
+
+    def test_static_trigger_not_in_velocity_overrides(self):
+        """Static trigger never appears in moving_velocity_overrides."""
+        entries = [
+            ActionEntry(
+                name="tap",
+                trigger=Trigger(Gesture.FIST, TriggerState.STATIC),
+                key="space",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert len(result.moving_velocity_overrides) == 0
+
+
+class TestOrchestratorSignalVelocity:
+    """Tests for OrchestratorSignal.velocity field."""
+
+    def test_signal_with_velocity(self):
+        """OrchestratorSignal with velocity=0.35 carries velocity."""
+        from gesture_keys.orchestrator import OrchestratorAction, OrchestratorSignal
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.OPEN_PALM,
+            direction=Direction.LEFT, velocity=0.35,
+        )
+        assert signal.velocity == 0.35
+
+    def test_signal_default_velocity_zero(self):
+        """OrchestratorSignal without velocity defaults to 0.0."""
+        from gesture_keys.orchestrator import OrchestratorAction, OrchestratorSignal
+        signal = OrchestratorSignal(
+            OrchestratorAction.FIRE, Gesture.FIST,
+        )
+        assert signal.velocity == 0.0
