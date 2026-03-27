@@ -1,105 +1,49 @@
 # Gesture Keys
 
-Hand gesture to keyboard command mapping via webcam. Detect hand gestures in real time using MediaPipe and fire configurable keyboard shortcuts in any application.
+Hand gesture to keyboard command mapping via webcam.
 
-## Download
+## Installation
 
-**[Download GestureKeys.exe (Latest Release)](https://github.com/jacobchristian17/gesture-keys/releases/latest)**
+**[Download GestureKeys-v3.0-win64.zip](https://github.com/jacobchristian17/gesture-keys/releases/latest)**
 
-No Python installation required. Extract the zip and run `GestureKeys.exe`.
-
-## Supported Gestures
-
-
-| Gesture | Description | Default Key |
-|---------|-------------|-------------|
-| Open Palm | All 5 fingers extended | `win+tab` |
-| Fist | All fingers closed | `esc` |
-| Thumbs Up | Thumb extended | `enter` |
-| Peace | Index + middle fingers | `win+ctrl+left` |
-| Pointing | Index finger only | `alt+tab` |
-| Pinch | Index + thumb together | `win+down` |
-| Scout | Index + middle + ring | `win+ctrl+right` |
-
-All gestures and key mappings are configurable via `config.yaml`.
-
-## Usage
-
-### From the exe (recommended)
-
-1. Download and extract the latest release
-2. Run `GestureKeys.exe`
-3. A green circle icon appears in the system tray
-4. Right-click the tray icon for options:
-   - **Active/Inactive** — toggle gesture detection on/off
-   - **Edit Config** — open `config.yaml` in your default editor
-   - **Quit** — stop and exit
-
-### From source
-
-```bash
-# Clone and install dependencies
-git clone https://github.com/jacobchristian17/gesture-keys.git
-cd gesture-keys
-pip install -r requirements.txt
-
-# Run in tray mode (default, no window)
-python -m gesture_keys
-
-# Run with camera preview (for testing/debugging)
-python -m gesture_keys --preview
-```
-
-## Configuration
-
-Edit `config.yaml` to customize gestures, keys, and detection settings. Changes are hot-reloaded without restarting.
-
-```yaml
-camera:
-  index: 0              # Camera device index
-
-detection:
-  smoothing_window: 1   # Majority-vote smoothing frames
-  activation_delay: 0.05 # Seconds to hold gesture before firing
-  cooldown_duration: 0.5 # Seconds before gesture can re-fire
-
-gestures:
-  open_palm:
-    key: win+tab         # Key combo to fire
-    threshold: 0.7       # Detection confidence threshold
-  fist:
-    key: esc
-    threshold: 0.7
-  # Add or modify gestures as needed
-```
-
-### Key format
-
-- Single keys: `a`, `enter`, `esc`, `space`, `tab`, `f1`
-- Modifiers: `ctrl+c`, `alt+tab`, `win+d`, `shift+a`
-- Combos: `ctrl+shift+t`, `win+ctrl+left`
-
-## Building the exe
-
-```bash
-pip install pyinstaller
-python build_exe.py
-```
-
-Output: `dist/GestureKeys/GestureKeys.exe`
+Extract the zip and run `GestureKeys.exe`. No Python required.
 
 ## Requirements
 
 - Windows 10/11
 - Webcam
-- Python 3.10+ (only if running from source)
 
-## How it works
+## Usage
 
-Camera frames → MediaPipe hand landmarks → gesture classification (rule-based, right hand only) → frame smoothing → debounce state machine → keyboard command via pynput.
+1. Run `GestureKeys.exe` — a green circle appears in the system tray
+2. Point your index finger at the camera to arm gesture detection
+3. Perform a gesture to fire its mapped key
 
-Detection runs on a background thread. The system tray (pystray) runs on the main thread.
+Right-click the tray icon to toggle on/off, edit config, or quit.
 
-## License
+### Gestures
 
-MIT
+| Gesture | Default Key |
+|---------|-------------|
+| Open Palm | `win+tab` |
+| Fist | `space` (hold) |
+| Thumbs Up | `enter` |
+| Peace | `win+ctrl+left` |
+| Pointing | `alt+tab` |
+| Pinch | `win+down` |
+| Scout | `win+ctrl+right` |
+| Swipe Left/Right/Up/Down | `left` / `right` / `up` / `down` |
+| Fist → Open Palm | `esc` |
+
+All gestures and key mappings are configurable in `config.yaml`. Changes hot-reload without restart.
+
+### Running from source
+
+```bash
+git clone https://github.com/jacobchristian17/gesture-keys.git
+cd gesture-keys
+pip install -r requirements.txt
+python -m gesture_keys
+```
+
+Python 3.10+ required.
