@@ -30,14 +30,16 @@ class MotionState:
     Attributes:
         moving: True if hand velocity exceeds hysteresis arm threshold.
         direction: Cardinal direction of movement, or None if not moving.
+        velocity: Computed velocity in normalized coords/sec, 0.0 when not moving.
     """
 
     moving: bool
     direction: Optional[Direction] = None
+    velocity: float = 0.0
 
 
 # Singleton for not-moving state to avoid per-frame allocation.
-_NOT_MOVING = MotionState(moving=False)
+_NOT_MOVING = MotionState(moving=False, velocity=0.0)
 
 
 class MotionDetector:
@@ -74,6 +76,7 @@ class MotionDetector:
         )
         self._moving: bool = False
         self._direction: Optional[Direction] = None
+        self._velocity: float = 0.0
         self._hand_present: bool = False
         self._settling_remaining: int = 0
 
@@ -128,6 +131,7 @@ class MotionDetector:
         self._buffer.clear()
         self._moving = False
         self._direction = None
+        self._velocity = 0.0
         self._hand_present = False
         self._settling_remaining = 0
 
@@ -149,6 +153,7 @@ class MotionDetector:
             self._hand_present = False
             self._moving = False
             self._direction = None
+            self._velocity = 0.0
             self._buffer.clear()
             return _NOT_MOVING
 
@@ -159,6 +164,7 @@ class MotionDetector:
             self._buffer.clear()
             self._moving = False
             self._direction = None
+            self._velocity = 0.0
 
         # Extract wrist position
         wrist = landmarks[WRIST]
@@ -187,6 +193,9 @@ class MotionDetector:
         displacement = math.sqrt(dx * dx + dy * dy)
         velocity = displacement / dt
 
+        # Store velocity for _current_state()
+        self._velocity = velocity
+
         # Hysteresis state transitions
         if not self._moving:
             # Not moving -> check if velocity crosses arm threshold
@@ -204,6 +213,7 @@ class MotionDetector:
             if velocity < self._disarm_threshold:
                 self._moving = False
                 self._direction = None
+                self._velocity = 0.0
                 logger.debug("Motion disarmed (vel=%.3f)", velocity)
             elif velocity >= self._disarm_threshold:
                 # Still moving: update direction if changed
@@ -251,4 +261,4 @@ class MotionDetector:
         """Return current motion state, using singleton for not-moving."""
         if not self._moving:
             return _NOT_MOVING
-        return MotionState(moving=True, direction=self._direction)
+        return MotionState(moving=True, direction=self._direction, velocity=self._velocity)

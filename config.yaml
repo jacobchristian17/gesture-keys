@@ -54,7 +54,7 @@ actions:
 
   fist_to_palm:
     trigger: "fist > open_palm"
-    key: escape
+    key: esc
 
   swipe_left:
     trigger: "open_palm:moving:right"
@@ -72,7 +72,8 @@ actions:
     trigger: "open_palm:moving:down"
     key: down
 
-# Motion detection settings (consumed by Phase 23 MotionDetector)
+# Motion detection settings (global thresholds for MotionDetector)
+# Per-action overrides: add min_velocity to individual moving actions above
 motion:
   settling_frames: 2
   cooldown: 0.3

@@ -204,8 +204,13 @@ class Pipeline:
             enabled=config.distance_enabled,
         )
 
-        # Motion detection (continuous per-frame state)
-        self._motion_detector = MotionDetector()
+        # Motion detection (continuous per-frame state, initialized from config)
+        self._motion_detector = MotionDetector(
+            arm_threshold=config.motion_arm_threshold,
+            disarm_threshold=config.motion_disarm_threshold,
+            axis_ratio=config.motion_axis_ratio,
+            settling_frames=config.motion_settling_frames,
+        )
 
         # Activation gate (None = bypass mode when disabled or no gestures)
         if config.activation_gate_enabled and config.activation_gate_gestures:
@@ -450,7 +455,11 @@ class Pipeline:
             self._orchestrator.reset()
             self._smoother.reset()
 
-            # MotionDetector hot-reload: reset state (no config fields for motion thresholds yet)
+            # MotionDetector hot-reload: update properties from config, then reset state
+            self._motion_detector.arm_threshold = new_config.motion_arm_threshold
+            self._motion_detector.disarm_threshold = new_config.motion_disarm_threshold
+            self._motion_detector.axis_ratio = new_config.motion_axis_ratio
+            self._motion_detector.settling_frames = new_config.motion_settling_frames
             self._motion_detector.reset()
 
             self._distance_filter.enabled = new_config.distance_enabled

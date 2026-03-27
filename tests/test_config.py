@@ -44,9 +44,9 @@ class TestLoadConfigDefault:
         config = load_config(DEFAULT_CONFIG)
         assert config.smoothing_window == 2
 
-    def test_has_eleven_actions(self):
+    def test_has_twelve_actions(self):
         config = load_config(DEFAULT_CONFIG)
-        assert len(config.actions) == 11
+        assert len(config.actions) == 12
 
     def test_action_names(self):
         config = load_config(DEFAULT_CONFIG)
@@ -54,7 +54,8 @@ class TestLoadConfigDefault:
         expected = {
             "open_palm_switch", "fist_hold", "thumbs_up_tap",
             "pointing_switch", "peace_desktop_right", "scout_desktop_left",
-            "pinch_minimize", "swipe_left", "swipe_right", "swipe_up", "swipe_down",
+            "pinch_minimize", "fist_to_palm",
+            "swipe_left", "swipe_right", "swipe_up", "swipe_down",
         }
         assert names == expected
 
@@ -645,8 +646,8 @@ class TestDeriveFromActions:
         assert result.gesture_modes["fist"] == "hold_key"
         assert result.gesture_modes["peace"] == "tap"
 
-    def test_sequence_trigger_defaults_to_tap(self):
-        """SequenceTrigger always maps to tap."""
+    def test_sequence_trigger_does_not_set_gesture_mode(self):
+        """SequenceTrigger does not overwrite gesture_modes for first gesture."""
         entries = [
             ActionEntry(
                 name="seq_action",
@@ -658,7 +659,9 @@ class TestDeriveFromActions:
             ),
         ]
         result = derive_from_actions(entries)
-        assert result.gesture_modes["fist"] == "tap"
+        # Sequence triggers don't set gesture_modes; lifecycle is determined
+        # by each gesture's own trigger (if any).
+        assert "fist" not in result.gesture_modes
 
     def test_cooldown_overrides_collected(self):
         """Actions with cooldown populate gesture_cooldowns; without -> not in dict."""

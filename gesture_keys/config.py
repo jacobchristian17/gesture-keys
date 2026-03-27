@@ -45,6 +45,7 @@ class ActionEntry:
     bypass_gate: bool = False
     hand: str = "both"
     threshold: Optional[float] = None
+    min_velocity: Optional[float] = None
 
 
 def parse_actions(actions_dict: dict) -> list[ActionEntry]:
@@ -105,6 +106,10 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
         if threshold is not None:
             threshold = float(threshold)
 
+        min_velocity = settings.get("min_velocity")
+        if min_velocity is not None:
+            min_velocity = float(min_velocity)
+
         entries.append(
             ActionEntry(
                 name=action_name,
@@ -114,6 +119,7 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
                 bypass_gate=bool(settings.get("bypass_gate", False)),
                 hand=hand,
                 threshold=threshold,
+                min_velocity=min_velocity,
             )
         )
 
@@ -190,6 +196,7 @@ class DerivedConfig:
     left_moving: dict[tuple[str, str], Action]
     right_sequence: dict[tuple[str, str], Action]
     left_sequence: dict[tuple[str, str], Action]
+    moving_velocity_overrides: dict[tuple[str, str], float]
 
 
 def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
@@ -226,6 +233,7 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
     left_moving: dict[tuple[str, str], Action] = {}
     right_sequence: dict[tuple[str, str], Action] = {}
     left_sequence: dict[tuple[str, str], Action] = {}
+    moving_velocity_overrides: dict[tuple[str, str], float] = {}
 
     for entry in actions:
         # Infer fire mode from trigger state
@@ -235,11 +243,11 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
             fire_mode = _trigger_state_to_fire_mode[entry.trigger.state]
 
         # Key by gesture value (e.g. "fist") — orchestrator looks up gesture.value
-        if isinstance(entry.trigger, SequenceTrigger):
-            gesture_key = entry.trigger.first.gesture.value
-        else:
+        # Sequence triggers don't set gesture_modes: the first gesture's lifecycle
+        # is determined by its own trigger (e.g. fist:holding), not the sequence.
+        if not isinstance(entry.trigger, SequenceTrigger):
             gesture_key = entry.trigger.gesture.value
-        gesture_modes[gesture_key] = fire_mode.value
+            gesture_modes[gesture_key] = fire_mode.value
 
         # Collect cooldown overrides
         if entry.cooldown is not None:
@@ -291,6 +299,9 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
                 right_moving[map_key] = action
             if entry.hand in ("both", "left"):
                 left_moving[map_key] = action
+            # Collect per-action velocity overrides
+            if entry.min_velocity is not None:
+                moving_velocity_overrides[map_key] = entry.min_velocity
 
     return DerivedConfig(
         gesture_modes=gesture_modes,
@@ -304,6 +315,7 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
         left_moving=left_moving,
         right_sequence=right_sequence,
         left_sequence=left_sequence,
+        moving_velocity_overrides=moving_velocity_overrides,
     )
 
 
@@ -329,6 +341,10 @@ class AppConfig:
     activation_gate_duration: float = 3.0
     activation_gate_bypass: list[str] = field(default_factory=list)
     actions: list = field(default_factory=list)
+    motion_arm_threshold: float = 0.25
+    motion_disarm_threshold: float = 0.15
+    motion_axis_ratio: float = 2.0
+    motion_settling_frames: int = 3
 
 
 class ConfigWatcher:
@@ -414,6 +430,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     camera = raw.get("camera", {})
     detection = raw.get("detection", {})
     distance = raw.get("distance", {})
+    motion = raw.get("motion", {})
 
     preferred_hand = str(raw.get("preferred_hand", "left")).lower()
     if preferred_hand not in ("left", "right"):
@@ -466,4 +483,8 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         gesture_cooldowns=derived.gesture_cooldowns,
         activation_gate_bypass=activation_gate_bypass,
         actions=action_entries,
+        motion_arm_threshold=float(motion.get("min_velocity", 0.25)),
+        motion_disarm_threshold=float(motion.get("disarm_threshold", 0.15)),
+        motion_axis_ratio=float(motion.get("axis_ratio", 2.0)),
+        motion_settling_frames=int(motion.get("settling_frames", 3)),
     )

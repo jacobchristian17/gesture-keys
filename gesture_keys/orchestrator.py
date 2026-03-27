@@ -57,6 +57,7 @@ class OrchestratorSignal(NamedTuple):
     gesture: Gesture
     direction: Optional[Direction] = None
     second_gesture: Optional[Gesture] = None
+    velocity: float = 0.0
 
 
 @dataclass
@@ -395,6 +396,7 @@ class GestureOrchestrator:
                     OrchestratorAction.MOVING_FIRE,
                     gesture,
                     direction=motion_state.direction,
+                    velocity=motion_state.velocity,
                 )
             )
 
