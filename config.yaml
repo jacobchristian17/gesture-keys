@@ -73,13 +73,15 @@ actions:
     key: down
 
 # Motion detection settings (global thresholds for MotionDetector)
-# Per-action overrides: add min_velocity to individual moving actions above
+# Per-action overrides: add min_velocity or dispatch_interval to individual moving actions above
 motion:
   settling_frames: 2
   cooldown: 0.3
   min_velocity: 0.15
   min_displacement: 0.03
   axis_ratio: 1.5
+  dispatch_interval: 3  # Minimum seconds between moving_fire dispatches (0 = no throttle)
+                          # Per-action override: add dispatch_interval to individual actions
 
 # Activation gate: arm/disarm gesture detection with an activation gesture.
 # When enabled, gestures only fire actions while the gate is armed.
