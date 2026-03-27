@@ -531,3 +531,129 @@ class TestStuckKeyPrevention:
         end = OrchestratorSignal(OrchestratorAction.HOLD_END, Gesture.OPEN_PALM)
         dispatcher.dispatch(end)
         mock_sender.release_held.assert_not_called()
+
+
+# ===========================================================================
+# TestVelocityOverrides -- per-action min_velocity filtering
+# ===========================================================================
+
+class TestVelocityOverrides:
+    """Per-action min_velocity filtering in ActionDispatcher via ActionResolver."""
+
+    def test_resolver_get_min_velocity_returns_override(self):
+        """get_min_velocity returns override for mapped (gesture, direction)."""
+        overrides = {("open_palm", "left"): 0.5}
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+            velocity_overrides=overrides,
+        )
+        assert resolver.get_min_velocity("open_palm", Direction.LEFT) == 0.5
+
+    def test_resolver_get_min_velocity_returns_none_for_unmapped(self):
+        """get_min_velocity returns None for unmapped (gesture, direction)."""
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+        )
+        assert resolver.get_min_velocity("open_palm", Direction.UP) is None
+
+    def test_resolver_set_velocity_overrides(self):
+        """set_velocity_overrides updates the overrides dict."""
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+        )
+        resolver.set_velocity_overrides({("fist", "right"): 0.3})
+        assert resolver.get_min_velocity("fist", Direction.RIGHT) == 0.3
+
+    def test_moving_fire_below_min_velocity_does_not_send(self, mock_sender):
+        """MOVING_FIRE with velocity < min_velocity does NOT send keystroke."""
+        action = _make_action("up", FireMode.TAP, "swipe_up", key=Key.up)
+        overrides = {("open_palm", "up"): 0.5}
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={("open_palm", "up"): action},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+            velocity_overrides=overrides,
+        )
+        dispatcher = ActionDispatcher(mock_sender, resolver)
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE,
+            Gesture.OPEN_PALM,
+            direction=Direction.UP,
+            velocity=0.3,
+        )
+        dispatcher.dispatch(signal)
+        mock_sender.send.assert_not_called()
+
+    def test_moving_fire_above_min_velocity_does_send(self, mock_sender):
+        """MOVING_FIRE with velocity >= min_velocity DOES send keystroke."""
+        action = _make_action("up", FireMode.TAP, "swipe_up", key=Key.up)
+        overrides = {("open_palm", "up"): 0.5}
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={("open_palm", "up"): action},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+            velocity_overrides=overrides,
+        )
+        dispatcher = ActionDispatcher(mock_sender, resolver)
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE,
+            Gesture.OPEN_PALM,
+            direction=Direction.UP,
+            velocity=0.6,
+        )
+        dispatcher.dispatch(signal)
+        mock_sender.send.assert_called_once_with([], Key.up)
+
+    def test_moving_fire_no_override_does_send(self, mock_sender):
+        """MOVING_FIRE with no min_velocity override DOES send (global threshold already passed)."""
+        action = _make_action("left", FireMode.TAP, "swipe_left", key=Key.left)
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={("open_palm", "left"): action},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+        )
+        dispatcher = ActionDispatcher(mock_sender, resolver)
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE,
+            Gesture.OPEN_PALM,
+            direction=Direction.LEFT,
+            velocity=0.3,
+        )
+        dispatcher.dispatch(signal)
+        mock_sender.send.assert_called_once_with([], Key.left)
