@@ -210,8 +210,8 @@ activation_gate:
         path = tmp_path / "config.yaml"
         path.write_text(content)
         cfg = load_config(str(path))
-        assert "tap_palm" in cfg.activation_gate_bypass
-        assert "tap_fist" not in cfg.activation_gate_bypass
+        assert "open_palm" in cfg.activation_gate_bypass
+        assert "fist" not in cfg.activation_gate_bypass
 
     def test_per_action_bypass_merges_with_explicit_list(self, tmp_path):
         """bypass_gate: true merges with explicit bypass list."""
@@ -239,7 +239,7 @@ activation_gate:
         path = tmp_path / "config.yaml"
         path.write_text(content)
         cfg = load_config(str(path))
-        assert set(cfg.activation_gate_bypass) >= {"tap_palm", "peace"}
+        assert set(cfg.activation_gate_bypass) >= {"open_palm", "peace"}
 
     def test_activation_gate_partial_section(self, tmp_path):
         """Only 'enabled' provided — gestures and duration use defaults."""

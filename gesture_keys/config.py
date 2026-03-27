@@ -245,9 +245,13 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
         if entry.cooldown is not None:
             gesture_cooldowns[entry.name] = entry.cooldown
 
-        # Collect bypass_gate
+        # Collect bypass_gate — key by gesture value (gate checks gesture.value)
         if entry.bypass_gate:
-            activation_gate_bypass.append(entry.name)
+            if isinstance(entry.trigger, SequenceTrigger):
+                activation_gate_bypass.append(entry.trigger.first.gesture.value)
+                activation_gate_bypass.append(entry.trigger.second.gesture.value)
+            else:
+                activation_gate_bypass.append(entry.trigger.gesture.value)
 
         # Build Action with pre-parsed key
         modifiers, key = parse_key_string(entry.key)
@@ -427,9 +431,20 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     action_entries = parse_actions(raw["actions"])
     derived = derive_from_actions(action_entries)
 
+    # Resolve config-level bypass action names to gesture values
+    action_name_to_gesture: dict[str, str] = {}
+    for entry in action_entries:
+        if isinstance(entry.trigger, SequenceTrigger):
+            action_name_to_gesture[entry.name] = entry.trigger.first.gesture.value
+        else:
+            action_name_to_gesture[entry.name] = entry.trigger.gesture.value
+    resolved_bypass_cfg = [
+        action_name_to_gesture.get(name, name) for name in activation_gate_bypass_cfg
+    ]
+
     # Merge activation_gate bypass from config + derived bypass_gate flags
     activation_gate_bypass = list(
-        set(activation_gate_bypass_cfg) | set(derived.activation_gate_bypass)
+        set(resolved_bypass_cfg) | set(derived.activation_gate_bypass)
     )
 
     return AppConfig(

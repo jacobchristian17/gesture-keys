@@ -70,8 +70,8 @@ class TestLoadConfigDefault:
 
     def test_bypass_gate_derived(self):
         config = load_config(DEFAULT_CONFIG)
-        assert "peace_desktop_right" in config.activation_gate_bypass
-        assert "scout_desktop_left" in config.activation_gate_bypass
+        assert "peace" in config.activation_gate_bypass
+        assert "scout" in config.activation_gate_bypass
 
 
 class TestLoadConfigCustomPath:
@@ -385,7 +385,7 @@ class TestLoadConfigActions:
             "    bypass_gate: true\n"
         )
         config = load_config(str(cfg))
-        assert "bypass_it" in config.activation_gate_bypass
+        assert "peace" in config.activation_gate_bypass
 
 
 
@@ -694,8 +694,8 @@ class TestDeriveFromActions:
             ),
         ]
         result = derive_from_actions(entries)
-        assert "bypass_action" in result.activation_gate_bypass
-        assert "normal_action" not in result.activation_gate_bypass
+        assert "peace" in result.activation_gate_bypass
+        assert "fist" not in result.activation_gate_bypass
 
     def test_static_entry_in_right_static(self):
         """Static trigger -> appears in right_static keyed by gesture value."""
