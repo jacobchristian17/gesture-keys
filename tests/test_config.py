@@ -65,8 +65,8 @@ class TestLoadConfigDefault:
 
     def test_gesture_modes_derived(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.gesture_modes["fist_hold"] == "hold_key"
-        assert config.gesture_modes["open_palm_switch"] == "tap"
+        assert config.gesture_modes["fist"] == "hold_key"
+        assert config.gesture_modes["open_palm"] == "tap"
 
     def test_bypass_gate_derived(self):
         config = load_config(DEFAULT_CONFIG)
@@ -359,7 +359,7 @@ class TestLoadConfigActions:
             "    key: space\n"
         )
         config = load_config(str(cfg))
-        assert config.gesture_modes["hold_it"] == "hold_key"
+        assert config.gesture_modes["fist"] == "hold_key"
 
     def test_actions_derives_cooldowns(self, tmp_path):
         cfg = tmp_path / "cfg.yaml"
@@ -641,9 +641,9 @@ class TestDeriveFromActions:
         ]
         result = derive_from_actions(entries)
         assert isinstance(result, DerivedConfig)
-        assert result.gesture_modes["tap_action"] == "tap"
-        assert result.gesture_modes["hold_action"] == "hold_key"
-        assert result.gesture_modes["move_action"] == "tap"
+        assert result.gesture_modes["open_palm"] == "tap"
+        assert result.gesture_modes["fist"] == "hold_key"
+        assert result.gesture_modes["peace"] == "tap"
 
     def test_sequence_trigger_defaults_to_tap(self):
         """SequenceTrigger always maps to tap."""
@@ -658,7 +658,7 @@ class TestDeriveFromActions:
             ),
         ]
         result = derive_from_actions(entries)
-        assert result.gesture_modes["seq_action"] == "tap"
+        assert result.gesture_modes["fist"] == "tap"
 
     def test_cooldown_overrides_collected(self):
         """Actions with cooldown populate gesture_cooldowns; without -> not in dict."""

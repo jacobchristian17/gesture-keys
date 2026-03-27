@@ -234,7 +234,12 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
         else:
             fire_mode = _trigger_state_to_fire_mode[entry.trigger.state]
 
-        gesture_modes[entry.name] = fire_mode.value
+        # Key by gesture value (e.g. "fist") — orchestrator looks up gesture.value
+        if isinstance(entry.trigger, SequenceTrigger):
+            gesture_key = entry.trigger.first.gesture.value
+        else:
+            gesture_key = entry.trigger.gesture.value
+        gesture_modes[gesture_key] = fire_mode.value
 
         # Collect cooldown overrides
         if entry.cooldown is not None:
