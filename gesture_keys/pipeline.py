@@ -188,10 +188,12 @@ class Pipeline:
                 right_sequence=derived.right_sequence,
                 left_sequence=derived.left_sequence,
                 velocity_overrides=derived.moving_velocity_overrides,
+                dispatch_interval_overrides=derived.moving_dispatch_interval_overrides,
             )
             self._dispatcher = ActionDispatcher(
                 self._sender, self._resolver,
                 repeat_interval=config.hold_repeat_interval,
+                global_dispatch_interval=config.motion_dispatch_interval,
             )
         except ValueError as e:
             logger.error("Invalid key mapping in config: %s", e)
@@ -433,9 +435,11 @@ class Pipeline:
                 right_sequence=derived.right_sequence,
                 left_sequence=derived.left_sequence,
                 velocity_overrides=derived.moving_velocity_overrides,
+                dispatch_interval_overrides=derived.moving_dispatch_interval_overrides,
             )
             self._dispatcher._resolver = self._resolver
             self._dispatcher._repeat_interval = new_config.hold_repeat_interval
+            self._dispatcher._global_dispatch_interval = new_config.motion_dispatch_interval
             if self._prev_handedness is not None:
                 self._resolver.set_hand(self._prev_handedness)
 
