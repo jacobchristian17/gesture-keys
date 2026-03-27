@@ -9,8 +9,8 @@ Requirements for moving_fire dispatch throttling. Each maps to roadmap phases.
 
 ### Dispatch Throttling
 
-- [ ] **THRT-01**: User can configure a global dispatch interval for moving_fire actions (time-based cooldown between dispatches)
-- [ ] **THRT-02**: User can configure a per-action dispatch interval override on individual moving trigger actions
+- [x] **THRT-01**: User can configure a global dispatch interval for moving_fire actions (time-based cooldown between dispatches)
+- [x] **THRT-02**: User can configure a per-action dispatch interval override on individual moving trigger actions
 - [ ] **THRT-03**: Moving_fire dispatches are skipped when the interval since last dispatch for that action has not elapsed
 
 ## Future Requirements
@@ -30,8 +30,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| THRT-01 | Phase 25 | Pending |
-| THRT-02 | Phase 25 | Pending |
+| THRT-01 | Phase 25 | Complete |
+| THRT-02 | Phase 25 | Complete |
 | THRT-03 | Phase 25 | Pending |
 
 **Coverage:**

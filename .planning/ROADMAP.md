@@ -25,10 +25,10 @@
   2. User can override the dispatch interval on a specific moving trigger action and that action throttles independently of the global default
   3. When a moving_fire dispatch is skipped due to throttling, no keystroke is sent and the next dispatch fires as soon as the interval elapses
   4. Existing moving_fire behavior is unchanged when no dispatch_interval is configured (backward compatible)
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 25-01-PLAN.md — Config plumbing: ActionEntry, parse_actions, DerivedConfig, AppConfig, ActionResolver dispatch_interval support
+- [x] 25-01-PLAN.md — Config plumbing: ActionEntry, parse_actions, DerivedConfig, AppConfig, ActionResolver dispatch_interval support
 - [ ] 25-02-PLAN.md — Dispatcher throttle logic, pipeline wiring, config.yaml documentation
 
 ## Progress
@@ -38,4 +38,4 @@ Phase 25 is the only phase in this milestone.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 25. Dispatch Throttling | v3.1 | 0/2 | Not started | - |
+| 25. Dispatch Throttling | v3.1 | 1/2 | In Progress|  |
