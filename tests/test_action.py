@@ -6,7 +6,7 @@ release_all idempotency, unmapped gesture safety, MOVING_FIRE and
 SEQUENCE_FIRE dispatch.
 """
 
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -710,3 +710,114 @@ class TestDispatchIntervalOverrides:
         )
         resolver.set_dispatch_interval_overrides({("fist", "right"): 0.3})
         assert resolver.get_dispatch_interval("fist", Direction.RIGHT) == 0.3
+
+
+# ===========================================================================
+# TestMovingFireDispatchThrottling -- dispatch_interval throttling
+# ===========================================================================
+
+class TestMovingFireDispatchThrottling:
+    """Dispatch interval throttling in ActionDispatcher._handle_moving_fire."""
+
+    def _make_dispatcher(self, mock_sender, dispatch_interval_overrides=None,
+                         global_dispatch_interval=0):
+        """Helper to build a dispatcher with a moving action and overrides."""
+        action = _make_action("up", FireMode.TAP, "swipe_up", key=Key.up)
+        resolver = ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving={("open_palm", "up"): action},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+            dispatch_interval_overrides=dispatch_interval_overrides or {},
+        )
+        return ActionDispatcher(
+            mock_sender, resolver,
+            global_dispatch_interval=global_dispatch_interval,
+        )
+
+    def _make_signal(self):
+        return OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE,
+            Gesture.OPEN_PALM,
+            direction=Direction.UP,
+        )
+
+    @patch("gesture_keys.action.time")
+    def test_moving_fire_throttled_when_interval_not_elapsed(
+        self, mock_time, mock_sender,
+    ):
+        """Per-action dispatch_interval=0.2: fires at t=100.0, skips at t=100.1, fires at t=100.25."""
+        overrides = {("open_palm", "up"): 0.2}
+        d = self._make_dispatcher(mock_sender, dispatch_interval_overrides=overrides)
+        signal = self._make_signal()
+
+        # First fire at t=100.0 -- should send
+        mock_time.perf_counter.return_value = 100.0
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 1
+
+        # Second fire at t=100.1 -- interval not elapsed, should skip
+        mock_time.perf_counter.return_value = 100.1
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 1  # Still 1
+
+        # Third fire at t=100.25 -- interval elapsed, should send
+        mock_time.perf_counter.return_value = 100.25
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 2
+
+    @patch("gesture_keys.action.time")
+    def test_moving_fire_global_dispatch_interval_throttles(
+        self, mock_time, mock_sender,
+    ):
+        """Global dispatch_interval=0.3: fires at t=100.0, skips at t=100.1, fires at t=100.35."""
+        d = self._make_dispatcher(mock_sender, global_dispatch_interval=0.3)
+        signal = self._make_signal()
+
+        mock_time.perf_counter.return_value = 100.0
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 1
+
+        mock_time.perf_counter.return_value = 100.1
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 1
+
+        mock_time.perf_counter.return_value = 100.35
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 2
+
+    @patch("gesture_keys.action.time")
+    def test_moving_fire_per_action_overrides_global(
+        self, mock_time, mock_sender,
+    ):
+        """Per-action=0.1 AND global=0.5: per-action wins (fires at t=100.15)."""
+        overrides = {("open_palm", "up"): 0.1}
+        d = self._make_dispatcher(
+            mock_sender,
+            dispatch_interval_overrides=overrides,
+            global_dispatch_interval=0.5,
+        )
+        signal = self._make_signal()
+
+        mock_time.perf_counter.return_value = 100.0
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 1
+
+        # At 100.15, per-action interval (0.1) elapsed but global (0.5) hasn't
+        mock_time.perf_counter.return_value = 100.15
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 2  # Per-action wins
+
+    def test_moving_fire_no_throttle_when_unconfigured(self, mock_sender):
+        """Global=0 and no per-action override: fires every time (backward compat)."""
+        d = self._make_dispatcher(mock_sender, global_dispatch_interval=0)
+        signal = self._make_signal()
+
+        d.dispatch(signal)
+        d.dispatch(signal)
+        d.dispatch(signal)
+        assert mock_sender.send.call_count == 3

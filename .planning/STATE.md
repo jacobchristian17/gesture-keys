@@ -60,9 +60,10 @@ None.
 |---|-------------|------|--------|-----------|
 | 260327-jjq | Add per-action motion sensitivity overrides for moving gestures | 2026-03-27 | b1f8d0d | [260327-jjq-add-per-action-motion-sensitivity-overri](./quick/260327-jjq-add-per-action-motion-sensitivity-overri/) |
 | Phase 25-dispatch-throttling P01 | 3m | 2 tasks | 4 files |
+| 260327-nrq | Wire dispatch_interval throttling end-to-end | 2026-03-27 | d4c54d8 | [260327-nrq-debug-dispatch-interval-not-working](./quick/260327-nrq-debug-dispatch-interval-not-working/) |
 
 ## Session Continuity
 
-Last session: 2026-03-27T08:18:13.234Z
-Stopped at: Completed 25-dispatch-throttling-25-01-PLAN.md
+Last session: 2026-03-27T09:14:32Z
+Stopped at: Completed quick-260327-nrq
 Resume file: None
