@@ -30,15 +30,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| THRT-01 | — | Pending |
-| THRT-02 | — | Pending |
-| THRT-03 | — | Pending |
+| THRT-01 | Phase 25 | Pending |
+| THRT-02 | Phase 25 | Pending |
+| THRT-03 | Phase 25 | Pending |
 
 **Coverage:**
 - v3.1 requirements: 3 total
-- Mapped to phases: 0
-- Unmapped: 3
+- Mapped to phases: 3
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after initial definition*
+*Last updated: 2026-03-27 after roadmap creation*
