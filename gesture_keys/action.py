@@ -13,6 +13,7 @@ FireMode determines HOW a resolved action is executed:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, Union
@@ -248,12 +249,15 @@ class ActionDispatcher:
         sender: KeystrokeSender,
         resolver: ActionResolver,
         repeat_interval: float = 0.03,
+        global_dispatch_interval: float = 0,
     ) -> None:
         self._sender = sender
         self._resolver = resolver
         self._held_action: Optional[Action] = None
         self._repeat_interval = repeat_interval
         self._last_repeat_time: float = 0.0
+        self._global_dispatch_interval = global_dispatch_interval
+        self._last_dispatch_times: dict[tuple[str, str], float] = {}
 
     def dispatch(self, signal: OrchestratorSignal) -> None:
         """Route an orchestrator signal to the appropriate fire mode handler.
@@ -310,7 +314,7 @@ class ActionDispatcher:
         self._held_action = None
 
     def _handle_moving_fire(self, signal: OrchestratorSignal) -> None:
-        """Handle MOVING_FIRE -- resolve moving action, check velocity, send keystroke."""
+        """Handle MOVING_FIRE -- resolve moving action, check velocity, throttle, send keystroke."""
         action = self._resolver.resolve_moving(
             signal.gesture.value, signal.direction
         )
@@ -324,7 +328,29 @@ class ActionDispatcher:
                     signal.velocity, min_vel, action.gesture_name,
                 )
                 return
+
+            # Dispatch interval throttling
+            key = (signal.gesture.value, signal.direction.value)
+            interval = self._resolver.get_dispatch_interval(
+                signal.gesture.value, signal.direction
+            )
+            if interval is None:
+                interval = self._global_dispatch_interval
+            if interval > 0:
+                now = time.perf_counter()
+                last = self._last_dispatch_times.get(key, 0.0)
+                if now - last < interval:
+                    logger.debug(
+                        "MOVING_FIRE throttled: %.3fs < dispatch_interval %.3fs for %s",
+                        now - last, interval, action.gesture_name,
+                    )
+                    return
+
             self._sender.send(action.modifiers, action.key)
+
+            # Track dispatch time (after send, only when throttling is active)
+            if interval > 0:
+                self._last_dispatch_times[key] = time.perf_counter()
 
     def _handle_sequence_fire(self, signal: OrchestratorSignal) -> None:
         """Handle SEQUENCE_FIRE -- resolve sequence action and send keystroke."""
