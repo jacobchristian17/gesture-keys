@@ -179,6 +179,13 @@ class GestureOrchestrator:
         elif self._outer_state == LifecycleState.COOLDOWN:
             self._handle_cooldown(gesture, timestamp, signals)
 
+        # MOVING_FIRE: emit continuously regardless of lifecycle state
+        # whenever a gesture is detected and hand is moving with direction.
+        # This runs independently of the FSM so moving triggers fire every
+        # frame during motion, not just at lifecycle transition points.
+        if gesture is not None:
+            self._maybe_emit_moving_fire(gesture, motion_state, signals)
+
         # Build result
         return self._build_result(signals)
 
@@ -241,10 +248,7 @@ class GestureOrchestrator:
                 signals.append(
                     OrchestratorSignal(OrchestratorAction.FIRE, gesture)
                 )
-                # Emit MOVING_FIRE alongside FIRE if moving with direction
-                self._maybe_emit_moving_fire(
-                    gesture, motion_state, signals
-                )
+                # MOVING_FIRE is now emitted at top-level update(), not here
                 # Check for sequence completion
                 self._check_sequences(gesture, timestamp, signals)
 
@@ -278,8 +282,7 @@ class GestureOrchestrator:
         # Same gesture still active -> stay holding, cancel any release delay
         if gesture == held:
             self._release_delay_start = None
-            # Emit MOVING_FIRE each frame while holding and moving
-            self._maybe_emit_moving_fire(held, motion_state, signals)
+            # MOVING_FIRE is now emitted at top-level update(), not here
             return
 
         # Different gesture -> release current, start activating new

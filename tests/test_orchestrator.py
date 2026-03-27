@@ -772,8 +772,8 @@ class TestMovingFire:
         assert moving_sig.gesture == Gesture.FIST
         assert moving_sig.direction == Direction.RIGHT
 
-    def test_no_moving_fire_during_activating(self):
-        """No MOVING_FIRE during ACTIVATING (gesture not yet confirmed)."""
+    def test_moving_fire_during_activating(self):
+        """MOVING_FIRE emits during ACTIVATING (continuous motion signal)."""
         o = GestureOrchestrator(activation_delay=0.4)
         o.update(Gesture.FIST, 0.0)
         result = o.update(
@@ -782,10 +782,10 @@ class TestMovingFire:
         )
         assert result.outer_state == LifecycleState.ACTIVATING
         actions = [s.action for s in result.signals]
-        assert OrchestratorAction.MOVING_FIRE not in actions
+        assert OrchestratorAction.MOVING_FIRE in actions
 
-    def test_no_moving_fire_during_cooldown(self):
-        """No MOVING_FIRE during COOLDOWN."""
+    def test_moving_fire_during_cooldown(self):
+        """MOVING_FIRE emits during COOLDOWN (continuous motion signal)."""
         o = GestureOrchestrator(activation_delay=0.4, cooldown_duration=0.8)
         o.update(Gesture.FIST, 0.0)
         o.update(Gesture.FIST, 0.5)  # fires -> cooldown
@@ -796,7 +796,7 @@ class TestMovingFire:
         )
         assert result.outer_state == LifecycleState.COOLDOWN
         actions = [s.action for s in result.signals]
-        assert OrchestratorAction.MOVING_FIRE not in actions
+        assert OrchestratorAction.MOVING_FIRE in actions
 
     def test_no_moving_fire_when_motion_state_none(self):
         """No MOVING_FIRE when motion_state is None."""
