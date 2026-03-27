@@ -7,7 +7,7 @@ detection:
   smoothing_window: 2
   activation_delay: 0.2
   cooldown_duration: 0.1
-  sequence_window: 0.5       # seconds window for sequence gesture detection
+  sequence_window: 0.2       # seconds window for sequence gesture detection
 
 distance:
   enabled: true
@@ -19,6 +19,7 @@ actions:
     trigger: "open_palm:static"
     key: win+tab
     threshold: 0.7
+
 
   fist_hold:
     trigger: "fist:holding"
@@ -51,18 +52,19 @@ actions:
     trigger: "pinch:static"
     key: win+down
     threshold: 0.06
-
+               
   fist_to_palm:
-    trigger: "fist > open_palm"
-    key: esc
+    trigger: "open_palm > fist"
+    key: alt+tab
+    # bypass_gate: true
 
   swipe_left:
     trigger: "open_palm:moving:right"
-    key: right
+    key: left
 
   swipe_right:
     trigger: "open_palm:moving:left"
-    key: left
+    key: right
 
   swipe_up:
     trigger: "open_palm:moving:up"
@@ -80,7 +82,7 @@ motion:
   min_velocity: 0.15
   min_displacement: 0.03
   axis_ratio: 1.5
-  dispatch_interval: 3  # Minimum seconds between moving_fire dispatches (0 = no throttle)
+  dispatch_interval: 0.4  # Minimum seconds between moving_fire dispatches (0 = no throttle)
                           # Per-action override: add dispatch_interval to individual actions
 
 # Activation gate: arm/disarm gesture detection with an activation gesture.

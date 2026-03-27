@@ -372,13 +372,6 @@ class Pipeline:
 
         filtered_signals = self._filter_signals_through_gate(orch_result.signals, current_time)
 
-        # Log gate filtering results
-        blocked = len(orch_result.signals) - len(filtered_signals)
-        if blocked > 0:
-            for sig in orch_result.signals:
-                if sig not in filtered_signals:
-                    logger.info("GATE BLOCKED %s gesture=%s", sig.action.value, sig.gesture.value if sig.gesture else "?")
-
         # Dispatch filtered orchestrator signals through ActionDispatcher
         for signal in filtered_signals:
             logger.info("DISPATCH %s gesture=%s%s", signal.action.value, signal.gesture.value if signal.gesture else "?", f" dir={signal.direction.value}" if signal.direction else "")

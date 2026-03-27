@@ -136,7 +136,6 @@ def run_preview_mode(args):
                     run_preview_mode._was_moving = True
             else:
                 if getattr(run_preview_mode, '_was_moving', False):
-                    logger.info("MOTION stopped")
                     run_preview_mode._was_moving = False
 
             # Preview rendering
