@@ -925,6 +925,24 @@ class TestMotionConfig:
         assert config.motion_axis_ratio == 1.5
         assert config.motion_settling_frames == 2
 
+    def test_motion_dispatch_interval_parsed(self, tmp_path):
+        """load_config with motion.dispatch_interval: 0.2 -> config.motion_dispatch_interval == 0.2."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            self.MINIMAL_YAML
+            + "motion:\n"
+            + "  dispatch_interval: 0.2\n"
+        )
+        config = load_config(str(cfg))
+        assert config.motion_dispatch_interval == 0.2
+
+    def test_motion_dispatch_interval_default(self, tmp_path):
+        """load_config without motion.dispatch_interval -> config.motion_dispatch_interval == 0 (default)."""
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(self.MINIMAL_YAML)
+        config = load_config(str(cfg))
+        assert config.motion_dispatch_interval == 0
+
 
 class TestActionEntryMinVelocity:
     """Tests for ActionEntry.min_velocity field."""
@@ -1035,3 +1053,81 @@ class TestOrchestratorSignalVelocity:
             OrchestratorAction.FIRE, Gesture.FIST,
         )
         assert signal.velocity == 0.0
+
+
+class TestActionEntryDispatchInterval:
+    """Tests for ActionEntry.dispatch_interval field."""
+
+    def test_action_entry_with_dispatch_interval(self):
+        """ActionEntry with dispatch_interval=0.2 stores the value."""
+        trigger = Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.UP)
+        entry = ActionEntry(
+            name="throttled_swipe",
+            trigger=trigger,
+            key="up",
+            dispatch_interval=0.2,
+        )
+        assert entry.dispatch_interval == 0.2
+
+    def test_action_entry_without_dispatch_interval(self):
+        """ActionEntry without dispatch_interval has dispatch_interval=None."""
+        trigger = Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.UP)
+        entry = ActionEntry(
+            name="swipe",
+            trigger=trigger,
+            key="up",
+        )
+        assert entry.dispatch_interval is None
+
+    def test_parse_actions_dispatch_interval(self):
+        """parse_actions reads dispatch_interval=0.2 from YAML dict."""
+        actions_dict = {
+            "throttled_swipe": {
+                "trigger": "open_palm:moving:up",
+                "key": "up",
+                "dispatch_interval": 0.2,
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].dispatch_interval == 0.2
+
+    def test_parse_actions_no_dispatch_interval(self):
+        """parse_actions without dispatch_interval key -> None."""
+        actions_dict = {
+            "swipe": {
+                "trigger": "open_palm:moving:up",
+                "key": "up",
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].dispatch_interval is None
+
+
+class TestDerivedConfigDispatchIntervalOverrides:
+    """Tests for DerivedConfig.moving_dispatch_interval_overrides."""
+
+    def test_moving_dispatch_interval_overrides_populated(self):
+        """MOVING trigger with dispatch_interval=0.2 adds entry to moving_dispatch_interval_overrides."""
+        entries = [
+            ActionEntry(
+                name="throttled_swipe",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.UP),
+                key="up",
+                dispatch_interval=0.2,
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("open_palm", "up") in result.moving_dispatch_interval_overrides
+        assert result.moving_dispatch_interval_overrides[("open_palm", "up")] == 0.2
+
+    def test_moving_without_dispatch_interval_not_in_overrides(self):
+        """MOVING trigger without dispatch_interval does NOT appear in moving_dispatch_interval_overrides."""
+        entries = [
+            ActionEntry(
+                name="swipe",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.LEFT),
+                key="left",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("open_palm", "left") not in result.moving_dispatch_interval_overrides

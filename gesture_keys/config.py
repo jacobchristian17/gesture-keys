@@ -46,6 +46,7 @@ class ActionEntry:
     hand: str = "both"
     threshold: Optional[float] = None
     min_velocity: Optional[float] = None
+    dispatch_interval: Optional[float] = None
 
 
 def parse_actions(actions_dict: dict) -> list[ActionEntry]:
@@ -110,6 +111,10 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
         if min_velocity is not None:
             min_velocity = float(min_velocity)
 
+        dispatch_interval = settings.get("dispatch_interval")
+        if dispatch_interval is not None:
+            dispatch_interval = float(dispatch_interval)
+
         entries.append(
             ActionEntry(
                 name=action_name,
@@ -120,6 +125,7 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
                 hand=hand,
                 threshold=threshold,
                 min_velocity=min_velocity,
+                dispatch_interval=dispatch_interval,
             )
         )
 
@@ -197,6 +203,7 @@ class DerivedConfig:
     right_sequence: dict[tuple[str, str], Action]
     left_sequence: dict[tuple[str, str], Action]
     moving_velocity_overrides: dict[tuple[str, str], float]
+    moving_dispatch_interval_overrides: dict[tuple[str, str], float]
 
 
 def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
@@ -234,6 +241,7 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
     right_sequence: dict[tuple[str, str], Action] = {}
     left_sequence: dict[tuple[str, str], Action] = {}
     moving_velocity_overrides: dict[tuple[str, str], float] = {}
+    moving_dispatch_interval_overrides: dict[tuple[str, str], float] = {}
 
     for entry in actions:
         # Infer fire mode from trigger state
@@ -302,6 +310,9 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
             # Collect per-action velocity overrides
             if entry.min_velocity is not None:
                 moving_velocity_overrides[map_key] = entry.min_velocity
+            # Collect per-action dispatch interval overrides
+            if entry.dispatch_interval is not None:
+                moving_dispatch_interval_overrides[map_key] = entry.dispatch_interval
 
     return DerivedConfig(
         gesture_modes=gesture_modes,
@@ -316,6 +327,7 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
         right_sequence=right_sequence,
         left_sequence=left_sequence,
         moving_velocity_overrides=moving_velocity_overrides,
+        moving_dispatch_interval_overrides=moving_dispatch_interval_overrides,
     )
 
 
@@ -345,6 +357,7 @@ class AppConfig:
     motion_disarm_threshold: float = 0.15
     motion_axis_ratio: float = 2.0
     motion_settling_frames: int = 3
+    motion_dispatch_interval: float = 0
 
 
 class ConfigWatcher:
@@ -487,4 +500,5 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         motion_disarm_threshold=float(motion.get("disarm_threshold", 0.15)),
         motion_axis_ratio=float(motion.get("axis_ratio", 2.0)),
         motion_settling_frames=int(motion.get("settling_frames", 3)),
+        motion_dispatch_interval=float(motion.get("dispatch_interval", 0)),
     )
