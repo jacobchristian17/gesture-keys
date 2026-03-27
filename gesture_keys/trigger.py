@@ -172,9 +172,9 @@ def parse_trigger(trigger_string: str) -> Union[Trigger, SequenceTrigger]:
     if not trigger_string:
         raise TriggerParseError("empty trigger string")
 
-    # Sequence trigger: contains " > "
-    if " > " in trigger_string:
-        parts = trigger_string.split(" > ")
+    # Sequence trigger: contains ">"
+    if ">" in trigger_string:
+        parts = [p.strip() for p in trigger_string.split(">")]
         if len(parts) != 2:
             raise TriggerParseError(
                 "sequence trigger must have exactly two parts "
