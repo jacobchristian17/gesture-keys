@@ -82,6 +82,7 @@ class ActionResolver:
         right_sequence: Optional[dict[tuple[str, str], Action]] = None,
         left_sequence: Optional[dict[tuple[str, str], Action]] = None,
         velocity_overrides: Optional[dict[tuple[str, str], float]] = None,
+        dispatch_interval_overrides: Optional[dict[tuple[str, str], float]] = None,
     ) -> None:
         if right_static is not None:
             # New 8-map path
@@ -109,6 +110,7 @@ class ActionResolver:
         self._active_moving = self._right_moving
         self._active_sequence = self._right_sequence
         self._velocity_overrides: dict[tuple[str, str], float] = velocity_overrides or {}
+        self._dispatch_interval_overrides: dict[tuple[str, str], float] = dispatch_interval_overrides or {}
 
     def set_hand(self, handedness: str) -> None:
         """Switch active action maps based on detected hand.
@@ -186,6 +188,30 @@ class ActionResolver:
             overrides: Dict mapping (gesture_value, direction_value) -> min_velocity.
         """
         self._velocity_overrides = overrides
+
+    def get_dispatch_interval(
+        self, gesture_name: str, direction: Direction,
+    ) -> Optional[float]:
+        """Look up per-action dispatch interval override for a moving gesture.
+
+        Args:
+            gesture_name: The gesture value string (e.g. 'open_palm').
+            direction: The Direction enum member.
+
+        Returns:
+            Dispatch interval in seconds, or None if no override is set.
+        """
+        return self._dispatch_interval_overrides.get((gesture_name, direction.value))
+
+    def set_dispatch_interval_overrides(
+        self, overrides: dict[tuple[str, str], float],
+    ) -> None:
+        """Replace the dispatch interval overrides dict (used during hot-reload).
+
+        Args:
+            overrides: Dict mapping (gesture_value, direction_value) -> dispatch_interval.
+        """
+        self._dispatch_interval_overrides = overrides
 
     # Legacy resolve() for backward compatibility with pipeline.py dispatcher path
     def resolve(self, gesture_name: str) -> Optional[Action]:
