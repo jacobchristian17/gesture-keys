@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.1
-milestone_name: Moving Fire Dispatch Throttling
-status: executing
-stopped_at: Completed 25-dispatch-throttling-25-01-PLAN.md
-last_updated: "2026-03-27T08:18:13.237Z"
-last_activity: 2026-03-27 - Completed quick task 260327-nrq: debug: dispatch_interval not working
+milestone: v3.2
+milestone_name: Unified Preview & Exec Mode
+status: planning
+stopped_at: null
+last_updated: "2026-03-30"
+last_activity: 2026-03-30 - Milestone v3.2 started
 progress:
-  total_phases: 1
+  total_phases: 0
   completed_phases: 0
-  total_plans: 2
-  completed_plans: 1
+  total_plans: 0
+  completed_plans: 0
   percent: 0
 ---
 
@@ -18,17 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-27)
+See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 25 — dispatch-throttling
+**Current focus:** Defining requirements
 
 ## Current Position
 
-Phase: 25 (dispatch-throttling) — EXECUTING
-Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-03-27
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-30 — Milestone v3.2 started
 
 Progress: [░░░░░░░░░░] 0%
 

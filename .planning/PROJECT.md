@@ -44,18 +44,21 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Pipeline integration: MotionDetector + DerivedConfig end-to-end — v3.0
 - ✓ Legacy swipe code and config formats removed, clean tri-state codebase — v3.0
 
-## Current Milestone: v3.1 Moving Fire Dispatch Throttling
+## Current Milestone: v3.2 Unified Preview & Exec Mode
 
-**Goal:** Add configurable rate-limiting for moving_fire dispatches so users can control how frequently movement triggers fire during continuous motion.
+**Goal:** Merge --preview and normal execution so the background process always runs, with dev mode showing camera+logging by default, tray mode gaining a "View Camera" option, and --debug for verbose logging.
 
 **Target features:**
-- Configurable moving_fire dispatch interval/cooldown (throttle to max N dispatches per second)
-- Global default + per-action override capability (consistent with existing per-action motion sensitivity pattern)
+- Dev mode (`python -m gesture_keys`) always shows camera preview + logging
+- Tray/exe mode adds "View Camera" menu item that restarts app with camera visible
+- --debug flag enables detailed/verbose logging output
+- Remove --preview as a separate concept (preview is default dev behavior)
 
 ### Active
 
-- [ ] Configurable moving_fire dispatch throttling
-- [ ] Per-action dispatch interval override for moving triggers
+- [ ] Unified dev mode with camera preview + logging always on
+- [ ] Tray "View Camera" menu item to restart with camera visible
+- [ ] --debug flag for verbose logging output
 
 ### Out of Scope
 
@@ -130,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after v3.1 milestone started*
+*Last updated: 2026-03-30 after v3.2 milestone started*
