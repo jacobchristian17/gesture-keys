@@ -1,12 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_data_files
 
-datas = [('C:\\Users\\wsenr\\repos\\source\\gesture-keys\\models\\hand_landmarker.task', 'models'), ('C:\\Users\\wsenr\\repos\\source\\gesture-keys\\config.yaml', '.')]
+datas = [('C:\\Users\\Denisse\\repos\\tools\\gesture-keys\\models\\hand_landmarker.task', 'models'), ('C:\\Users\\Denisse\\repos\\tools\\gesture-keys\\config.yaml', '.')]
 datas += collect_data_files('mediapipe')
 
 
 a = Analysis(
-    ['C:\\Users\\wsenr\\repos\\source\\gesture-keys\\gesture_keys\\__main__.py'],
+    ['C:\\Users\\Denisse\\repos\\tools\\gesture-keys\\gesture_keys\\__main__.py'],
     pathex=[],
     binaries=[],
     datas=datas,

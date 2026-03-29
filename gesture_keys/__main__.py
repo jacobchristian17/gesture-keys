@@ -10,6 +10,7 @@ import cv2
 
 from gesture_keys import __version__
 from gesture_keys.config import load_config
+from gesture_keys.logging_setup import setup_logging
 from gesture_keys.pipeline import Pipeline
 from gesture_keys.preview import draw_hand_landmarks, render_preview
 
@@ -48,6 +49,7 @@ def hide_console_window():
 
 def run_tray_mode(args):
     """Run in system tray mode (default, no preview)."""
+    setup_logging()
     hide_console_window()
     from gesture_keys.tray import TrayApp
     app = TrayApp(config_path=args.config)
@@ -77,13 +79,15 @@ def run_preview_mode(args):
     config = load_config(args.config)
     print_banner(config, args.config)
 
-    # Setup logging: [HH:MM:SS] format per CONTEXT.md
+    # File logging to _internal/logs (preview.log + debug.log)
+    setup_logging()
+
+    # Console logging for preview mode
     log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(
-        format="[%(asctime)s] %(message)s",
-        datefmt="%H:%M:%S",
-        level=log_level,
-    )
+    console = logging.StreamHandler()
+    console.setLevel(log_level)
+    console.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S"))
+    logging.getLogger("gesture_keys").addHandler(console)
 
     pipeline = Pipeline(args.config)
     pipeline.start()
@@ -103,8 +107,8 @@ def run_preview_mode(args):
             if not result.frame_valid:
                 continue
 
-            # Per-frame debug logging (preview-only)
-            if args.debug and result.landmarks:
+            # Per-frame debug logging
+            if result.landmarks:
                 motion_info = ""
                 if result.motion_state and result.motion_state.moving:
                     motion_info = f" motion={result.motion_state.direction.value if result.motion_state.direction else '?'}"
