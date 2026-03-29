@@ -1,220 +1,184 @@
 # Project Research Summary
 
-**Project:** gesture-keys v2.0 — Structured Gesture Architecture
-**Domain:** Real-time webcam gesture-to-keystroke pipeline
-**Researched:** 2026-03-24
+**Project:** Gesture Keys v3.2 — Unified Preview & Exec Mode
+**Domain:** Python desktop tray app with gesture detection (Windows)
+**Researched:** 2026-03-30
 **Confidence:** HIGH
 
 ## Executive Summary
 
-gesture-keys v2.0 is a structured architectural rewrite of an existing, working gesture-to-keystroke system. The current v1.3 codebase (7,549 LOC) has accumulated organically: a 570-line `__main__.py` and 515-line `tray.py` with nearly-identical detection loops, a 338-line `debounce.py` monolith, and 20+ bare state variables scattered across the main loop. The rewrite goal is to decompose this into a clean pipeline — GestureOrchestrator, ActionResolver, FireModeExecutor, Pipeline — with activation gating and a gesture hierarchy (static base + hold/swipe temporal modifiers). No new dependencies are needed; the entire architecture is implementable with the existing stack plus Python stdlib enums, NamedTuples, and dataclasses.
+Gesture Keys v3.2 is a control-flow refactor of an existing, well-structured Python desktop application. The milestone's goal is to unify how the app launches and behaves across development and end-user (frozen exe) contexts: developers running `python -m gesture_keys` should immediately see the camera and console logs without any flags, while the frozen `.exe` continues to launch silently as a system tray app. A new "View Camera" tray menu item lets users open the camera preview on demand. No new dependencies are required — every capability needed exists in the codebase or Python stdlib.
 
-The recommended approach is an incremental refactor — not a from-scratch rewrite. The critical first move is building a behavior inventory and regression test suite from the existing code, then extracting a unified `Pipeline` class that both preview and tray modes share, eliminating the duplication risk before adding any new features. Once a single pipeline exists, new components (GestureOrchestrator replacing GestureDebouncer, ActionResolver extracting scattered dispatch logic, FireModeExecutor encapsulating hold state) can be introduced one layer at a time with the system remaining functional and testable after each step. The feature hierarchy — static gesture as base, hold and swipe as temporal modifiers, tap and hold_key as fire modes — is well-understood and maps cleanly to a 6-state orchestrator FSM that subsumes the current debouncer and main-loop coordination code.
+The recommended approach is a three-phase entry-point refactor. Phase 1 consolidates logging and restructures `main()` into three clearly-separated run functions (`run_dev_mode`, `run_tray_mode`, `run_camera_mode`). Phase 2 implements the "View Camera" tray feature using a subprocess restart pattern — the only viable design given that pystray and OpenCV both require the Windows main thread. Phase 3 polishes the debug flag behavior and cleans up minor technical debt. The `Pipeline` class, `preview.py`, and `config.py` require zero modifications; only `__main__.py`, `tray.py`, and `logging_setup.py` change.
 
-The dominant risks are: (1) stuck keys from incomplete hold-key lifecycle management, which must be addressed in the very first phase that implements FireModeExecutor; (2) behavioral regressions from dropping the ~10 subtle edge-case behaviors accumulated across v1.0-v1.3, which requires a behavior inventory and regression test suite before any refactoring begins; and (3) the rewrite killing the active feedback loop if the system becomes non-functional for extended periods. All three risks are mitigated by the incremental approach and a hard feature-parity checkpoint before any new user-facing behavior is introduced.
+The single most critical risk is the pystray/OpenCV thread conflict: both frameworks demand the Win32 main thread, making it impossible to open an OpenCV camera window inside a running tray process. This forces the "View Camera" feature to use process restart rather than an in-process window toggle. The restart sequence itself has three compounding hazards — camera resource exclusivity, ghost tray icons, and stuck keys — all prevented by the same pattern: set a flag in the menu callback, let `icon.run()` return cleanly, join the detection thread, confirm camera release, then spawn the subprocess.
 
 ## Key Findings
 
 ### Recommended Stack
 
-No new dependencies. The v2.0 architecture is a clean decomposition of existing code, not an expansion of the tech stack. All components use Python stdlib: `enum.Enum` for state machines (already the established pattern in debounce.py and classifier.py), `typing.NamedTuple` for typed signals between components (already used for `DebounceSignal`), `dataclasses.dataclass` for config objects (already used for `AppConfig`), and `time.perf_counter` for timing (already used throughout). State machine libraries were evaluated and rejected — the new machines each have 2-4 states, and library DSL overhead exceeds the cost of the boilerplate they would replace. The existing requirements.txt is unchanged.
+The existing stack handles all v3.2 requirements without modification or addition. No new packages needed. The work is routing logic and control flow, not capability expansion.
 
 **Core technologies:**
-- mediapipe >=0.10.33: hand landmark detection — unchanged, detector.py untouched
-- opencv-python >=4.8.0: camera capture and preview — unchanged
-- pynput >=1.7.6: keystroke simulation — unchanged; `send()`, `press_and_hold()`, `release_held()` already fully implemented
-- PyYAML >=6.0: config loading and hot-reload — additive schema changes only (new `activation` section)
-- pytest >=8.0: unit testing — each new component gets isolated tests with deterministic timestamps
+
+- mediapipe / opencv-python: camera capture and hand landmark detection — unchanged
+- pystray: system tray icon and menu — gains one new `MenuItem("View Camera", ...)` entry, no API additions needed
+- PyYAML / pynput / Pillow: config, keystroke simulation, icon rendering — all unchanged
+- `subprocess.Popen` (stdlib): spawns the camera-window child process from the tray — non-blocking, works identically for frozen exe and dev mode
+- `argparse` (stdlib): mode flags — `--preview` removed, `--view-camera` added as internal flag, `--debug` wired to both modes
+- `ctypes.windll` (stdlib): console window show/hide — already implemented in `hide_console_window()`
+- `logging` (stdlib): unified via `setup_logging(console, debug)` parameters — centralizes what is currently split between `logging_setup.py` and an ad-hoc handler in `run_preview_mode()`
+
+See `.planning/research/STACK.md` for full rationale and alternatives considered.
 
 ### Expected Features
 
-**Must have (v2.0 core — build in dependency order):**
-- Config schema for structured gestures — define first; drives all downstream components; new `activation` section, temporal modifiers nested under gesture keys
-- Action dispatch resolver — `(gesture, temporal_state) -> (key, fire_mode)` lookup table extracted from scattered main-loop if/elif chains
-- Fire mode executor — thin wrapper over existing KeystrokeSender; dispatches tap (press+release) vs hold_key (sustained keypress with lifecycle tracking)
-- Activation gate integration — consumes activation gesture, arms/disarms system; default bypass (disabled) to preserve v1.x behavior
-- Hold temporal state — gesture held past configurable threshold changes action; emits hold-start/hold-end signals; highest-risk feature due to lifecycle edge cases
-- Swiping temporal state — swipe as modifier on static gesture, replacing current COMPOUND_FIRE/SWIPE_WINDOW debounce states
-- GestureOrchestrator — unified state machine replacing GestureDebouncer and ~100 lines of main-loop coordination
-- Pipeline class — single shared class eliminating duplication between preview and tray mode detection loops
+**Must have (v3.2 table stakes):**
 
-**Should have (v2.x — after core is validated):**
-- Activation bypass for specific gestures — allowlist of gestures that skip the gate
-- Activation gate visual feedback — preview overlay armed/disarmed indicator
-- Hold-to-hold temporal chaining — fluid transitions between sustained keys without returning to idle
-- Per-action fire mode in config — mixed tap/hold_key on same gesture's temporal variants
+- Unified dev mode — `python -m gesture_keys` shows camera + INFO console logging by default; no flag needed
+- Remove `--preview` flag — deprecated alias that prints a warning and enters dev mode; preserves brief backward compatibility
+- `--debug` flag wired to all modes — enables DEBUG-level console output in dev mode and camera mode; file handlers unchanged
 
-**Defer (v3+):**
-- Additional rule-based gestures (hang loose, OK sign) — expand if 6 proves limiting
-- Gesture macros (sequence of keys from single gesture)
-- Left/right hand with different gesture hierarchies
+**Should have (competitive differentiators):**
 
-**Anti-features to avoid permanently:**
-- Two-hand simultaneous gestures — doubles state space, MediaPipe multi-hand tracking is jittery
-- Sequence gestures (A then B) — exponential state space, poor UX recall
-- Double-tap temporal modifier — timing penalty on ALL single taps (QMK/ZMK community consensus: worst tap-hold variant)
-- Per-application profiles — fragile foreground window detection, config explosion
+- Tray "View Camera" menu item — single-click subprocess restart that opens the camera window; tray pauses detection while camera is active and resumes when camera window closes
+- "Hide Camera" reverse toggle (v3.2.x) — menu item to restart back to tray-only mode
+- Tray icon color change when camera is active (v3.2.x) — visual state indicator using the existing `_create_icon_image()` pattern
+
+**Defer to v4+:**
+
+- `--log-file` flag for custom log destinations
+- Camera window position memory across restarts (Windows registry or config file)
+- Multi-level verbosity (`-v`/`-vv`) — overkill; two levels (INFO/DEBUG) are sufficient
+
+See `.planning/research/FEATURES.md` for the full prioritization matrix and implementation approach comparison.
 
 ### Architecture Approach
 
-The v2.0 pipeline separates what was a single tangled main loop into five distinct layers with clean data flow: frame acquisition (CameraCapture, HandDetector, HandSelector) feeds into filtering (DistanceFilter, ActivationGate), then classification (GestureClassifier, GestureSmoother, SwipeDetector), then orchestration (GestureOrchestrator emitting typed OrchestratorSignal), then action resolution (ActionResolver mapping signal to ResolvedAction), then execution (FireModeExecutor calling KeystrokeSender). A Pipeline class owns all components and is the only entity that calls reset() on any component — eliminating the current anti-pattern of the main loop mutating debouncer internals directly (`debouncer._state = DebounceState.COOLDOWN`).
+The target architecture introduces three separate run functions behind a clean `main()` router: a frozen exe enters `run_tray_mode`, a `--view-camera` flag enters `run_camera_mode` (spawned by the tray), and all other (dev) launches enter `run_dev_mode`. A shared `_camera_loop()` helper extracted from the current `run_preview_mode` is called by both `run_dev_mode` and `run_camera_mode`, eliminating the conditional `if args.preview:` guards scattered through the current detection loop. Logging is centralized in `setup_logging(console, debug)` to remove the ad-hoc console handler currently added inline in `run_preview_mode`.
 
-**Major components:**
-1. **GestureOrchestrator** — replaces GestureDebouncer (338 lines) and ~100 lines of main-loop coordination; unified 6-state FSM (IDLE, ACTIVATING, SWIPE_WINDOW, FIRED, HOLDING, COOLDOWN) that takes both static gesture and swipe direction as inputs and coordinates them internally
-2. **ActionResolver** — pre-parsed lookup table `(OrchestratorSignal) -> ResolvedAction`; consolidates three near-identical `_parse_key_mappings` functions currently duplicated in `__main__.py` and `tray.py`; supports per-hand mapping swap and hot-reload
-3. **FireModeExecutor** — encapsulates hold state (currently 6 bare variables in main loop); provides single `release_all()` called from one cleanup path, not scattered across 12+ locations
-4. **Pipeline** — wires all components; owns reset cascade logic; exposes `process_frame()`, `reload_config()`, `shutdown()`; reduces preview mode to ~50 lines and tray mode to ~30 lines from ~500 lines each
-5. **HandSelector** — extracted from HandDetector + main loop hand-switch boilerplate; exposes `hand_changed` flag for pipeline reset coordination
+**Major components and their changes:**
 
-**New files:** `types.py`, `hand_selector.py`, `orchestrator.py`, `action_resolver.py`, `fire_executor.py`, `pipeline.py`
-**Removed:** `debounce.py` (replaced by orchestrator.py)
-**Unchanged:** `classifier.py`, `smoother.py`, `swipe.py`, `distance.py`, `keystroke.py`
+1. `__main__.py` (MODIFY) — new routing logic, three run functions, `_camera_loop()` helper, remove `--preview`, add `--view-camera`
+2. `logging_setup.py` (MODIFY) — `setup_logging()` gains `console: bool` and `debug: bool` parameters; all handler creation centralized here; `logger.propagate = False` added to block mediapipe/PIL log noise
+3. `tray.py` (MODIFY) — "View Camera" menu item; `_on_view_camera()` handler using the flag-set-then-act-after-run pattern; background thread that waits for child exit and resumes detection
+4. `pipeline.py` (NONE) — no changes; already exposes `last_frame`, has a clean start/stop lifecycle, and is fully mode-agnostic
+5. `preview.py`, `config.py`, all other modules (NONE) — untouched
+
+**Recommended build order (from ARCHITECTURE.md):**
+
+1. Consolidate logging signature — zero risk, enables clean logging in all subsequent steps
+2. Extract `_camera_loop()` helper and validate with the existing `--preview` flag
+3. Add `run_dev_mode` / `run_camera_mode`, update `main()` routing, remove `--preview`
+4. Add "View Camera" to TrayApp — most complex piece; depends on step 3
+
+See `.planning/research/ARCHITECTURE.md` for full component diagrams, data flow diagrams, and concrete code sketches.
 
 ### Critical Pitfalls
 
-1. **Stuck keys from incomplete hold_key lifecycle** — The new FireModeExecutor must have ONE cleanup path (not scattered across 12+ locations as in v1.3). Every exit event (gate expiry, distance exit, hand switch, app toggle, config reload, process crash) must route through `fire_executor.release_all()`. Add `atexit.register(sender.release_all)` as last resort. Add a watchdog: auto-release after 30 seconds maximum hold. Test all 5 exit paths explicitly.
+1. **OpenCV and pystray cannot coexist in one process** — both require the Win32 main thread on Windows; attempting to open `cv2.imshow` from a tray menu callback hangs or crashes. Use subprocess restart exclusively for "View Camera." This is a Phase 1 design decision that must be locked in from the start.
 
-2. **Behavioral regressions from rewrite** — The current code contains ~10 subtle fixes accumulated across v1.0-v1.3 that are encoded in code but not documented as requirements (swipe-exit reset, pre-swipe gesture suppression, static-first priority gate, distance gate full pipeline reset, hand switch atomic reset, compound swipe suppression timing, unmapped swipe reset, COOLDOWN->ACTIVATING direct transition, hold release delay, sticky active hand). Build a behavior inventory and regression test suite BEFORE touching any code.
+2. **Camera must be released before spawning the subprocess** — the tray holds an exclusive USB camera lock; if the child process starts before `cap.release()` completes, it sees "camera in use." Fix: join the detection thread after `icon.run()` returns before spawning.
 
-3. **Activation gate creating unusable dead zones** — Make the gate optional with bypass as the default (preserving v1.x behavior). Users opt in to gating. Provide clear visual feedback when armed. Allow re-arming by making the activation gesture again to reset the timer.
+3. **Ghost tray icons from premature process exit** — calling `sys.exit()` from inside a pystray menu callback exits before `WM_QUIT` is processed, leaving stranded icons. Fix: set a flag in the callback, perform all spawn/exit logic only after `icon.run()` returns.
 
-4. **Rewrite killing the active feedback loop** — The system must remain functional at every step. Incremental refactor with a feature parity checkpoint before any new user-facing behavior is added. Do NOT start with the activation gate. Start with pipeline unification.
+4. **Subprocess fork bomb in frozen PyInstaller builds** — `sys.executable` is `GestureKeys.exe` when frozen; spawning it without the right flags re-enters tray mode, which spawns again infinitely. Fix: branch on `getattr(sys, 'frozen', False)`, redirect stdio to `subprocess.DEVNULL`, forward the resolved `--config` path.
 
-5. **"Hold" naming collision** — `mode: hold` in the current config means "sustained keypress fire mode." The v2.0 spec introduces "hold" as a temporal state modifier (gesture held N seconds selects a different action). These are different concepts. Use `hold_key` for fire mode and `hold` (or `long_press`) for temporal state. Clarify before any implementation.
+5. **Held keys not released before restart** — if the detection thread is bypassed, `pipeline.stop()` / `dispatcher.release_all()` never runs and OS keys remain pressed. Fix: the "View Camera" shutdown sequence must match `_on_quit` exactly: `_shutdown.set()` + `_active.set()` + `icon.stop()` + join detection thread + spawn.
+
+6. **Logging handler accumulation** — the `gesture_keys` logger is a singleton; adding handlers from multiple call sites causes duplicate console output or missing file logs. Fix: centralize all handler creation in `setup_logging()` with per-type duplicate guards; set `logger.propagate = False`.
+
+See `.planning/research/PITFALLS.md` for the full checklist, recovery strategies, and the "Looks Done But Isn't" acceptance checklist (11 items).
 
 ## Implications for Roadmap
 
-Based on research, the dependency graph and pitfall mitigations constrain the build order tightly. The architecture research provides an explicit 6-phase build order that should be followed directly.
+Based on research, the milestone decomposes naturally into three phases following the dependency chain: logging foundation → entry point unification → tray subprocess integration. Each phase is independently testable and leaves the app functional.
 
-### Phase 1: Behavior Inventory and Regression Test Suite
+### Phase 1: Logging and Entry Point Foundation
 
-**Rationale:** Prerequisite for all other work. Pitfall 2 (behavioral regressions) gates all subsequent phases. The behavior inventory documents all ~10 subtle edge-case behaviors from v1.0-v1.3. Regression tests must pass against the new code at every phase. Without this, the rewrite has no safety net.
+**Rationale:** Both dev-mode-default and "View Camera" depend on `main()` understanding three distinct launch modes. Logging must be centralized before restructuring the entry point — otherwise each new run function re-introduces the ad-hoc console handler anti-pattern. These are zero-risk changes that unlock everything else.
 
-**Delivers:** Documented behavior inventory; integration test suite covering all edge cases; `GestureSequencePlayer` test utility for feeding pre-recorded gesture sequences through the full pipeline.
+**Delivers:** `setup_logging(console, debug)` unified API; `run_dev_mode`, `run_camera_mode`, and `run_tray_mode` as separate functions; updated `main()` router; `--preview` deprecated as alias; `--view-camera` internal flag added; `_camera_loop()` helper extracted from `run_preview_mode`.
 
-**Addresses:** Pitfall 2 (behavioral regressions), Pitfall 13 (test suite cannot test real sequences).
+**Addresses:** Dev mode default camera (P1), `--debug` flag wired to both modes (P1), remove `--preview` (P1)
 
-**Avoids:** The classic rewrite failure mode where months of subtle fixes are discarded.
+**Avoids:** Logging handler accumulation (Pitfall 6), conditional preview rendering anti-pattern, `_was_moving` function-attribute state debt
 
-### Phase 2: Shared Types and Pipeline Unification
+**Research flag:** Standard patterns — pure refactoring of well-understood code; no phase research needed.
 
-**Rationale:** The 90% code duplication between `__main__.py` and `tray.py` is the structural root of all divergence risk. Every subsequent feature would have to be implemented twice. The Pipeline class must exist before any new components are built. Config schema must be defined before ActionResolver is built (it drives the lookup structure). This phase also defines the shared data types (`HandFrame`, `OrchestratorSignal`, `ResolvedAction`, `FrameResult`) that all downstream components depend on.
+### Phase 2: Tray "View Camera" Subprocess Integration
 
-**Delivers:** `types.py` with all shared data types; `Pipeline` class as thin wrapper around existing components (no behavioral change); preview and tray modes reduced to thin callers of `Pipeline.process_frame()`; all regression tests passing (feature parity checkpoint).
+**Rationale:** Depends entirely on Phase 1's `--view-camera` flag and the unified entry point. This is the highest-complexity feature, with five distinct correctness hazards that must be addressed in a specific sequence. Testing must cover both the dev launch path and the frozen `dist/GestureKeys/GestureKeys.exe`.
 
-**Implements:** types.py, pipeline.py (initial), HandSelector extraction.
+**Delivers:** "View Camera" menu item in the tray; tray pauses detection and releases camera before spawning the child process; background thread resumes detection when child exits; clean subprocess lifecycle for both frozen and dev contexts.
 
-**Addresses:** Pitfall 5 (duplicated loop divergence), Pitfall 9 (config backwards compatibility — new activation section added with defaults that reproduce v1.x behavior).
+**Uses:** `subprocess.Popen` with `CREATE_NEW_CONSOLE` + `DEVNULL` stdio; `sys.frozen` branching for command construction; `threading.Thread` for the wait-and-resume pattern; existing `TrayApp._active` / `_shutdown` events.
 
-### Phase 3: GestureOrchestrator
+**Avoids:** OpenCV/pystray thread conflict (Pitfall 1), camera race condition (Pitfall 3), ghost tray icons (Pitfall 4), fork bomb in frozen exe (Pitfall 2), stuck keys on restart (Pitfall 5)
 
-**Rationale:** The orchestrator is the most complex new component and the architectural centerpiece. Building it after shared types and Pipeline exist allows thorough isolated testing before integration. All existing `test_debounce.py` tests must be ported and pass against the new orchestrator before integration.
+**Research flag:** Needs careful integration testing — subprocess lifecycle on Windows with frozen PyInstaller builds is a documented landmine. The 11-item "Looks Done But Isn't" checklist from PITFALLS.md must be used as the acceptance criterion for this phase.
 
-**Delivers:** `orchestrator.py` implementing the 6-state unified FSM; swipe coordination absorbed from main loop; all debouncer tests ported and passing; compound gesture integration tests added.
+### Phase 3: Polish and Technical Debt
 
-**Implements:** GestureOrchestrator replacing GestureDebouncer.
+**Rationale:** Low-risk cleanup that improves production quality but is not on the critical path. Should be done after Phase 2 is confirmed working in the frozen exe.
 
-**Uses:** `enum.Enum`, `typing.NamedTuple`, `time.perf_counter` (all stdlib, existing patterns).
+**Delivers:** `debug.log` made opt-in (only written when `--debug` is active) to eliminate continuous disk I/O in production tray mode; UX feedback tray notification ("Opening camera preview...") before shutdown begins; tray icon color change when camera is active (v3.2.x stretch goal); `logger.propagate = False` confirmed.
 
-**Addresses:** The core architectural goal — replacing the GestureDebouncer monolith and ad-hoc main-loop coordination.
+**Addresses:** Debug log disk I/O performance trap (RotatingFileHandler always active in current code), `--debug` invisible in tray mode UX pitfall, tray icon state indicator (P2)
 
-**Avoids:** Pitfall 4 (state explosion — requires fully specifying the gesture x temporal-state matrix before implementation); Pitfall 14 (hold naming collision — terminology finalized before implementation).
-
-**Research flag:** The full gesture x temporal-state matrix (7 gestures x 6 temporal states = 42 cells) needs explicit specification before implementation, including defined behavior for unmapped cells. The confusable gesture pairs (PEACE<->SCOUT, POINTING<->PEACE, FIST<->THUMBS_UP) need hysteresis design. This phase may benefit from a targeted research-phase pass.
-
-### Phase 4: ActionResolver and FireModeExecutor
-
-**Rationale:** These components depend on the types from Phase 2 and consume signals from Phase 3's orchestrator. They can be built in parallel. ActionResolver consolidates three duplicated key-mapping parse functions. FireModeExecutor is the safety-critical component for stuck key prevention and must be in place before the activation gate (which triggers key release on expiry) is integrated.
-
-**Delivers:** `action_resolver.py` with consolidated mapping lookup and per-hand swap; `fire_executor.py` with single cleanup path, watchdog timer, and `atexit` safety net; all hold-lifecycle exit paths tested (gate expiry, distance exit, hand switch, app toggle, config reload).
-
-**Implements:** ActionResolver, FireModeExecutor.
-
-**Addresses:** Action dispatch resolver, fire mode executor, tap fire mode (existing), hold-key fire mode (existing, now properly encapsulated).
-
-**Avoids:** Pitfall 1 (stuck keys — single cleanup path, watchdog timer); Pitfall 8 (god object — ActionResolver and FireModeExecutor remain separate concerns); Pitfall 12 (OS key repeat mismatch — decide tap-repeat vs physical-hold semantic before implementation).
-
-**Research flag:** The OS key repeat semantic decision (physical `press_and_hold()` triggers OS-level repeat at 250ms delay + 30/sec; app-level rapid `send()` loop gives controlled repeat rate) needs a brief empirical test against target applications (alt+tab, win+ctrl+left) before implementation.
-
-### Phase 5: Activation Gate Integration
-
-**Rationale:** The activation gate is the most disruptive user-facing change. It must come last among the core components because it requires all other components to be stable — it coordinates with FireModeExecutor for hold release on gate expiry and with the Orchestrator for gate-disarm reset. Making it opt-in by default means this phase does not break existing users.
-
-**Delivers:** Activation gate integrated into Pipeline with bypass default; gate check positioned after classification but before orchestrator (receives smoothed gesture); gate expiry releases held keys via FireModeExecutor; configurable duration; re-arming on repeated activation gesture.
-
-**Implements:** ActivationGate integration into Pipeline.
-
-**Addresses:** Activation gate integration, activation gate visual feedback.
-
-**Avoids:** Pitfall 2 (dead zones — bypass default, clear feedback); Pitfall 6 (gate expires during hold — gate expiry triggers `fire_executor.release_all()`); Pitfall 11 (gate check ordering — after classification, before orchestrator).
-
-### Phase 6: Cleanup and v2.x Features
-
-**Rationale:** Once the core pipeline is validated in real usage, remove dead code and add P2 enhancements. Cleanup includes removing `debounce.py`, removing duplicated `_parse_key_mappings` functions, and verifying hot-reload works through `Pipeline.reload_config()`.
-
-**Delivers:** Removal of debounce.py; elimination of duplicated parse functions; v2.x features: activation bypass gestures, hold-to-hold chaining, per-action fire mode config.
-
-**Addresses:** Activation bypass, hold-to-hold chaining, per-action fire mode.
+**Research flag:** Standard patterns — logging and pystray icon color are well-documented; no phase research needed.
 
 ### Phase Ordering Rationale
 
-- **Behavior inventory first** because regressions are invisible without a test suite and the existing tests do not cover integration patterns.
-- **Pipeline unification second** because all subsequent work builds on it — implementing a new feature in duplicated loops is double the work with divergence risk.
-- **Orchestrator third** because it is the most complex component and must be thoroughly tested in isolation before Pipeline integration.
-- **ActionResolver/FireModeExecutor fourth** because they consume orchestrator signals; FireModeExecutor's safety guarantees must be in place before ActivationGate (which triggers key release on expiry) is integrated.
-- **Activation gate fifth** because it is the most disruptive user-facing change and requires all other components to be stable.
-- **Incremental approach throughout** preserves the working system at every step and prevents the feedback loop from dying (Pitfall 10).
+- **Logging before entry point refactor:** The `setup_logging()` signature change has zero behavioral impact on existing callers (default arguments preserve current behavior). Doing it first means the new run functions use the clean API from day one.
+- **Entry point unification before tray integration:** The `--view-camera` flag must exist before `_on_view_camera()` can construct the subprocess command. The `main()` routing must be proven with `python -m gesture_keys` before testing the frozen-exe restart path.
+- **Tray integration last:** The highest-risk piece is built on a tested foundation. Subprocess command construction (`sys.frozen` branching, stdio redirection, config path forwarding) is only safe to implement after Phase 1's entry point handles `--view-camera` correctly.
+- **Technical debt in Phase 3:** The `debug.log` opt-in change and `_was_moving` state migration are improvements, not blockers. Sequencing them last avoids scope creep in the critical phases.
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 3 (GestureOrchestrator):** The full gesture x temporal-state matrix needs explicit specification before implementation. Hysteresis design for confusable gesture pairs during hold-state detection cannot be determined from code analysis alone.
-- **Phase 4 (FireModeExecutor):** OS key repeat semantic decision needs empirical validation against actual target applications before implementation.
+- **Phase 2:** The frozen-exe subprocess restart on Windows has multiple documented failure modes. Integration tests must be executed against `dist/GestureKeys/GestureKeys.exe`, not just `python -m gesture_keys`. Rapid repeat testing (10 "View Camera" clicks in sequence) is required.
 
 Phases with standard patterns (skip research-phase):
-- **Phase 1 (Behavior Inventory):** Mechanical extraction from existing code — read the code, document behaviors, write tests. No domain research needed.
-- **Phase 2 (Pipeline Unification):** Standard extract-and-delegate refactor with well-established patterns. The existing code provides all the implementation detail.
-- **Phase 5 (Activation Gate):** Gate already exists as `activation.py`. Integration is additive. The bypass-first default eliminates most UX risk.
-- **Phase 6 (Cleanup + v2.x):** Removal of dead code and additive config features. No research needed.
+- **Phase 1:** Pure refactoring of existing well-understood code. All patterns present in the codebase.
+- **Phase 3:** Standard logging configuration and pystray icon updates. Well-documented APIs.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All recommendations based on direct analysis of 7,549 LOC existing codebase. No new dependencies needed — strongest possible basis for a stack decision. State machine libraries evaluated and rejected with clear rationale. |
-| Features | HIGH | Feature set derived from existing working system + QMK/ZMK tap-hold patterns + touch gesture system patterns. Anti-features are well-reasoned from domain constraints. Feature dependency graph is fully specified. |
-| Architecture | HIGH | Direct analysis of current codebase identifies exact duplication points, exact components to extract, exact state machine to port. Build order is constrained by verified dependencies. Component interfaces are fully specified. |
-| Pitfalls | HIGH | All 14 pitfalls identified from direct codebase analysis, not speculation. Stuck-key paths, behavioral edge cases, and naming collisions are concrete findings from reading the code with specific line references. |
+| Stack | HIGH | Research is based on direct codebase analysis; no new dependencies means no version uncertainty; alternatives evaluated and rejected with clear rationale |
+| Features | HIGH | All three P1 features map to specific existing functions; implementation sketches provided; approach for "View Camera" (subprocess restart) confirmed from platform constraints |
+| Architecture | HIGH | Build order confirmed by dependency analysis; concrete code sketches provided for all modified components; Pipeline confirmed unchanged |
+| Pitfalls | HIGH | Each pitfall sourced from official docs (OpenCV issue #8407, PyInstaller issue #4067, pystray issues #17 and #94) plus direct codebase inspection with line references |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **OS key repeat semantic decision:** Physical `press_and_hold()` triggers OS-level repeat (250ms delay + 30/sec); app-level rapid `send()` loop gives controlled repeat rate. Both have tradeoffs depending on the target application. Needs a brief empirical test before FireModeExecutor implementation.
-- **Hold timer hysteresis parameters:** The smoother window of 2 frames absorbs at most 1 frame of flicker. For gestures near the PEACE<->SCOUT confusion boundary, the hold timer may be unreachable without additional hysteresis. Exact hysteresis parameters need tuning against real camera data — cannot be determined from code analysis alone.
-- **Activation gate timeout defaults:** Default duration (3.0 seconds in activation.py) needs validation against real usage timing. The research recommends 2x typical gesture sequence duration, but actual sequence timing is unknown without measurement.
+- **Camera open latency UX:** The 2-5 second gap between "View Camera" click and the camera window appearing is inherent to USB camera initialization on Windows. Research notes a tray notification as the mitigation, but the exact notification text and timing should be validated during Phase 2 implementation.
+- **`--debug` in tray mode (no console):** When the frozen exe is launched with `--debug`, there is no visible console. The research recommendation is documentation — clarify that `--debug` is a dev-mode flag. Confirm during Phase 3 whether a log-viewer or runtime warning is worthwhile.
+- **`_was_moving` state migration:** The function-attribute state on `run_preview_mode` (lines 137-143 of `__main__.py`) needs to move to Pipeline or a dedicated state object during the Phase 1 refactor. The right home for it should be confirmed when reading the full `run_preview_mode` implementation at the start of Phase 1.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- gesture-keys v1.3 codebase direct analysis: `__main__.py` (571 lines), `tray.py` (516 lines), `debounce.py` (338 lines), `swipe.py` (321 lines), `config.py` (321 lines), `classifier.py` (155 lines), `keystroke.py` (152 lines), `detector.py` (202 lines), `activation.py` (67 lines), `smoother.py` (52 lines) — primary basis for all stack, architecture, and pitfall findings
-- `test_debounce.py` (14 tests), `test_integration_mutual_exclusion.py` (5 tests), `test_compound_gesture.py`, `test_swipe.py` — behavioral edge cases inventory
-- `PROJECT.md` — 15 validated decisions documenting rationale for current edge-case handling
+
+- Direct codebase analysis: `gesture_keys/__main__.py`, `gesture_keys/tray.py`, `gesture_keys/pipeline.py`, `gesture_keys/logging_setup.py`, `gesture_keys/preview.py`, `GestureKeys.spec` — architecture, stack, and pitfall findings
+- [OpenCV Issue #8407](https://github.com/opencv/opencv/issues/8407) — cv2.imshow/waitKey must be on the main thread on Windows (core architectural constraint)
+- [PyInstaller Issue #4067](https://github.com/pyinstaller/pyinstaller/issues/4067) — exe spawning itself infinitely (fork bomb pitfall)
+- [pystray Issue #17](https://github.com/moses-palmer/pystray/issues/17) — pystray shutdown and Icon.stop() patterns
+- [pystray Issue #94](https://github.com/moses-palmer/pystray/issues/94) — Icon.stop() thread behavior (ghost icon pitfall)
 
 ### Secondary (MEDIUM confidence)
-- [QMK Firmware Tap-Hold Documentation](https://docs.qmk.fm/tap_hold) — tap/hold decision logic, tapping term, permissive hold, retro tapping
-- [ZMK Firmware Hold-Tap Behavior](https://zmk.dev/docs/keymaps/behaviors/hold-tap) — interrupt flavors, mod-tap, positional hold-tap
-- [ZSA Tap and Hold Keys Explained](https://blog.zsa.io/tap-hold-explained/) — user-facing explanation of tap-hold mechanics and common frustrations
-- [React Native Gesture Handler States](https://docs.swmansion.com/react-native-gesture-handler/docs/fundamentals/states-events/) — gesture state machine patterns for touch systems
-- [Material Design Gestures M2](https://m2.material.io/design/interaction/gestures.html) — gesture hierarchy, priority, composition patterns
-- [pytransitions/transitions GitHub](https://github.com/pytransitions/transitions) — evaluated for HSM support, rejected for real-time per-frame use case
-- [python-statemachine 3.0.0 docs](https://python-statemachine.readthedocs.io/en/latest/) — evaluated for declarative state machine DSL, rejected
 
-### Tertiary (LOW confidence)
-- [Top 10 State Machine Frameworks for Python](https://statemachine.events/article/Top_10_State_Machine_Frameworks_for_Python.html) — landscape survey used for confirming library evaluation completeness
-- [Finite State Machine Gesture Recognition (Glasgow)](https://www.dcs.gla.ac.uk/~jhw/fsm.html) — FSM approach to gesture modeling
-- [Hierarchical State Machines (UPenn)](https://www.cis.upenn.edu/~lee/06cse480/lec-HSM.pdf) — HSM design patterns
+- [Python subprocess docs](https://docs.python.org/3/library/subprocess.html) — Popen for non-blocking process spawn
+- [Python logging docs](https://docs.python.org/3/library/logging.handlers.html) — RotatingFileHandler, StreamHandler
+- [PyInstaller common issues](https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html) — subprocess in frozen apps, stdio handle requirements
+- [CLI logging verbosity best practices](https://xahteiwi.eu/resources/hints-and-kinks/python-cli-logging-options/) — two-level vs counting pattern analysis
+- [SigNoz — Fixing duplicate log messages in Python](https://signoz.io/guides/log-messages-appearing-twice-with-python-logging/) — logging handler accumulation patterns
 
 ---
-*Research completed: 2026-03-24*
+*Research completed: 2026-03-30*
 *Ready for roadmap: yes*

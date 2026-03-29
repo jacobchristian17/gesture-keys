@@ -1,134 +1,141 @@
-# Technology Stack
+# Stack Research
 
-**Project:** gesture-keys v2.0 -- Structured Gesture Architecture
-**Researched:** 2026-03-24
-**Overall confidence:** HIGH
+**Domain:** Unified preview/exec mode for Python desktop gesture detection app
+**Researched:** 2026-03-30
+**Confidence:** HIGH
 
 ## Verdict: No New Dependencies
 
-The v2.0 structured gesture architecture (activation gate, gesture orchestrator, temporal state machine, action resolver, fire mode executor) is a **clean architectural decomposition** of the existing 572-line `__main__.py` monolith and 338-line `debounce.py`. All required patterns are implementable with Python stdlib. Adding a state machine library would cost more in integration overhead than it saves in boilerplate for this specific use case.
+The v3.2 unified preview & exec mode milestone requires **zero new packages**. Every capability needed -- subprocess restart, argparse mode switching, debug log levels, console window management -- is achievable with Python stdlib modules already imported or trivially available. The existing stack (mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML) is unchanged.
 
-**Rationale:** The existing codebase already hand-rolls a 6-state machine with hold mode, compound gestures, and swipe windows -- all running per-frame at 30+ FPS in a synchronous loop. The v2.0 rewrite decomposes this into smaller, focused state machines, each with 2-4 states. State machine libraries optimize for declarative transition definitions and introspection, but impose overhead (import time, stack trace depth, learning curve) that is not justified for machines this small running in a real-time loop.
+**Rationale:** This milestone is a control-flow refactor, not a capability expansion. The codebase already has `--preview`, `--debug`, `logging_setup.py` with `RotatingFileHandler`, `hide_console_window()` via ctypes, and a clean `TrayApp` class. The work is rewiring how these existing pieces connect, not adding new ones.
 
 ## Recommended Stack
 
 ### Core Technologies
 
-No additions. Existing stack unchanged for v2.0.
+No additions. Existing stack unchanged for v3.2.
 
-| Technology | Version | Purpose | v2.0 Status |
+| Technology | Version | Purpose | v3.2 Status |
 |------------|---------|---------|-------------|
-| mediapipe | >=0.10.33 | Hand landmark detection | Unchanged -- detector.py untouched |
-| opencv-python | >=4.8.0 | Camera capture, preview | Unchanged |
-| pynput | >=1.7.6 | Keystroke simulation (tap + hold) | Unchanged -- KeystrokeSender already has `send()`, `press_and_hold()`, `release_held()` |
-| PyYAML | >=6.0 | Config loading/hot-reload | Schema changes for activation gate + fire modes |
-| pystray | >=0.19.5 | System tray app | Unchanged |
+| mediapipe | >=0.10.33 | Hand landmark detection | Unchanged |
+| opencv-python | >=4.8.0 | Camera capture, preview window | Unchanged -- `cv2.imshow`/`cv2.destroyAllWindows` already used |
+| pynput | >=1.7.6 | Keystroke simulation | Unchanged |
+| PyYAML | >=6.0 | Config loading/hot-reload | Unchanged |
+| pystray | >=0.19.5 | System tray app with menu | Menu gets new "View Camera" item -- no API additions needed |
 | Pillow | >=10.0 | Tray icon rendering | Unchanged |
 
-### Python Stdlib Used for New Architecture
+### Python Stdlib Used for New Features
 
 | Module | Purpose | Why Sufficient |
 |--------|---------|----------------|
-| `enum.Enum` | States for activation gate, temporal states, fire modes | Already used in debounce.py and classifier.py. Enum states with `match`/`if-elif` handlers is the established pattern. |
-| `typing.NamedTuple` | Action descriptors from resolver (gesture, temporal state, fire mode, key mapping) | Already used for `DebounceSignal`. Immutable, typed, lightweight. |
-| `dataclasses.dataclass` | Orchestrator config, component state bundles | Already used for `AppConfig`. |
-| `time.perf_counter` | Timestamp-based transitions (hold duration, activation window) | Already used throughout. Microsecond resolution, monotonic. |
-| `collections.abc.Callable` | Callback-based fire mode executors (tap callback, hold start/end callbacks) | Avoids needing an event bus. Direct function references. |
-| `logging` | State transition tracing | Already instrumented. Each new component gets its own logger. |
+| `subprocess.Popen` | Tray "View Camera" spawns a new process with camera flag | Already in stdlib. `Popen([sys.executable, ...])` or `Popen([sys.argv[0], ...])` for frozen exe. Non-blocking, returns immediately. No need for `multiprocessing` since we want an independent process that survives tray restart. |
+| `sys.executable` / `sys.argv[0]` | Determine correct executable path for re-launch | `sys.argv[0]` works for both `python -m gesture_keys` and frozen PyInstaller exe. `getattr(sys, 'frozen', False)` check already exists in `__main__.py` line 178. |
+| `logging.StreamHandler` | Console output for dev mode / --debug | Already used in `run_preview_mode()` line 87-89. Needs to be wired into unified mode. |
+| `logging.getLogger().setLevel()` | Toggle DEBUG vs INFO based on --debug flag | Already partially implemented. `setup_logging()` sets root to DEBUG, console handler filters. |
+| `argparse` | Mode flags (`--debug`, `--camera`, removing `--preview`) | Already used in `parse_args()`. Just argument changes. |
+| `ctypes.windll` | Show/hide console window for tray vs dev mode | Already implemented in `hide_console_window()` at line 41-45. |
+| `os.getpid` / `signal` | Optional: clean shutdown of camera subprocess from tray | Stdlib. `Popen.terminate()` is sufficient for the spawned camera process. |
 
 ### Supporting Libraries
 
 No new supporting libraries needed.
 
-| Library | Version | Purpose | v2.0 Notes |
+| Library | Version | Purpose | v3.2 Notes |
 |---------|---------|---------|------------|
-| pytest | >=8.0 | Unit testing for each new component | Each component (gate, orchestrator, resolver, executor) gets isolated tests with deterministic timestamps |
+| pytest | >=8.0 | Testing mode switching, subprocess launch logic | Existing. May need `unittest.mock.patch` for subprocess tests. |
+| PyInstaller | >=6.0 | Bundling (dev dependency) | Existing. `GestureKeys.spec` already configured with `console=False`. "View Camera" subprocess must account for frozen exe path. |
 
-## What Changes (Architecture, Not Dependencies)
+## What Changes (Control Flow, Not Dependencies)
 
-### Component Mapping: Old to New
+### Feature 1: Unified Dev Mode (camera always on)
 
-| Old (v1.x) | New (v2.0) | What Changes |
-|-------------|-----------|--------------|
-| `ActivationGate` (activation.py) | **ActivationGate** (refined) | Already exists. Needs: configurable activation gesture, bypass mode (always-armed), integration with orchestrator |
-| `GestureDebouncer` (debounce.py, 338 lines) | **GestureOrchestrator** + **TemporalStateMachine** | Decomposed. Debouncer's activation/cooldown logic becomes orchestrator. Hold/swipe-window logic becomes temporal states. |
-| Procedural dispatch in `__main__.py` (lines 396-438) | **ActionResolver** | Lookup table: (gesture, temporal_state) -> Action. Replaces scattered if/elif chains. |
-| `KeystrokeSender` direct calls in `__main__.py` | **FireModeExecutor** | Wraps KeystrokeSender with fire mode logic (tap = send, hold_key = press_and_hold / release_held). Replaces hold_active/hold_modifiers/hold_key local variables. |
-| 20+ local variables in `run_preview_mode()` | Encapsulated in component state | `hold_active`, `hold_modifiers`, `hold_key`, `hold_gesture_name`, `was_swiping`, `pre_swipe_gesture`, `compound_swipe_suppress_until`, etc. all move into components. |
+**Current:** `--preview` flag gates camera display. Without it, tray mode runs headless.
+**Target:** `python -m gesture_keys` (no flags) shows camera + console logging. Tray/exe mode remains headless.
 
-### New Enums (Python stdlib `enum`)
+**Stdlib used:** `argparse` (already imported), `sys.frozen` check (already exists).
 
-```python
-# Temporal states -- modifier on top of static gesture
-class TemporalState(Enum):
-    INSTANT = "instant"      # Static gesture just confirmed (tap fire)
-    HOLDING = "holding"      # Static gesture held beyond threshold
-    SWIPING = "swiping"      # Swipe detected during gesture
+**Approach:** Detect frozen vs development context. When not frozen, default to showing camera. When frozen (PyInstaller exe), default to tray mode. The `--preview` flag becomes unnecessary -- dev mode always previews.
 
-# Fire modes -- how an action executes
-class FireMode(Enum):
-    TAP = "tap"              # press + release (existing send())
-    HOLD_KEY = "hold_key"    # press on start, release on end (existing press_and_hold/release_held)
+| Detection Method | How | Already Exists |
+|-----------------|-----|----------------|
+| Frozen exe | `getattr(sys, 'frozen', False)` | Yes, `__main__.py` line 178 |
+| Dev mode | `not frozen` | Inverse of above |
 
-# Action descriptor -- output of resolver
-class Action(NamedTuple):
-    gesture: Gesture
-    temporal: TemporalState
-    fire_mode: FireMode
-    modifiers: list  # pynput Key objects
-    key: object      # pynput Key or str
-    key_string: str  # original config string for logging
-```
+### Feature 2: Tray "View Camera" Restart
 
-### Integration Points with Existing Code
+**Current:** No way to show camera from tray mode.
+**Target:** Menu item spawns a subprocess showing the camera preview, optionally stopping/restarting the tray app.
 
-| Existing Component | Integration | Direction |
-|-------------------|-------------|-----------|
-| `HandDetector.detect()` | Feeds landmarks + handedness to orchestrator | Unchanged, orchestrator consumes output |
-| `GestureClassifier.classify()` | Feeds static gesture to orchestrator | Unchanged |
-| `SwipeDetector.update()` | Feeds swipe direction to orchestrator | Unchanged, orchestrator decides priority |
-| `GestureSmoother.update()` | Feeds smoothed gesture to orchestrator | Unchanged |
-| `DistanceFilter.check()` | Gates orchestrator input | Unchanged |
-| `KeystrokeSender` | FireModeExecutor wraps it | KeystrokeSender unchanged, executor owns the instance |
-| `ConfigWatcher` | Triggers orchestrator.reset() on config change | Unchanged mechanism |
-| `config.load_config()` | Schema additions for activation + fire modes | Additive changes only |
+**Stdlib used:** `subprocess.Popen`, `sys.argv[0]`, `sys.executable`.
+
+**Key integration points with pystray:**
+
+| Concern | Solution | Notes |
+|---------|----------|-------|
+| Adding menu item | `pystray.MenuItem("View Camera", self._on_view_camera)` | pystray supports dynamic menu items. Same pattern as existing "Edit Config". |
+| Spawning camera process | `subprocess.Popen([exe_path, "--camera", "--config", self._config_path])` | Non-blocking. New process gets its own console/window. |
+| Frozen exe path | `sys.argv[0]` when frozen, `[sys.executable, "-m", "gesture_keys"]` when dev | Same pattern as existing frozen detection in `__main__.py`. |
+| Pipeline conflict (two processes reading same camera) | Must stop tray's pipeline before spawning camera process, or accept that OpenCV will fail on double-open | Most USB webcams support only one consumer. Tray must pause detection while camera subprocess runs. |
+| Subprocess cleanup on tray quit | Store `Popen` reference, call `.terminate()` in `_on_quit()` | Prevents orphan camera window. |
+
+**Critical design decision:** The tray's detection loop must **stop** while the camera subprocess is running (camera device is exclusive on most hardware). When the camera subprocess exits, the tray should resume detection. This is a `threading.Event` coordination problem using existing patterns from `TrayApp._active` and `TrayApp._shutdown`.
+
+### Feature 3: --debug Verbose Logging
+
+**Current:** `--debug` flag already exists in `parse_args()` (line 36-37). Console handler already switches between DEBUG and INFO based on it (line 86). File logging always writes both `preview.log` (INFO) and `debug.log` (DEBUG).
+**Target:** Make `--debug` work consistently across all modes (dev, tray, camera subprocess).
+
+**Stdlib used:** `logging` (already fully configured in `logging_setup.py`).
+
+**What's actually needed:** Wire the `--debug` flag through to `setup_logging()` so it can optionally add a console handler at DEBUG level. Currently `setup_logging()` only creates file handlers. The console handler is manually added in `run_preview_mode()`. This should be unified.
+
+| Current State | Target State |
+|--------------|-------------|
+| Console handler added ad-hoc in `run_preview_mode()` | `setup_logging(console=True, level=DEBUG)` parameter |
+| `--debug` only affects preview mode console | `--debug` affects any mode with console output |
+| Tray mode has no console output | Tray mode with `--debug` could log to console (if console visible) |
 
 ## Alternatives Considered
 
-### State Machine Libraries
+### Subprocess vs Multiprocessing for Camera Launch
 
-| Library | Version | Stars | Why NOT for v2.0 |
-|---------|---------|-------|-----------------|
-| `transitions` | 0.9.2 | 5.6k | Adds ~50ms import overhead per startup. HierarchicalMachine requires learning its DSL (states-as-dicts, trigger strings). Stack traces go through library internals. The v2.0 machines have 2-4 states each -- the DSL overhead exceeds the boilerplate it replaces. |
-| `python-statemachine` | 3.0.0 | 900+ | Class decorator DSL with `State.Compound` for hierarchy. More structured than `transitions`, but requires all transitions declared upfront. Real-time per-frame usage pattern (call `update()` 30x/sec) is not its design target. |
-| `hsm-py` | 0.3.0 | ~50 | Small library for hierarchical states. Low adoption, unclear maintenance. Not worth the dependency risk for 2-4 state machines. |
+| Approach | Recommendation | Why |
+|----------|---------------|-----|
+| `subprocess.Popen` | **Use this** | Independent process. Clean separation. Works identically for frozen exe and dev mode. No shared memory complexity. Process can outlive tray if needed. |
+| `multiprocessing.Process` | Don't use | Shared memory, pickle serialization overhead. OpenCV windows must be in the process that creates them (no cross-process window handles). Adds complexity for zero benefit since we want full process isolation. |
+| `os.execv` (replace current process) | Don't use | Destroys tray icon. User loses tray functionality while camera is open. |
+| `threading.Thread` with camera loop | Don't use | OpenCV `imshow` must run on main thread (or the thread that created the window). pystray already owns the main thread. Threading leads to GIL contention and window management issues. |
 
-**When a state machine library WOULD be justified:** If v2.0 grew beyond ~8 states per machine with complex guard conditions, or if state diagram visualization/export was required for documentation. Neither applies here.
+### Console Window Management
 
-### Event Bus / Pub-Sub
-
-| Pattern | Why NOT |
-|---------|---------|
-| `blinker` / `pymitter` event bus | Pipeline is linear: camera -> detect -> classify -> smooth -> orchestrate -> resolve -> fire. No fan-out, no dynamic subscribers, no cross-cutting concerns. Direct method calls are simpler and debuggable. |
-| Observer pattern (manual) | Same reasoning. The orchestrator calls the resolver which calls the executor. Chain of responsibility, not pub-sub. |
-| RxPY reactive streams | Synchronous 30fps loop. Reactive operators add indirection and async complexity for zero benefit. |
-
-### Dependency Injection
-
-| Pattern | Why NOT |
-|---------|---------|
-| `inject` / `dependency-injector` | 7 components with clear constructor dependencies. Manual wiring in `__main__.py` is ~20 lines. DI framework overhead not justified. |
+| Approach | Recommendation | Why |
+|----------|---------------|-----|
+| `ctypes.windll.user32.ShowWindow` | **Use this** (already in codebase) | Direct Win32 API. Already proven in `hide_console_window()`. Can also show window with `SW_SHOW = 5`. |
+| `win32gui` (pywin32) | Don't use | External dependency for something achievable with ctypes in 3 lines. |
+| `pythonw.exe` vs `python.exe` | Awareness only | PyInstaller's `console=False` in spec already handles this for frozen builds. Dev mode uses `python.exe` which has a console. |
 
 ## What NOT to Add
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Any state machine library | 2-4 state machines, each 2-4 states. Library DSL learning curve exceeds hand-rolled boilerplate. Import overhead matters at 30fps startup. | `enum.Enum` states + `if/elif` handlers (existing pattern from debounce.py) |
-| Event bus / pub-sub library | Linear pipeline, no fan-out. Adds indirection that obscures data flow. | Direct method calls between components |
-| `asyncio` | Synchronous loop works. Camera capture is already threaded. No I/O-bound operations in the gesture pipeline. | Keep synchronous `while True` loop with `time.perf_counter()` |
-| `attrs` | `dataclasses` already used and sufficient. `attrs` adds marginal benefit (validators, converters) for this use case. | `dataclasses.dataclass` |
-| Type-checking runtime (pydantic) | Config validation is simple type coercion from YAML scalars. Pydantic model overhead not justified. | Manual validation in `load_config()` (existing pattern) |
-| Abstract base classes (`abc.ABC`) | Components have concrete implementations, no polymorphism needed. Orchestrator, resolver, executor are each one class. | Concrete classes with clear interfaces via type hints |
+| `multiprocessing` | Camera subprocess needs full process isolation, not shared memory. `subprocess.Popen` is simpler and works for both frozen and dev. | `subprocess.Popen` |
+| `pywin32` / `win32gui` | Only need `ShowWindow` and `GetConsoleWindow` -- already done with `ctypes.windll` in 5 lines. | `ctypes.windll` (existing) |
+| `click` (CLI framework) | 3 flags (`--debug`, `--camera`, `--config`). argparse handles this in 15 lines. Click adds a dependency for no benefit. | `argparse` (existing) |
+| `rich` / `colorama` (colored logging) | Nice-to-have but adds dependency for cosmetic benefit. Plain `logging.StreamHandler` is sufficient. | `logging.StreamHandler` (existing) |
+| `watchdog` (file watching for subprocess exit) | `Popen.poll()` in a timer or thread is sufficient to detect camera subprocess exit. | `Popen.poll()` or `Popen.wait()` in thread |
+| `psutil` (process management) | Only need to terminate one known subprocess. `Popen.terminate()` handles this. | `subprocess.Popen.terminate()` |
+
+## Version Compatibility
+
+No new version constraints. Existing `requirements.txt` is unchanged.
+
+| Concern | Status | Notes |
+|---------|--------|-------|
+| `subprocess.Popen` | Python 3.7+ | Available in all supported Python versions |
+| `pystray` menu items | >=0.19.5 | Dynamic menu items supported. Already using lambda for "Active"/"Inactive" text. |
+| PyInstaller frozen detection | Works | `sys.frozen` and `sys.argv[0]` patterns already validated in codebase |
+| OpenCV single-camera exclusivity | Hardware dependent | Most USB cameras allow only one reader. Design must account for this. |
 
 ## Installation
 
@@ -148,12 +155,11 @@ pip install -r requirements.txt
 
 ## Sources
 
-- Codebase analysis of `debounce.py` (338 lines, 6-state machine with hold mode), `__main__.py` (572 lines, 20+ state variables in main loop), `activation.py` (67 lines, simple arm/disarm gate), `keystroke.py` (send + press_and_hold + release_held already implemented) -- primary source for all recommendations (HIGH confidence)
-- [pytransitions/transitions GitHub](https://github.com/pytransitions/transitions) -- evaluated for hierarchical state machine support, rejected for real-time per-frame use case (HIGH confidence)
-- [python-statemachine 3.0.0 docs](https://python-statemachine.readthedocs.io/en/latest/) -- evaluated for declarative state machine DSL, rejected (HIGH confidence)
-- [hsm-py GitHub](https://github.com/artcom/hsm-py) -- evaluated for lightweight HSM, rejected due to low adoption (MEDIUM confidence)
-- [Top 10 State Machine Frameworks for Python](https://statemachine.events/article/Top_10_State_Machine_Frameworks_for_Python.html) -- landscape survey (MEDIUM confidence)
+- Codebase analysis of `__main__.py` (188 lines, argparse + mode switching), `tray.py` (141 lines, pystray menu + detection thread), `logging_setup.py` (73 lines, RotatingFileHandler setup), `GestureKeys.spec` (PyInstaller config with `console=False`) -- PRIMARY source, HIGH confidence
+- Python `subprocess` stdlib docs -- `Popen` for non-blocking process spawn, HIGH confidence
+- Python `logging` stdlib docs -- `StreamHandler`, `setLevel()`, handler management, HIGH confidence
+- pystray existing usage in codebase -- `MenuItem` with lambdas, `Menu.SEPARATOR`, `icon.run(setup=)` pattern, HIGH confidence
 
 ---
-*Stack research for: gesture-keys v2.0 structured gesture architecture*
-*Researched: 2026-03-24*
+*Stack research for: gesture-keys v3.2 unified preview & exec mode*
+*Researched: 2026-03-30*
