@@ -8,34 +8,69 @@
 - ✅ **v1.3 Left Hand Support** - Phases 11-13 (shipped 2026-03-24)
 - ✅ **v2.0 Structured Gesture Architecture** - Phases 14-16 (shipped 2026-03-25)
 - ✅ **v3.0 Tri-State Gesture Model** - Phases 17-24 (shipped 2026-03-26)
-- 🚧 **v3.1 Moving Fire Dispatch Throttling** - Phase 25 (in progress)
+- ✅ **v3.1 Moving Fire Dispatch Throttling** - Phase 25 (shipped 2026-03-27)
+- 🚧 **v3.2 Unified Preview & Exec Mode** - Phases 26-28 (in progress)
 
 ## Phases
 
-- [ ] **Phase 25: Dispatch Throttling** - Configurable rate-limiting for moving_fire dispatches with global default and per-action overrides
+- [ ] **Phase 26: Logging Consolidation** - Centralized setup_logging() with --debug flag and opt-in debug file logging
+- [ ] **Phase 27: Entry Point Refactor** - Unified main() router with dev-camera and tray-headless modes
+- [ ] **Phase 28: Tray View Camera** - "View Camera" tray menu item spawning camera subprocess
 
 ## Phase Details
 
-### Phase 25: Dispatch Throttling
-**Goal**: Users can control how frequently moving_fire triggers dispatch during continuous motion
-**Depends on**: Phase 24 (v3.0 complete)
-**Requirements**: THRT-01, THRT-02, THRT-03
+### Phase 26: Logging Consolidation
+**Goal**: All logging flows through a single setup_logging() function with --debug controlling verbosity and file logging opt-in
+**Depends on**: Phase 25 (v3.1 complete)
+**Requirements**: LOG-01, LOG-02, LOG-03
 **Success Criteria** (what must be TRUE):
-  1. User can set a global `dispatch_interval` in config.yaml and moving_fire actions throttle to that rate during continuous motion
-  2. User can override the dispatch interval on a specific moving trigger action and that action throttles independently of the global default
-  3. When a moving_fire dispatch is skipped due to throttling, no keystroke is sent and the next dispatch fires as soon as the interval elapses
-  4. Existing moving_fire behavior is unchanged when no dispatch_interval is configured (backward compatible)
-**Plans:** 1/2 plans executed
+  1. User can pass --debug to any launch mode and see DEBUG-level output on the console
+  2. All logging handlers are created in one place (setup_logging) with no ad-hoc handler additions elsewhere
+  3. Running tray mode without --debug produces zero debug.log file writes (file logging is opt-in)
+  4. Existing app behavior is unchanged when --debug is not passed (INFO-level console in dev, no console in tray)
+**Plans**: TBD
 
 Plans:
-- [x] 25-01-PLAN.md — Config plumbing: ActionEntry, parse_actions, DerivedConfig, AppConfig, ActionResolver dispatch_interval support
-- [ ] 25-02-PLAN.md — Dispatcher throttle logic, pipeline wiring, config.yaml documentation
+- [ ] 26-01: TBD
+
+### Phase 27: Entry Point Refactor
+**Goal**: Users run `python -m gesture_keys` and immediately see camera preview with logging, no flags needed
+**Depends on**: Phase 26
+**Requirements**: ENTRY-01, ENTRY-02
+**Success Criteria** (what must be TRUE):
+  1. User runs `python -m gesture_keys` and sees the camera preview window with INFO-level console logging without passing any flags
+  2. Running the frozen exe (GestureKeys.exe) enters tray mode silently with no camera window
+  3. main() cleanly routes to run_dev_mode, run_tray_mode, or run_camera_mode based on frozen state and flags
+  4. The --view-camera internal flag exists and routes to camera mode (for Phase 28 subprocess usage)
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] 27-01: TBD
+
+### Phase 28: Tray View Camera
+**Goal**: Tray users can open a camera preview window on demand via a single menu click
+**Depends on**: Phase 27
+**Requirements**: TRAY-01
+**Success Criteria** (what must be TRUE):
+  1. User clicks "View Camera" in the system tray menu and a camera preview window opens within 5 seconds
+  2. The tray process releases the camera and stops detection before the camera subprocess starts (no "camera in use" errors)
+  3. Closing the camera window returns control to the tray app, which resumes detection automatically
+  4. The feature works identically when launched from the frozen exe (GestureKeys.exe) and from python -m gesture_keys in tray mode
+  5. No stuck keys remain after the tray-to-camera restart sequence
+**Plans**: TBD
+**UI hint**: yes
+
+Plans:
+- [ ] 28-01: TBD
 
 ## Progress
 
 **Execution Order:**
-Phase 25 is the only phase in this milestone.
+Phases execute in numeric order: 26 -> 27 -> 28
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 25. Dispatch Throttling | v3.1 | 1/2 | In Progress|  |
+| 26. Logging Consolidation | v3.2 | 0/0 | Not started | - |
+| 27. Entry Point Refactor | v3.2 | 0/0 | Not started | - |
+| 28. Tray View Camera | v3.2 | 0/0 | Not started | - |
