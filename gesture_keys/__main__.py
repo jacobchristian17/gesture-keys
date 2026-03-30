@@ -113,8 +113,10 @@ def run_preview_mode(args):
                     motion_info,
                 )
 
+            gate_ok = not pipeline.activation_gate_enabled or result.activation_armed
+
             # Log orchestrator signals at INFO level (visible in normal --preview)
-            if result.orchestrator and result.orchestrator.signals:
+            if gate_ok and result.orchestrator and result.orchestrator.signals:
                 for sig in result.orchestrator.signals:
                     parts = [f"SIGNAL {sig.action.value}"]
                     if sig.gesture:
@@ -128,8 +130,9 @@ def run_preview_mode(args):
             # Log motion state transitions
             if result.motion_state and result.motion_state.moving:
                 if not getattr(run_preview_mode, '_was_moving', False):
-                    dir_name = result.motion_state.direction.value if result.motion_state.direction else "unknown"
-                    logger.info("MOTION started dir=%s", dir_name)
+                    if gate_ok:
+                        dir_name = result.motion_state.direction.value if result.motion_state.direction else "unknown"
+                        logger.info("MOTION started dir=%s", dir_name)
                     run_preview_mode._was_moving = True
             else:
                 if getattr(run_preview_mode, '_was_moving', False):

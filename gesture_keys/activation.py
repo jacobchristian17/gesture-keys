@@ -52,13 +52,13 @@ class ActivationGate:
             self._armed = False
             elapsed = timestamp - self._armed_at
             self._armed_at = None
-            logger.info("Activation gate EXPIRED after %.1fs", elapsed)
+            logger.info("\033[91mActivation gate EXPIRED after %.1fs\033[0m", elapsed)
 
     def arm(self, timestamp: float) -> None:
         """Arm the gate, starting the activation window."""
         self._armed_at = timestamp
         self._armed = True
-        logger.info("Activation gate ARMED for %.1fs", self._duration)
+        logger.info("\033[92mActivation gate ARMED for %.1fs\033[0m", self._duration)
 
     def keep_alive(self, timestamp: float) -> None:
         """Reset the expiry timer without changing armed state.
