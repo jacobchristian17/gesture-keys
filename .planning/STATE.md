@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v3.2
 milestone_name: Unified Preview & Exec Mode
 status: verifying
-stopped_at: Completed 27-01-PLAN.md
-last_updated: "2026-03-30T16:53:52.200Z"
+stopped_at: Phase 28 UI-SPEC approved
+last_updated: "2026-03-30T19:03:01.847Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 3
@@ -65,6 +65,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-30T16:46:28.267Z
-Stopped at: Completed 27-01-PLAN.md
-Resume file: None
+Last session: 2026-03-30T19:03:01.837Z
+Stopped at: Phase 28 UI-SPEC approved
+Resume file: .planning/phases/28-tray-view-camera/28-UI-SPEC.md
