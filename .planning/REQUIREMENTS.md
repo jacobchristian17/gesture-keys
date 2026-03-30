@@ -18,9 +18,9 @@ Requirements for unified preview & exec mode. Each maps to roadmap phases.
 
 ### Logging
 
-- [ ] **LOG-01**: User can pass --debug flag to enable verbose logging in all modes
-- [ ] **LOG-02**: All logging configuration is centralized in a single setup_logging() function
-- [ ] **LOG-03**: Debug file logging in tray mode is opt-in (only with --debug), not always-on
+- [x] **LOG-01**: User can pass --debug flag to enable verbose logging in all modes
+- [x] **LOG-02**: All logging configuration is centralized in a single setup_logging() function
+- [x] **LOG-03**: Debug file logging in tray mode is opt-in (only with --debug), not always-on
 
 ## Future Requirements
 
@@ -47,9 +47,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOG-01 | Phase 26 | Pending |
-| LOG-02 | Phase 26 | Pending |
-| LOG-03 | Phase 26 | Pending |
+| LOG-01 | Phase 26 | Complete |
+| LOG-02 | Phase 26 | Complete |
+| LOG-03 | Phase 26 | Complete |
 | ENTRY-01 | Phase 27 | Complete |
 | ENTRY-02 | Phase 27 | Complete |
 | TRAY-01 | Phase 28 | Complete |
