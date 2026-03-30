@@ -72,5 +72,5 @@ Phases execute in numeric order: 26 -> 27 -> 28
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 26. Logging Consolidation | v3.2 | 1/1 | Complete    | 2026-03-30 |
-| 27. Entry Point Refactor | v3.2 | 1/1 | Complete   | 2026-03-30 |
+| 27. Entry Point Refactor | v3.2 | 1/1 | Complete    | 2026-03-30 |
 | 28. Tray View Camera | v3.2 | 0/0 | Not started | - |
