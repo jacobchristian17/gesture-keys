@@ -13,7 +13,7 @@
 
 ## Phases
 
-- [ ] **Phase 26: Logging Consolidation** - Centralized setup_logging() with --debug flag and opt-in debug file logging
+- [x] **Phase 26: Logging Consolidation** - Centralized setup_logging() with --debug flag and opt-in debug file logging (completed 2026-03-30)
 - [ ] **Phase 27: Entry Point Refactor** - Unified main() router with dev-camera and tray-headless modes
 - [ ] **Phase 28: Tray View Camera** - "View Camera" tray menu item spawning camera subprocess
 
@@ -28,10 +28,10 @@
   2. All logging handlers are created in one place (setup_logging) with no ad-hoc handler additions elsewhere
   3. Running tray mode without --debug produces zero debug.log file writes (file logging is opt-in)
   4. Existing app behavior is unchanged when --debug is not passed (INFO-level console in dev, no console in tray)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 26-01-PLAN.md — Centralize setup_logging() with console/debug params and update callers
+- [x] 26-01-PLAN.md — Centralize setup_logging() with console/debug params and update callers
 
 ### Phase 27: Entry Point Refactor
 **Goal**: Users run `python -m gesture_keys` and immediately see camera preview with logging, no flags needed
@@ -71,6 +71,6 @@ Phases execute in numeric order: 26 -> 27 -> 28
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 26. Logging Consolidation | v3.2 | 0/1 | Planning | - |
+| 26. Logging Consolidation | v3.2 | 1/1 | Complete   | 2026-03-30 |
 | 27. Entry Point Refactor | v3.2 | 0/0 | Not started | - |
 | 28. Tray View Camera | v3.2 | 0/0 | Not started | - |
