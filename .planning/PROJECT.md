@@ -56,9 +56,9 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ### Active
 
-- [ ] Unified dev mode with camera preview + logging always on
+- [x] Unified dev mode with camera preview + logging always on — Validated in Phase 27: Entry Point Refactor
 - [ ] Tray "View Camera" menu item to restart with camera visible
-- [ ] --debug flag for verbose logging output
+- [x] --debug flag for verbose logging output — Validated in Phase 26: Logging Consolidation
 
 ### Out of Scope
 
