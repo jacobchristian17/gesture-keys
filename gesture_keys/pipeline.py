@@ -139,6 +139,11 @@ class Pipeline:
         """Return the most recent camera frame read by process_frame."""
         return self._last_frame
 
+    @property
+    def activation_gate_enabled(self) -> bool:
+        """True when the activation gate is configured and active."""
+        return self._activation_gate is not None
+
     def start(self) -> None:
         """Initialize camera, detector, and all pipeline components."""
         config = self._config
