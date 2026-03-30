@@ -14,7 +14,7 @@ Requirements for unified preview & exec mode. Each maps to roadmap phases.
 
 ### Tray Integration
 
-- [ ] **TRAY-01**: User can click "View Camera" in tray menu to restart app with camera visible
+- [x] **TRAY-01**: User can click "View Camera" in tray menu to restart app with camera visible
 
 ### Logging
 
@@ -52,7 +52,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOG-03 | Phase 26 | Pending |
 | ENTRY-01 | Phase 27 | Complete |
 | ENTRY-02 | Phase 27 | Complete |
-| TRAY-01 | Phase 28 | Pending |
+| TRAY-01 | Phase 28 | Complete |
 
 **Coverage:**
 - v3.2 requirements: 6 total

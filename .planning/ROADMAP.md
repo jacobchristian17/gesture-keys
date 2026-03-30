@@ -15,7 +15,7 @@
 
 - [x] **Phase 26: Logging Consolidation** - Centralized setup_logging() with --debug flag and opt-in debug file logging (completed 2026-03-30)
 - [x] **Phase 27: Entry Point Refactor** - Unified main() router with dev-camera and tray-headless modes (completed 2026-03-30)
-- [ ] **Phase 28: Tray View Camera** - "View Camera" tray menu item spawning camera subprocess
+- [x] **Phase 28: Tray View Camera** - "View Camera" tray menu item spawning camera subprocess (completed 2026-03-30)
 
 ## Phase Details
 
@@ -58,11 +58,11 @@ Plans:
   3. Closing the camera window returns control to the tray app, which resumes detection automatically
   4. The feature works identically when launched from the frozen exe (GestureKeys.exe) and from python -m gesture_keys in tray mode
   5. No stuck keys remain after the tray-to-camera restart sequence
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 **UI hint**: yes
 
 Plans:
-- [ ] 28-01-PLAN.md — Add View Camera menu item with subprocess lifecycle and fix frozen routing
+- [x] 28-01-PLAN.md — Add View Camera menu item with subprocess lifecycle and fix frozen routing
 
 ## Progress
 
@@ -73,4 +73,4 @@ Phases execute in numeric order: 26 -> 27 -> 28
 |-------|-----------|----------------|--------|-----------|
 | 26. Logging Consolidation | v3.2 | 1/1 | Complete    | 2026-03-30 |
 | 27. Entry Point Refactor | v3.2 | 1/1 | Complete    | 2026-03-30 |
-| 28. Tray View Camera | v3.2 | 0/1 | In progress | - |
+| 28. Tray View Camera | v3.2 | 1/1 | Complete   | 2026-03-30 |
