@@ -273,7 +273,9 @@ def main():
     if args.preview:
         print("Warning: --preview is deprecated and will be removed. Camera preview is now the default mode.")
     # Mode routing
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, 'frozen', False) and args.view_camera:
+        run_camera_mode(args)
+    elif getattr(sys, 'frozen', False):
         run_tray_mode(args)
     elif args.tray:
         run_tray_mode(args)

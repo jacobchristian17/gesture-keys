@@ -134,8 +134,8 @@ class TestMainRouting:
             main()
             mock_tray.assert_called_once()
 
-    def test_frozen_takes_priority_over_view_camera(self):
-        """When frozen and --view-camera, frozen check wins (routes to tray)."""
+    def test_frozen_with_view_camera_routes_to_camera(self):
+        """When frozen and --view-camera, routes to run_camera_mode (not tray)."""
         with patch("gesture_keys.__main__.run_tray_mode") as mock_tray, \
              patch("gesture_keys.__main__.run_camera_mode") as mock_camera, \
              patch("gesture_keys.__main__.parse_args") as mock_parse, \
@@ -145,8 +145,8 @@ class TestMainRouting:
                 config="config.yaml", debug=False,
             )
             main()
-            mock_tray.assert_called_once()
-            mock_camera.assert_not_called()
+            mock_camera.assert_called_once()
+            mock_tray.assert_not_called()
 
     def test_tray_takes_priority_over_view_camera(self):
         """When --tray and --view-camera, --tray wins (elif ordering)."""

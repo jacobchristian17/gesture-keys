@@ -2,6 +2,8 @@
 
 import logging
 import os
+import subprocess
+import sys
 import threading
 import time
 
@@ -29,6 +31,7 @@ class TrayApp:
         self._active = threading.Event()
         self._active.set()  # Start active
         self._shutdown = threading.Event()
+        self._camera_active = threading.Event()
         self._icon = None
         self._detection_thread = None
 
@@ -57,6 +60,12 @@ class TrayApp:
             ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Edit Config", self._on_edit_config),
+            pystray.MenuItem(
+                text=lambda item: "View Camera (Running)" if self._camera_active.is_set() else "View Camera",
+                action=self._on_view_camera,
+                enabled=lambda item: not self._camera_active.is_set(),
+            ),
+            pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", self._on_quit),
         )
 
@@ -70,6 +79,43 @@ class TrayApp:
     def _on_edit_config(self, icon, item) -> None:
         """Open the config file in the default editor."""
         os.startfile(self._config_path)
+
+    def _on_view_camera(self, icon, item) -> None:
+        """Stop detection, spawn camera preview subprocess, monitor for exit."""
+        try:
+            self._camera_active.set()
+            self._active.clear()
+            icon.notify("Opening camera preview...", "Gesture Keys")
+
+            if getattr(sys, 'frozen', False):
+                cmd = [sys.executable, '--view-camera', '--config', self._config_path]
+            else:
+                cmd = [sys.executable, '-m', 'gesture_keys', '--view-camera', '--config', self._config_path]
+
+            kwargs = {}
+            if sys.platform == 'win32':
+                kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+
+            proc = subprocess.Popen(cmd, **kwargs)
+            icon.update_menu()
+
+            threading.Thread(
+                target=self._monitor_camera_process, args=(proc,), daemon=True
+            ).start()
+        except Exception:
+            logger.exception("Failed to spawn camera subprocess")
+            self._camera_active.clear()
+            self._active.set()
+            icon.notify("Failed to open camera preview. Check logs for details.", "Gesture Keys")
+            icon.update_menu()
+
+    def _monitor_camera_process(self, proc) -> None:
+        """Wait for camera subprocess to exit, then resume detection."""
+        proc.wait()
+        self._camera_active.clear()
+        self._active.set()
+        self._icon.update_menu()
+        self._icon.notify("Camera closed. Detection resumed.", "Gesture Keys")
 
     def _on_quit(self, icon, item) -> None:
         """Shut down the application cleanly.
@@ -107,7 +153,7 @@ class TrayApp:
             pipeline = Pipeline(self._config_path)
             pipeline.start()
             try:
-                while self._active.is_set() and not self._shutdown.is_set():
+                while self._active.is_set() and not self._shutdown.is_set() and not self._camera_active.is_set():
                     pipeline.process_frame()
             finally:
                 pipeline.stop()
