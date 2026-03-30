@@ -62,6 +62,10 @@ class TestConsoleOutput:
         Pipeline.process_frame() handles gesture transitions internally and logs
         them. We verify via caplog that the expected log messages appear.
         """
+        # Setup cv2 mock — error must be a real exception class, window visible
+        mock_cv2.error = type('error', (Exception,), {})
+        mock_cv2.getWindowProperty.return_value = 1.0
+        mock_cv2.waitKey.return_value = 0
         # Setup args: no preview mode (test detection loop directly)
         mock_args = MagicMock()
         mock_args.preview = False
@@ -96,10 +100,12 @@ class TestConsoleOutput:
             return FrameResult(landmarks=None, handedness=None)
 
         mock_pipeline.process_frame.side_effect = process_frame_side_effect
+        # run_dev_mode always renders preview — provide a real frame shape
+        mock_pipeline.last_frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
         # Run detection loop directly
         with caplog.at_level(logging.DEBUG, logger="gesture_keys"):
-            _main_mod.run_preview_mode(mock_args)
+            _main_mod.run_dev_mode(mock_args)
 
         # Pipeline logs gesture transitions internally, so we verify
         # process_frame was called the expected number of times
@@ -126,7 +132,7 @@ class TestConsoleOutput:
         # Immediately raise KeyboardInterrupt to exit after banner
         mock_pipeline.process_frame.side_effect = KeyboardInterrupt()
 
-        _main_mod.run_preview_mode(mock_args)
+        _main_mod.run_dev_mode(mock_args)
 
         captured = capsys.readouterr()
         lines = [l for l in captured.out.strip().split("\n") if l.strip()]
@@ -152,6 +158,10 @@ class TestConsoleOutput:
         Pipeline handles gesture transition logging internally.
         We verify the pipeline lifecycle is correct.
         """
+        # Setup cv2 mock — error must be a real exception class, window visible
+        mock_cv2.error = type('error', (Exception,), {})
+        mock_cv2.getWindowProperty.return_value = 1.0
+        mock_cv2.waitKey.return_value = 0
         mock_args = MagicMock()
         mock_args.preview = False
         mock_args.config = "config.yaml"
@@ -183,9 +193,11 @@ class TestConsoleOutput:
             return FrameResult(landmarks=None, handedness=None)
 
         mock_pipeline.process_frame.side_effect = process_frame_side_effect
+        # run_dev_mode always renders preview — provide a real frame shape
+        mock_pipeline.last_frame = np.zeros((480, 640, 3), dtype=np.uint8)
 
         with caplog.at_level(logging.DEBUG, logger="gesture_keys"):
-            _main_mod.run_preview_mode(mock_args)
+            _main_mod.run_dev_mode(mock_args)
 
         # Pipeline lifecycle verification
         mock_pipeline.start.assert_called_once()

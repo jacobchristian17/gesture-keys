@@ -313,7 +313,7 @@ class TestSequenceWindowConfig:
 
     def test_sequence_window_default(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.sequence_window == 0.5
+        assert config.sequence_window == 0.2
 
     def test_sequence_window_from_detection(self, tmp_path):
         cfg = tmp_path / "config.yaml"
