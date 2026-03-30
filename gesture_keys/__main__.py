@@ -49,7 +49,7 @@ def hide_console_window():
 
 def run_tray_mode(args):
     """Run in system tray mode (default, no preview)."""
-    setup_logging()
+    setup_logging(debug=args.debug)
     hide_console_window()
     from gesture_keys.tray import TrayApp
     app = TrayApp(config_path=args.config)
@@ -79,15 +79,8 @@ def run_preview_mode(args):
     config = load_config(args.config)
     print_banner(config, args.config)
 
-    # File logging to _internal/logs (preview.log + debug.log)
-    setup_logging()
-
-    # Console logging for preview mode
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    console = logging.StreamHandler()
-    console.setLevel(log_level)
-    console.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S"))
-    logging.getLogger("gesture_keys").addHandler(console)
+    # Centralized logging: file + console, debug if --debug flag
+    setup_logging(console=True, debug=args.debug)
 
     pipeline = Pipeline(args.config)
     pipeline.start()
