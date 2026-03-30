@@ -14,7 +14,7 @@
 ## Phases
 
 - [x] **Phase 26: Logging Consolidation** - Centralized setup_logging() with --debug flag and opt-in debug file logging (completed 2026-03-30)
-- [ ] **Phase 27: Entry Point Refactor** - Unified main() router with dev-camera and tray-headless modes
+- [x] **Phase 27: Entry Point Refactor** - Unified main() router with dev-camera and tray-headless modes (completed 2026-03-30)
 - [ ] **Phase 28: Tray View Camera** - "View Camera" tray menu item spawning camera subprocess
 
 ## Phase Details
@@ -42,11 +42,11 @@ Plans:
   2. Running the frozen exe (GestureKeys.exe) enters tray mode silently with no camera window
   3. main() cleanly routes to run_dev_mode, run_tray_mode, or run_camera_mode based on frozen state and flags
   4. The --view-camera internal flag exists and routes to camera mode (for Phase 28 subprocess usage)
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 **UI hint**: yes
 
 Plans:
-- [ ] 27-01-PLAN.md — Refactor __main__.py with three-way mode routing and test coverage
+- [x] 27-01-PLAN.md — Refactor __main__.py with three-way mode routing and test coverage
 
 ### Phase 28: Tray View Camera
 **Goal**: Tray users can open a camera preview window on demand via a single menu click
@@ -72,5 +72,5 @@ Phases execute in numeric order: 26 -> 27 -> 28
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 26. Logging Consolidation | v3.2 | 1/1 | Complete    | 2026-03-30 |
-| 27. Entry Point Refactor | v3.2 | 0/1 | Not started | - |
+| 27. Entry Point Refactor | v3.2 | 1/1 | Complete   | 2026-03-30 |
 | 28. Tray View Camera | v3.2 | 0/0 | Not started | - |

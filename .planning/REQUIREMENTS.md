@@ -9,8 +9,8 @@ Requirements for unified preview & exec mode. Each maps to roadmap phases.
 
 ### Entry Points
 
-- [ ] **ENTRY-01**: User can run `python -m gesture_keys` and see camera preview + logging by default
-- [ ] **ENTRY-02**: App routes to three modes: dev-camera, tray-headless, tray-to-camera via clean main() logic
+- [x] **ENTRY-01**: User can run `python -m gesture_keys` and see camera preview + logging by default
+- [x] **ENTRY-02**: App routes to three modes: dev-camera, tray-headless, tray-to-camera via clean main() logic
 
 ### Tray Integration
 
@@ -50,8 +50,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOG-01 | Phase 26 | Pending |
 | LOG-02 | Phase 26 | Pending |
 | LOG-03 | Phase 26 | Pending |
-| ENTRY-01 | Phase 27 | Pending |
-| ENTRY-02 | Phase 27 | Pending |
+| ENTRY-01 | Phase 27 | Complete |
+| ENTRY-02 | Phase 27 | Complete |
 | TRAY-01 | Phase 28 | Pending |
 
 **Coverage:**
