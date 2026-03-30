@@ -25,7 +25,15 @@ def parse_args():
     )
     parser.add_argument(
         "--preview", action="store_true",
-        help="Open camera preview window with landmark overlay",
+        help="(deprecated) Camera preview is now the default mode",
+    )
+    parser.add_argument(
+        "--tray", action="store_true",
+        help="Run in system tray mode (no camera preview)",
+    )
+    parser.add_argument(
+        "--view-camera", action="store_true", dest="view_camera",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--config", default="config.yaml",
@@ -70,11 +78,11 @@ def print_banner(config, config_path):
     print("Detection started...")
 
 
-def run_preview_mode(args):
+def run_dev_mode(args):
     """Run the gesture detection loop with camera preview.
 
     Args:
-        args: Parsed argparse namespace with config and preview fields.
+        args: Parsed argparse namespace with config and debug fields.
     """
     config = load_config(args.config)
     print_banner(config, args.config)
@@ -115,7 +123,7 @@ def run_preview_mode(args):
 
             gate_ok = not pipeline.activation_gate_enabled or result.activation_armed
 
-            # Log orchestrator signals at INFO level (visible in normal --preview)
+            # Log orchestrator signals at INFO level (visible in normal mode)
             if gate_ok and result.orchestrator and result.orchestrator.signals:
                 for sig in result.orchestrator.signals:
                     parts = [f"SIGNAL {sig.action.value}"]
@@ -129,55 +137,150 @@ def run_preview_mode(args):
 
             # Log motion state transitions
             if result.motion_state and result.motion_state.moving:
-                if not getattr(run_preview_mode, '_was_moving', False):
+                if not getattr(run_dev_mode, '_was_moving', False):
                     if gate_ok:
                         dir_name = result.motion_state.direction.value if result.motion_state.direction else "unknown"
                         logger.info("MOTION started dir=%s", dir_name)
-                    run_preview_mode._was_moving = True
+                    run_dev_mode._was_moving = True
             else:
-                if getattr(run_preview_mode, '_was_moving', False):
-                    run_preview_mode._was_moving = False
+                if getattr(run_dev_mode, '_was_moving', False):
+                    run_dev_mode._was_moving = False
 
-            # Preview rendering
-            if args.preview:
-                frame = pipeline.last_frame
-                if result.landmarks:
-                    draw_hand_landmarks(frame, result.landmarks)
-                gesture_label = result.gesture.value if result.gesture else None
-                render_preview(
-                    frame, gesture_label, fps,
-                    debounce_state=result.debounce_state.value,
-                    handedness=result.handedness,
-                )
+            # Preview rendering (always shown in dev mode)
+            frame = pipeline.last_frame
+            if result.landmarks:
+                draw_hand_landmarks(frame, result.landmarks)
+            gesture_label = result.gesture.value if result.gesture else None
+            render_preview(
+                frame, gesture_label, fps,
+                debounce_state=result.debounce_state.value,
+                handedness=result.handedness,
+            )
 
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27:
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:
+                break
+            try:
+                if cv2.getWindowProperty("Gesture Keys", cv2.WND_PROP_VISIBLE) < 1:
                     break
-                try:
-                    if cv2.getWindowProperty("Gesture Keys", cv2.WND_PROP_VISIBLE) < 1:
-                        break
-                except cv2.error:
-                    break
+            except cv2.error:
+                break
 
     except KeyboardInterrupt:
         pass
     finally:
         pipeline.stop()
-        if args.preview:
-            cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
+
+
+def run_camera_mode(args):
+    """Run camera preview as a subprocess of tray mode (no banner)."""
+    # Centralized logging: file + console, debug if --debug flag
+    setup_logging(console=True, debug=args.debug)
+
+    config = load_config(args.config)
+    pipeline = Pipeline(args.config)
+    pipeline.start()
+
+    prev_time = time.perf_counter()
+    fps = 0.0
+    try:
+        while True:
+            # FPS calculation
+            current_time = time.perf_counter()
+            dt = current_time - prev_time
+            if dt > 0:
+                fps = 1.0 / dt
+            prev_time = current_time
+
+            result = pipeline.process_frame()
+            if not result.frame_valid:
+                continue
+
+            # Per-frame debug logging
+            if result.landmarks:
+                motion_info = ""
+                if result.motion_state and result.motion_state.moving:
+                    motion_info = f" motion={result.motion_state.direction.value if result.motion_state.direction else '?'}"
+                logger.debug(
+                    "FRAME raw=%s smooth=%s state=%s%s",
+                    result.raw_gesture.value if result.raw_gesture else "None",
+                    result.gesture.value if result.gesture else "None",
+                    result.debounce_state.value,
+                    motion_info,
+                )
+
+            gate_ok = not pipeline.activation_gate_enabled or result.activation_armed
+
+            # Log orchestrator signals at INFO level
+            if gate_ok and result.orchestrator and result.orchestrator.signals:
+                for sig in result.orchestrator.signals:
+                    parts = [f"SIGNAL {sig.action.value}"]
+                    if sig.gesture:
+                        parts.append(f"gesture={sig.gesture.value}")
+                    if sig.direction:
+                        parts.append(f"dir={sig.direction.value}")
+                    if sig.second_gesture:
+                        parts.append(f"seq={sig.second_gesture.value}")
+                    logger.info(" ".join(parts))
+
+            # Log motion state transitions
+            if result.motion_state and result.motion_state.moving:
+                if not getattr(run_camera_mode, '_was_moving', False):
+                    if gate_ok:
+                        dir_name = result.motion_state.direction.value if result.motion_state.direction else "unknown"
+                        logger.info("MOTION started dir=%s", dir_name)
+                    run_camera_mode._was_moving = True
+            else:
+                if getattr(run_camera_mode, '_was_moving', False):
+                    run_camera_mode._was_moving = False
+
+            # Preview rendering (always shown in camera mode)
+            frame = pipeline.last_frame
+            if result.landmarks:
+                draw_hand_landmarks(frame, result.landmarks)
+            gesture_label = result.gesture.value if result.gesture else None
+            render_preview(
+                frame, gesture_label, fps,
+                debounce_state=result.debounce_state.value,
+                handedness=result.handedness,
+            )
+
+            key = cv2.waitKey(1) & 0xFF
+            if key == 27:
+                break
+            try:
+                if cv2.getWindowProperty("Gesture Keys", cv2.WND_PROP_VISIBLE) < 1:
+                    break
+            except cv2.error:
+                break
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        pipeline.stop()
+        cv2.destroyAllWindows()
 
 
 def main():
-    """Run gesture-keys: tray mode by default, preview mode with --preview."""
+    """Run gesture-keys: dev mode by default, tray mode when frozen."""
     args = parse_args()
     # Resolve config path relative to exe directory when frozen (PyInstaller)
     if not os.path.isabs(args.config) and getattr(sys, 'frozen', False):
         base = os.path.dirname(os.path.abspath(sys.argv[0]))
         args.config = os.path.join(base, args.config)
+    # Deprecation warning for --preview
     if args.preview:
-        run_preview_mode(args)
-    else:
+        print("Warning: --preview is deprecated and will be removed. Camera preview is now the default mode.")
+    # Mode routing
+    if getattr(sys, 'frozen', False):
         run_tray_mode(args)
+    elif args.tray:
+        run_tray_mode(args)
+    elif args.view_camera:
+        run_camera_mode(args)
+    else:
+        run_dev_mode(args)
 
 
 if __name__ == "__main__":
