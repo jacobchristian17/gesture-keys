@@ -60,7 +60,7 @@ def run_tray_mode(args):
     setup_logging(debug=args.debug)
     hide_console_window()
     from gesture_keys.tray import TrayApp
-    app = TrayApp(config_path=args.config)
+    app = TrayApp(config_path=args.config, debug=args.debug)
     app.run()
 
 

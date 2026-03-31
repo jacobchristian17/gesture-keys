@@ -26,8 +26,9 @@ class TrayApp:
         config_path: Path to the YAML configuration file.
     """
 
-    def __init__(self, config_path: str) -> None:
+    def __init__(self, config_path: str, debug: bool = False) -> None:
         self._config_path = os.path.abspath(config_path)
+        self._debug = debug
         self._active = threading.Event()
         self._active.set()  # Start active
         self._shutdown = threading.Event()
@@ -91,6 +92,9 @@ class TrayApp:
                 cmd = [sys.executable, '--view-camera', '--config', self._config_path]
             else:
                 cmd = [sys.executable, '-m', 'gesture_keys', '--view-camera', '--config', self._config_path]
+
+            if self._debug:
+                cmd.append('--debug')
 
             kwargs = {}
             if sys.platform == 'win32':

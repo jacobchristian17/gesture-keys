@@ -252,6 +252,28 @@ class TestViewCamera:
         assert "-m" in cmd
         assert "gesture_keys" in cmd
         assert "--view-camera" in cmd
+        assert "--debug" not in cmd
+
+    @patch("gesture_keys.tray.threading.Thread")
+    @patch("gesture_keys.tray.subprocess.Popen")
+    def test_on_view_camera_command_non_frozen_with_debug(self, mock_popen, mock_thread):
+        """Non-frozen with debug: command includes '--debug'."""
+        from gesture_keys.tray import TrayApp
+
+        if hasattr(sys, "frozen"):
+            delattr(sys, "frozen")
+
+        app = TrayApp(config_path="config.yaml", debug=True)
+        icon_mock = MagicMock()
+        app._icon = icon_mock
+        mock_popen.return_value = MagicMock()
+        mock_thread.return_value = MagicMock()
+
+        app._on_view_camera(icon_mock, MagicMock())
+
+        cmd = mock_popen.call_args[0][0]
+        assert "--view-camera" in cmd
+        assert "--debug" in cmd
 
     @patch("gesture_keys.tray.threading.Thread")
     @patch("gesture_keys.tray.subprocess.Popen")
@@ -272,6 +294,26 @@ class TestViewCamera:
         assert "-m" not in cmd
         assert "--view-camera" in cmd
         assert "--config" in cmd
+        assert "--debug" not in cmd
+
+    @patch("gesture_keys.tray.threading.Thread")
+    @patch("gesture_keys.tray.subprocess.Popen")
+    def test_on_view_camera_command_frozen_with_debug(self, mock_popen, mock_thread):
+        """Frozen with debug: command includes '--debug'."""
+        from gesture_keys.tray import TrayApp
+
+        app = TrayApp(config_path="config.yaml", debug=True)
+        icon_mock = MagicMock()
+        app._icon = icon_mock
+        mock_popen.return_value = MagicMock()
+        mock_thread.return_value = MagicMock()
+
+        with patch.object(sys, "frozen", True, create=True):
+            app._on_view_camera(icon_mock, MagicMock())
+
+        cmd = mock_popen.call_args[0][0]
+        assert "--view-camera" in cmd
+        assert "--debug" in cmd
 
     def test_monitor_camera_process_resumes_detection(self):
         """_monitor_camera_process clears camera_active, sets active, notifies."""
