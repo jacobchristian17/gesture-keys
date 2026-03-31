@@ -78,8 +78,9 @@ class TrayApp:
             self._active.set()
 
     def _on_edit_config(self, icon, item) -> None:
-        """Open the config file in the default editor."""
-        os.startfile(self._config_path)
+        """Open the config file in Notepad for editing."""
+        import subprocess
+        subprocess.Popen(["notepad.exe", self._config_path])
 
     def _on_view_camera(self, icon, item) -> None:
         """Stop detection, spawn camera preview subprocess, monitor for exit."""

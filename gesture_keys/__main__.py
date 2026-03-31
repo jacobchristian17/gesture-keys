@@ -35,8 +35,20 @@ def parse_args():
         "--view-camera", action="store_true", dest="view_camera",
         help=argparse.SUPPRESS,
     )
+    # Resolve config.yaml relative to the exe directory when frozen (PyInstaller).
+    # PyInstaller 6+ places bundled data in _internal/; if the user hasn't
+    # placed a config next to the exe yet, copy the bundled default there.
+    if getattr(sys, 'frozen', False):
+        import shutil
+        exe_dir = os.path.dirname(sys.executable)
+        default_config = os.path.join(exe_dir, "config.yaml")
+        bundled_config = os.path.join(exe_dir, "_internal", "config.yaml")
+        if not os.path.exists(default_config) and os.path.exists(bundled_config):
+            shutil.copy2(bundled_config, default_config)
+    else:
+        default_config = "config.yaml"
     parser.add_argument(
-        "--config", default="config.yaml",
+        "--config", default=default_config,
         help="Path to config file (default: config.yaml)",
     )
     parser.add_argument(

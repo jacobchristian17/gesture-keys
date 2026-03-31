@@ -1,0 +1,98 @@
+preferred_hand: left  # Which hand to prefer when both are visible at startup ("left" or "right")
+
+camera:
+  index: 0
+
+detection:
+  smoothing_window: 2
+  activation_delay: 0.2
+  cooldown_duration: 0.1
+  sequence_window: 0.2       # seconds window for sequence gesture detection
+
+distance:
+  enabled: true
+  min_hand_size: 0.12
+  max_hand_size: 0.4
+
+actions:
+  open_palm_switch:
+    trigger: "open_palm:static"
+    key: win+tab
+    threshold: 0.7
+
+
+  fist_hold:
+    trigger: "fist:holding"
+    key: space
+    threshold: 0.7
+
+  thumbs_up_tap:
+    trigger: "thumbs_up:static"
+    key: enter
+    threshold: 0.9
+
+  pointing_switch:
+    trigger: "pointing:static"
+    key: alt+tab
+    threshold: 0.7
+
+  peace_desktop_right:
+    trigger: "peace:static"
+    key: win+ctrl+right
+    threshold: 0.7
+    bypass_gate: true
+
+  scout_desktop_left:
+    trigger: "scout:static"
+    key: win+ctrl+left
+    threshold: 0.7
+    bypass_gate: true
+
+  pinch_minimize:
+    trigger: "pinch:static"
+    key: win+down
+    threshold: 0.06
+               
+  fist_to_palm:
+    trigger: "open_palm > fist"
+    key: alt+tab
+    # bypass_gate: true
+
+  swipe_left:
+    trigger: "open_palm:moving:right"
+    key: left
+
+  swipe_right:
+    trigger: "open_palm:moving:left"
+    key: right
+
+  swipe_up:
+    trigger: "open_palm:moving:up"
+    key: up
+
+  swipe_down:
+    trigger: "open_palm:moving:down"
+    key: down
+
+# Motion detection settings (global thresholds for MotionDetector)
+# Per-action overrides: add min_velocity or dispatch_interval to individual moving actions above
+motion:
+  settling_frames: 2
+  cooldown: 0.3
+  min_velocity: 0.15
+  min_displacement: 0.03
+  axis_ratio: 1.5
+  dispatch_interval: 0.4  # Minimum seconds between moving_fire dispatches (0 = no throttle)
+                          # Per-action override: add dispatch_interval to individual actions
+
+# Activation gate: arm/disarm gesture detection with an activation gesture.
+# When enabled, gestures only fire actions while the gate is armed.
+# The activation gesture arms the gate for the configured duration.
+activation_gate:
+  enabled: true          # Set to true to enable activation gating (default: bypass, v1.x behavior)
+  gestures:               # Gestures that arm the gate (perform any of these to activate)
+    - pointing
+  bypass:
+    - peace_desktop_right
+    - scout_desktop_left
+  duration: 3.0           # Seconds the gate stays armed after activation
