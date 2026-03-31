@@ -1,5 +1,16 @@
 # Milestones
 
+## v3.2 Unified Preview & Exec Mode (Shipped: 2026-03-31)
+
+**Phases completed:** 3 phases, 3 plans, 4 tasks
+
+**Key accomplishments:**
+
+- Three-way mode routing in __main__.py: dev mode (camera+banner) by default, frozen exe to tray, --view-camera for subprocess camera
+- View Camera tray menu item with subprocess spawn, monitor thread, and automatic detection resume on camera close
+
+---
+
 ## v3.0 Tri-State Gesture Model + Action Library (Shipped: 2026-03-26)
 
 **Phases completed:** 7 phases, 9 plans, 15 tasks
