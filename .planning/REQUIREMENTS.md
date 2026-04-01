@@ -9,8 +9,8 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 
 ### Scroll Fire Mode
 
-- [ ] **SCROLL-01**: User can configure a `scroll` fire mode on any gesture's moving trigger to fire mouse scroll events instead of keyboard commands
-- [ ] **SCROLL-02**: Scroll actions do not require a `key` field — config validates that scroll actions omit key and non-scroll actions require it
+- [x] **SCROLL-01**: User can configure a `scroll` fire mode on any gesture's moving trigger to fire mouse scroll events instead of keyboard commands
+- [x] **SCROLL-02**: Scroll actions do not require a `key` field — config validates that scroll actions omit key and non-scroll actions require it
 
 ### Scroll Dispatch
 
@@ -21,9 +21,9 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 
 ### Scroll Tuning
 
-- [ ] **SCROLL-07**: User can configure `scroll_speed` per action to control velocity-to-scroll multiplier
-- [ ] **SCROLL-08**: Scroll uses an acceleration curve — slow hand movement gives precise control, fast movement gives rapid scrolling
-- [ ] **SCROLL-09**: User can configure min/max scroll step bounds to prevent micro-scrolls or runaway scroll
+- [x] **SCROLL-07**: User can configure `scroll_speed` per action to control velocity-to-scroll multiplier
+- [x] **SCROLL-08**: Scroll uses an acceleration curve — slow hand movement gives precise control, fast movement gives rapid scrolling
+- [x] **SCROLL-09**: User can configure min/max scroll step bounds to prevent micro-scrolls or runaway scroll
 
 ### Scroll Safety
 
@@ -63,15 +63,15 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCROLL-01 | Phase 30 | Pending |
-| SCROLL-02 | Phase 30 | Pending |
+| SCROLL-01 | Phase 30 | Complete |
+| SCROLL-02 | Phase 30 | Complete |
 | SCROLL-03 | Phase 29 | Complete |
 | SCROLL-04 | Phase 29 | Complete |
 | SCROLL-05 | Phase 29 | Complete |
 | SCROLL-06 | Phase 31 | Pending |
-| SCROLL-07 | Phase 30 | Pending |
-| SCROLL-08 | Phase 30 | Pending |
-| SCROLL-09 | Phase 30 | Pending |
+| SCROLL-07 | Phase 30 | Complete |
+| SCROLL-08 | Phase 30 | Complete |
+| SCROLL-09 | Phase 30 | Complete |
 | SCROLL-10 | Phase 31 | Pending |
 | SCROLL-11 | Phase 32 | Pending |
 | SCROLL-12 | Phase 33 | Pending |

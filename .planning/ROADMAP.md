@@ -30,7 +30,7 @@
 - [x] **Phase 29: ScrollSender** - Pure scroll dispatch class with velocity-to-ticks mapping and direction routing (completed 2026-04-01)
   Plans:
   - [x] 29-01-PLAN.md — ScrollSender TDD: direction routing, velocity mapping, EMA smoothing
-- [ ] **Phase 30: Fire Mode & Config** - FireMode.SCROLL enum, config parsing, and scroll tuning parameters
+- [x] **Phase 30: Fire Mode & Config** - FireMode.SCROLL enum, config parsing, and scroll tuning parameters (completed 2026-04-01)
 - [ ] **Phase 31: Dispatcher Integration** - ActionDispatcher scroll branch with continuous dispatch and safety stop
 - [ ] **Phase 32: Pipeline Wiring & Logging** - ScrollSender instantiation in Pipeline and scroll event logging
 - [ ] **Phase 33: Default Config** - Default config.yaml scroll actions for all 4 directions
@@ -60,7 +60,7 @@
   5. User can configure min/max scroll step bounds to prevent micro-scrolls or runaway scroll
 **Plans**: 1 plan
 Plans:
-- [ ] 30-01-PLAN.md — FireMode.SCROLL, config parsing, scroll tuning, ActionResolver scroll accessors
+- [x] 30-01-PLAN.md — FireMode.SCROLL, config parsing, scroll tuning, ActionResolver scroll accessors
 
 ### Phase 31: Dispatcher Integration
 **Goal**: Scroll events fire continuously while hand moves and stop immediately when hand stops or gesture is released
@@ -104,7 +104,7 @@ Phases execute in numeric order: 29 → 30 → 31 → 32 → 33
 | 27. Entry Point Refactor | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 28. Tray View Camera | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 29. ScrollSender | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
-| 30. Fire Mode & Config | v1.0.1 | 0/1 | In progress | - |
+| 30. Fire Mode & Config | v1.0.1 | 1/1 | Complete   | 2026-04-01 |
 | 31. Dispatcher Integration | v1.0.1 | 0/0 | Not started | - |
 | 32. Pipeline Wiring & Logging | v1.0.1 | 0/0 | Not started | - |
 | 33. Default Config | v1.0.1 | 0/0 | Not started | - |

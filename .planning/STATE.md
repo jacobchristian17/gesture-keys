@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0.1
 milestone_name: Scroll Gesture Support
 status: verifying
-stopped_at: Completed 29-01-PLAN.md
-last_updated: "2026-04-01T11:46:24.463Z"
+stopped_at: Completed 30-01-PLAN.md
+last_updated: "2026-04-01T12:11:34.850Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
   percent: 0
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 29 — ScrollSender
+**Current focus:** Phase 30 — Fire Mode & Config
 
 ## Current Position
 
-Phase: 30
-Plan: Not started
+Phase: 30 (Fire Mode & Config) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-04-01
 
@@ -44,6 +44,9 @@ Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions t
 - All 6 critical pitfalls from research addressed in Phases 29-31
 - [Phase 29-scrollsender]: Power 1.5 nonlinear acceleration curve for velocity-to-ticks mapping
 - [Phase 29-scrollsender]: EMA alpha 0.3 for velocity smoothing — balances responsiveness and jitter dampening
+- [Phase 30]: fire_mode: scroll overrides state-inferred fire mode only for moving triggers
+- [Phase 30]: Scroll actions skip parse_key_string -- empty key defaults for non-keystroke dispatch
+- [Phase 30]: Scroll param overrides keyed by (gesture_value, direction_value) matching existing patterns
 
 ### Pending Todos
 
@@ -64,6 +67,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-01T11:44:17.162Z
-Stopped at: Completed 29-01-PLAN.md
+Last session: 2026-04-01T12:11:34.846Z
+Stopped at: Completed 30-01-PLAN.md
 Resume file: None
