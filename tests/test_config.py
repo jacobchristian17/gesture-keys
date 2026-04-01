@@ -44,9 +44,9 @@ class TestLoadConfigDefault:
         config = load_config(DEFAULT_CONFIG)
         assert config.smoothing_window == 2
 
-    def test_has_twelve_actions(self):
+    def test_has_sixteen_actions(self):
         config = load_config(DEFAULT_CONFIG)
-        assert len(config.actions) == 12
+        assert len(config.actions) == 16
 
     def test_action_names(self):
         config = load_config(DEFAULT_CONFIG)
@@ -56,12 +56,16 @@ class TestLoadConfigDefault:
             "pointing_switch", "peace_desktop_right", "scout_desktop_left",
             "pinch_minimize", "fist_to_palm",
             "swipe_left", "swipe_right", "swipe_up", "swipe_down",
+            "pinch_scroll_up", "pinch_scroll_down",
+            "pinch_scroll_left", "pinch_scroll_right",
         }
         assert names == expected
 
     def test_actions_have_keys(self):
         config = load_config(DEFAULT_CONFIG)
         for action in config.actions:
+            if action.fire_mode == "scroll":
+                continue  # scroll actions don't use key field
             assert action.key, f"{action.name} missing 'key'"
 
     def test_gesture_modes_derived(self):
