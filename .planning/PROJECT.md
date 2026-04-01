@@ -61,7 +61,7 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 
 ## Current State
 
-Shipped v1.0.0 (2026-03-31). Dev mode shows camera preview + logging by default. Tray mode has "View Camera" menu item that spawns camera subprocess. --debug flag enables verbose logging in all modes.
+Shipped v1.0.0 (2026-03-31). Phase 29 complete — ScrollSender class implemented with direction routing, velocity-proportional ticks, EMA smoothing, and nonlinear acceleration.
 
 ### Out of Scope
 
@@ -136,4 +136,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-31 after v3.2 milestone*
+*Last updated: 2026-04-01 after Phase 29 completion*
