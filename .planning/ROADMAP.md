@@ -95,7 +95,9 @@ Plans:
   1. Default config.yaml includes pinch scroll actions for up, down, left, and right directions
   2. Default scroll_speed and dispatch_interval values produce smooth, usable scrolling without tuning
   3. End-to-end scroll works with default config — hold pinch, move hand, content scrolls
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 33-01-PLAN.md — Add default pinch scroll actions for all 4 cardinal directions
 
 ## Progress
 
@@ -111,4 +113,4 @@ Phases execute in numeric order: 29 → 30 → 31 → 32 → 33
 | 30. Fire Mode & Config | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
 | 31. Dispatcher Integration | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
 | 32. Pipeline Wiring & Logging | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
-| 33. Default Config | v1.0.1 | 0/0 | Not started | - |
+| 33. Default Config | v1.0.1 | 0/1 | Not started | - |
