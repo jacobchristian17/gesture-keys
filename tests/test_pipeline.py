@@ -428,3 +428,253 @@ class TestMotionDetectorEmptyLandmarks:
         landmarks = []
         result = landmarks or None
         assert result is None
+
+
+class TestScrollSenderWiring:
+    """Test ScrollSender wiring in Pipeline lifecycle."""
+
+    def _make_mock_config(self):
+        """Create a mock AppConfig with all required attributes."""
+        config = MagicMock()
+        config.camera_index = 0
+        config.preferred_hand = "Right"
+        config.smoothing_window = 5
+        config.activation_delay = 0.5
+        config.cooldown_duration = 0.3
+        config.hold_release_delay = 0.3
+        config.sequence_window = 0.5
+        config.min_hand_size = 0.15
+        config.max_hand_size = 1.0
+        config.distance_enabled = True
+        config.hold_repeat_interval = 0.03
+        config.motion_dispatch_interval = 0.0
+        config.activation_gate_enabled = False
+        config.activation_gate_gestures = []
+        config.activation_gate_duration = 3.0
+        config.activation_gate_bypass = []
+        config.motion_arm_threshold = 0.02
+        config.motion_disarm_threshold = 0.01
+        config.motion_axis_ratio = 1.5
+        config.motion_settling_frames = 3
+        config.actions = []
+        return config
+
+    def _make_mock_derived_config(self, with_scroll_overrides=False):
+        """Create a mock DerivedConfig with empty maps (or scroll overrides)."""
+        derived = MagicMock()
+        derived.gesture_modes = {}
+        derived.gesture_cooldowns = {}
+        derived.activation_gate_bypass = []
+        derived.right_static = {}
+        derived.left_static = {}
+        derived.right_holding = {}
+        derived.left_holding = {}
+        derived.right_moving = {}
+        derived.left_moving = {}
+        derived.right_sequence = {}
+        derived.left_sequence = {}
+        derived.moving_velocity_overrides = {}
+        derived.moving_dispatch_interval_overrides = {}
+        if with_scroll_overrides:
+            derived.scroll_speed_overrides = {("pinch", "down"): 5.0}
+            derived.scroll_min_ticks_overrides = {("pinch", "down"): 2}
+            derived.scroll_max_ticks_overrides = {("pinch", "down"): 8}
+        else:
+            derived.scroll_speed_overrides = {}
+            derived.scroll_min_ticks_overrides = {}
+            derived.scroll_max_ticks_overrides = {}
+        return derived
+
+    @patch("gesture_keys.pipeline.ConfigWatcher")
+    @patch("gesture_keys.pipeline.MotionDetector")
+    @patch("gesture_keys.pipeline.DistanceFilter")
+    @patch("gesture_keys.pipeline.ScrollSender")
+    @patch("gesture_keys.pipeline.KeystrokeSender")
+    @patch("gesture_keys.pipeline.GestureOrchestrator")
+    @patch("gesture_keys.pipeline.GestureSmoother")
+    @patch("gesture_keys.pipeline.GestureClassifier")
+    @patch("gesture_keys.pipeline.HandDetector")
+    @patch("gesture_keys.pipeline.CameraCapture")
+    @patch("gesture_keys.pipeline.derive_from_actions")
+    @patch("gesture_keys.pipeline.load_config")
+    def test_start_creates_scroll_sender(
+        self, mock_load_config, mock_derive, mock_camera_cls, mock_detector_cls,
+        mock_classifier_cls, mock_smoother_cls, mock_orchestrator_cls,
+        mock_sender_cls, mock_scroll_cls, mock_distance_cls, mock_motion_cls,
+        mock_watcher_cls,
+    ):
+        """After pipeline.start(), _scroll_sender should be a ScrollSender instance."""
+        from gesture_keys.pipeline import Pipeline
+
+        mock_load_config.return_value = self._make_mock_config()
+        mock_derive.return_value = self._make_mock_derived_config()
+        mock_camera_cls.return_value.start.return_value = MagicMock()
+
+        pipeline = Pipeline("config.yaml")
+        pipeline.start()
+
+        assert pipeline._scroll_sender is not None
+        mock_scroll_cls.assert_called_once()
+
+    @patch("gesture_keys.pipeline.ConfigWatcher")
+    @patch("gesture_keys.pipeline.MotionDetector")
+    @patch("gesture_keys.pipeline.DistanceFilter")
+    @patch("gesture_keys.pipeline.ScrollSender")
+    @patch("gesture_keys.pipeline.KeystrokeSender")
+    @patch("gesture_keys.pipeline.GestureOrchestrator")
+    @patch("gesture_keys.pipeline.GestureSmoother")
+    @patch("gesture_keys.pipeline.GestureClassifier")
+    @patch("gesture_keys.pipeline.HandDetector")
+    @patch("gesture_keys.pipeline.CameraCapture")
+    @patch("gesture_keys.pipeline.derive_from_actions")
+    @patch("gesture_keys.pipeline.load_config")
+    def test_start_passes_scroll_sender_to_dispatcher(
+        self, mock_load_config, mock_derive, mock_camera_cls, mock_detector_cls,
+        mock_classifier_cls, mock_smoother_cls, mock_orchestrator_cls,
+        mock_sender_cls, mock_scroll_cls, mock_distance_cls, mock_motion_cls,
+        mock_watcher_cls,
+    ):
+        """ActionDispatcher should receive the same ScrollSender instance."""
+        from gesture_keys.pipeline import Pipeline
+
+        mock_load_config.return_value = self._make_mock_config()
+        mock_derive.return_value = self._make_mock_derived_config()
+        mock_camera_cls.return_value.start.return_value = MagicMock()
+
+        pipeline = Pipeline("config.yaml")
+        pipeline.start()
+
+        assert pipeline._dispatcher._scroll_sender is pipeline._scroll_sender
+
+    @patch("gesture_keys.pipeline.ConfigWatcher")
+    @patch("gesture_keys.pipeline.MotionDetector")
+    @patch("gesture_keys.pipeline.DistanceFilter")
+    @patch("gesture_keys.pipeline.ScrollSender")
+    @patch("gesture_keys.pipeline.KeystrokeSender")
+    @patch("gesture_keys.pipeline.GestureOrchestrator")
+    @patch("gesture_keys.pipeline.GestureSmoother")
+    @patch("gesture_keys.pipeline.GestureClassifier")
+    @patch("gesture_keys.pipeline.HandDetector")
+    @patch("gesture_keys.pipeline.CameraCapture")
+    @patch("gesture_keys.pipeline.derive_from_actions")
+    @patch("gesture_keys.pipeline.load_config")
+    def test_start_passes_scroll_overrides_to_resolver(
+        self, mock_load_config, mock_derive, mock_camera_cls, mock_detector_cls,
+        mock_classifier_cls, mock_smoother_cls, mock_orchestrator_cls,
+        mock_sender_cls, mock_scroll_cls, mock_distance_cls, mock_motion_cls,
+        mock_watcher_cls,
+    ):
+        """ActionResolver should receive scroll override maps from DerivedConfig."""
+        from gesture_keys.pipeline import Pipeline
+
+        mock_load_config.return_value = self._make_mock_config()
+        mock_derive.return_value = self._make_mock_derived_config(with_scroll_overrides=True)
+        mock_camera_cls.return_value.start.return_value = MagicMock()
+
+        pipeline = Pipeline("config.yaml")
+        pipeline.start()
+
+        assert pipeline._resolver._scroll_speed_overrides == {("pinch", "down"): 5.0}
+        assert pipeline._resolver._scroll_min_ticks_overrides == {("pinch", "down"): 2}
+        assert pipeline._resolver._scroll_max_ticks_overrides == {("pinch", "down"): 8}
+
+    @patch("gesture_keys.pipeline.load_config")
+    def test_reset_pipeline_resets_scroll_sender(self, mock_load_config):
+        """reset_pipeline() should reset ScrollSender EMA state."""
+        from gesture_keys.pipeline import Pipeline
+
+        mock_load_config.return_value = MagicMock()
+        pipeline = Pipeline("config.yaml")
+
+        pipeline._smoother = MagicMock()
+        pipeline._orchestrator = MagicMock()
+        pipeline._motion_detector = MagicMock()
+        pipeline._dispatcher = MagicMock()
+
+        # Use a real ScrollSender to verify actual state reset
+        from gesture_keys.scroll import ScrollSender
+        pipeline._scroll_sender = ScrollSender()
+        pipeline._scroll_sender._has_prev = True
+        pipeline._scroll_sender._smoothed_velocity = 5.0
+
+        pipeline.reset_pipeline()
+
+        assert pipeline._scroll_sender._has_prev is False
+        assert pipeline._scroll_sender._smoothed_velocity == 0.0
+
+    @patch("gesture_keys.pipeline.ConfigWatcher")
+    @patch("gesture_keys.pipeline.MotionDetector")
+    @patch("gesture_keys.pipeline.DistanceFilter")
+    @patch("gesture_keys.pipeline.ScrollSender")
+    @patch("gesture_keys.pipeline.KeystrokeSender")
+    @patch("gesture_keys.pipeline.GestureOrchestrator")
+    @patch("gesture_keys.pipeline.GestureSmoother")
+    @patch("gesture_keys.pipeline.GestureClassifier")
+    @patch("gesture_keys.pipeline.HandDetector")
+    @patch("gesture_keys.pipeline.CameraCapture")
+    @patch("gesture_keys.pipeline.derive_from_actions")
+    @patch("gesture_keys.pipeline.load_config")
+    def test_reload_config_resets_scroll_sender(
+        self, mock_load_config, mock_derive, mock_camera_cls, mock_detector_cls,
+        mock_classifier_cls, mock_smoother_cls, mock_orchestrator_cls,
+        mock_sender_cls, mock_scroll_cls, mock_distance_cls, mock_motion_cls,
+        mock_watcher_cls,
+    ):
+        """reload_config() should reset ScrollSender EMA state."""
+        from gesture_keys.pipeline import Pipeline
+
+        config = self._make_mock_config()
+        mock_load_config.return_value = config
+        mock_derive.return_value = self._make_mock_derived_config()
+        mock_camera_cls.return_value.start.return_value = MagicMock()
+
+        pipeline = Pipeline("config.yaml")
+        pipeline.start()
+
+        # Dirty the scroll sender state
+        pipeline._scroll_sender.reset.reset_mock()
+
+        # Trigger reload
+        pipeline.reload_config()
+
+        # Scroll sender should have been reset during reload
+        pipeline._scroll_sender.reset.assert_called()
+
+    @patch("gesture_keys.pipeline.ConfigWatcher")
+    @patch("gesture_keys.pipeline.MotionDetector")
+    @patch("gesture_keys.pipeline.DistanceFilter")
+    @patch("gesture_keys.pipeline.ScrollSender")
+    @patch("gesture_keys.pipeline.KeystrokeSender")
+    @patch("gesture_keys.pipeline.GestureOrchestrator")
+    @patch("gesture_keys.pipeline.GestureSmoother")
+    @patch("gesture_keys.pipeline.GestureClassifier")
+    @patch("gesture_keys.pipeline.HandDetector")
+    @patch("gesture_keys.pipeline.CameraCapture")
+    @patch("gesture_keys.pipeline.derive_from_actions")
+    @patch("gesture_keys.pipeline.load_config")
+    def test_reload_config_passes_scroll_overrides_to_resolver(
+        self, mock_load_config, mock_derive, mock_camera_cls, mock_detector_cls,
+        mock_classifier_cls, mock_smoother_cls, mock_orchestrator_cls,
+        mock_sender_cls, mock_scroll_cls, mock_distance_cls, mock_motion_cls,
+        mock_watcher_cls,
+    ):
+        """reload_config() should rebuild resolver with scroll override maps."""
+        from gesture_keys.pipeline import Pipeline
+
+        config = self._make_mock_config()
+        mock_load_config.return_value = config
+        # Start with no scroll overrides
+        mock_derive.return_value = self._make_mock_derived_config()
+        mock_camera_cls.return_value.start.return_value = MagicMock()
+
+        pipeline = Pipeline("config.yaml")
+        pipeline.start()
+
+        # Now reload with scroll overrides
+        mock_derive.return_value = self._make_mock_derived_config(with_scroll_overrides=True)
+        pipeline.reload_config()
+
+        # Rebuilt resolver should have scroll overrides
+        assert pipeline._resolver._scroll_speed_overrides == {("pinch", "down"): 5.0}
+        assert pipeline._resolver._scroll_min_ticks_overrides == {("pinch", "down"): 2}
+        assert pipeline._resolver._scroll_max_ticks_overrides == {("pinch", "down"): 8}
