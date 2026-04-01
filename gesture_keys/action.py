@@ -23,6 +23,7 @@ from pynput.keyboard import Key
 from gesture_keys.classifier import Gesture
 from gesture_keys.keystroke import KeystrokeSender
 from gesture_keys.orchestrator import OrchestratorAction, OrchestratorSignal
+from gesture_keys.scroll import ScrollSender
 from gesture_keys.trigger import Direction
 
 logger = logging.getLogger("gesture_keys")
@@ -305,6 +306,7 @@ class ActionDispatcher:
         resolver: ActionResolver,
         repeat_interval: float = 0.03,
         global_dispatch_interval: float = 0,
+        scroll_sender: Optional[ScrollSender] = None,
     ) -> None:
         self._sender = sender
         self._resolver = resolver
@@ -313,6 +315,7 @@ class ActionDispatcher:
         self._last_repeat_time: float = 0.0
         self._global_dispatch_interval = global_dispatch_interval
         self._last_dispatch_times: dict[tuple[str, str], float] = {}
+        self._scroll_sender = scroll_sender
 
     def dispatch(self, signal: OrchestratorSignal) -> None:
         """Route an orchestrator signal to the appropriate fire mode handler.
@@ -401,6 +404,28 @@ class ActionDispatcher:
                     )
                     return
 
+            if action.fire_mode == FireMode.SCROLL:
+                if self._scroll_sender is not None:
+                    scroll_speed = self._resolver.get_scroll_speed(
+                        signal.gesture.value, signal.direction
+                    )
+                    min_ticks = self._resolver.get_scroll_min_ticks(
+                        signal.gesture.value, signal.direction
+                    )
+                    max_ticks = self._resolver.get_scroll_max_ticks(
+                        signal.gesture.value, signal.direction
+                    )
+                    self._scroll_sender.scroll(
+                        signal.direction, signal.velocity,
+                        scroll_speed=scroll_speed,
+                        min_ticks=min_ticks,
+                        max_ticks=max_ticks,
+                    )
+                # Track dispatch time for throttling (same as keystroke path)
+                if interval > 0:
+                    self._last_dispatch_times[key] = time.perf_counter()
+                return
+
             self._sender.send(action.modifiers, action.key)
 
             # Track dispatch time (after send, only when throttling is active)
@@ -423,3 +448,5 @@ class ActionDispatcher:
         """
         self._held_action = None
         self._sender.release_all()
+        if self._scroll_sender is not None:
+            self._scroll_sender.reset()

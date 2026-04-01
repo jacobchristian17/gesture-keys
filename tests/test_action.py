@@ -869,3 +869,179 @@ class TestMovingFireDispatchThrottling:
         d.dispatch(signal)
         d.dispatch(signal)
         assert mock_sender.send.call_count == 3
+
+
+# ===========================================================================
+# TestScrollDispatch -- scroll branch in ActionDispatcher
+# ===========================================================================
+
+class TestScrollDispatch:
+    """MOVING_FIRE with fire_mode=SCROLL dispatches to ScrollSender."""
+
+    def _make_scroll_action(self, gesture_name="pinch", direction_value="up"):
+        """Create a SCROLL fire_mode action for testing."""
+        return _make_action("", FireMode.SCROLL, gesture_name, modifiers=[], key="")
+
+    def _make_resolver(self, moving_map=None, scroll_speed_overrides=None,
+                       scroll_min_ticks_overrides=None, scroll_max_ticks_overrides=None,
+                       dispatch_interval_overrides=None):
+        return ActionResolver(
+            right_static={},
+            left_static={},
+            right_holding={},
+            left_holding={},
+            right_moving=moving_map or {},
+            left_moving={},
+            right_sequence={},
+            left_sequence={},
+            scroll_speed_overrides=scroll_speed_overrides or {},
+            scroll_min_ticks_overrides=scroll_min_ticks_overrides or {},
+            scroll_max_ticks_overrides=scroll_max_ticks_overrides or {},
+            dispatch_interval_overrides=dispatch_interval_overrides or {},
+        )
+
+    def test_scroll_fire_mode_calls_scroll_sender(self, mock_sender):
+        """MOVING_FIRE with fire_mode=SCROLL calls scroll_sender.scroll()."""
+        action = self._make_scroll_action()
+        resolver = self._make_resolver({("pinch", "up"): action})
+        mock_scroll = MagicMock()
+        d = ActionDispatcher(mock_sender, resolver, scroll_sender=mock_scroll)
+
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.PINCH,
+            direction=Direction.UP, velocity=0.5,
+        )
+        d.dispatch(signal)
+
+        mock_scroll.scroll.assert_called_once()
+        call_args = mock_scroll.scroll.call_args
+        assert call_args[0][0] == Direction.UP
+        assert call_args[0][1] == 0.5
+        mock_sender.send.assert_not_called()
+
+    def test_scroll_fire_mode_passes_scroll_speed_override(self, mock_sender):
+        """MOVING_FIRE with SCROLL passes per-action scroll_speed from resolver."""
+        action = self._make_scroll_action()
+        resolver = self._make_resolver(
+            {("pinch", "up"): action},
+            scroll_speed_overrides={("pinch", "up"): 5.0},
+        )
+        mock_scroll = MagicMock()
+        d = ActionDispatcher(mock_sender, resolver, scroll_sender=mock_scroll)
+
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.PINCH,
+            direction=Direction.UP, velocity=0.5,
+        )
+        d.dispatch(signal)
+
+        call_kwargs = mock_scroll.scroll.call_args[1]
+        assert call_kwargs["scroll_speed"] == 5.0
+
+    def test_scroll_fire_mode_passes_min_max_ticks_overrides(self, mock_sender):
+        """MOVING_FIRE with SCROLL passes min_ticks and max_ticks from resolver."""
+        action = self._make_scroll_action()
+        resolver = self._make_resolver(
+            {("pinch", "up"): action},
+            scroll_min_ticks_overrides={("pinch", "up"): 2},
+            scroll_max_ticks_overrides={("pinch", "up"): 8},
+        )
+        mock_scroll = MagicMock()
+        d = ActionDispatcher(mock_sender, resolver, scroll_sender=mock_scroll)
+
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.PINCH,
+            direction=Direction.UP, velocity=0.5,
+        )
+        d.dispatch(signal)
+
+        call_kwargs = mock_scroll.scroll.call_args[1]
+        assert call_kwargs["min_ticks"] == 2
+        assert call_kwargs["max_ticks"] == 8
+
+    @patch("gesture_keys.action.time")
+    def test_scroll_fire_mode_respects_dispatch_interval(self, mock_time, mock_sender):
+        """MOVING_FIRE with SCROLL respects dispatch_interval throttling."""
+        action = self._make_scroll_action()
+        resolver = self._make_resolver(
+            {("pinch", "up"): action},
+            dispatch_interval_overrides={("pinch", "up"): 0.2},
+        )
+        mock_scroll = MagicMock()
+        d = ActionDispatcher(mock_sender, resolver, scroll_sender=mock_scroll)
+
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.PINCH,
+            direction=Direction.UP, velocity=0.5,
+        )
+
+        # First fire at t=100.0 -- should scroll
+        mock_time.perf_counter.return_value = 100.0
+        d.dispatch(signal)
+        assert mock_scroll.scroll.call_count == 1
+
+        # Second fire at t=100.1 -- throttled, should skip
+        mock_time.perf_counter.return_value = 100.1
+        d.dispatch(signal)
+        assert mock_scroll.scroll.call_count == 1
+
+        # Third fire at t=100.25 -- interval elapsed, should scroll
+        mock_time.perf_counter.return_value = 100.25
+        d.dispatch(signal)
+        assert mock_scroll.scroll.call_count == 2
+
+    def test_scroll_fire_mode_no_scroll_sender_is_noop(self, mock_sender):
+        """MOVING_FIRE with SCROLL and no scroll_sender (None) is a no-op."""
+        action = self._make_scroll_action()
+        resolver = self._make_resolver({("pinch", "up"): action})
+        d = ActionDispatcher(mock_sender, resolver)  # no scroll_sender
+
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.PINCH,
+            direction=Direction.UP, velocity=0.5,
+        )
+        # Should not raise
+        d.dispatch(signal)
+        mock_sender.send.assert_not_called()
+
+    def test_tap_fire_mode_still_calls_sender_send(self, mock_sender):
+        """MOVING_FIRE with fire_mode=TAP still calls sender.send()."""
+        action = _make_action("up", FireMode.TAP, "swipe_up", key=Key.up)
+        resolver = self._make_resolver({("open_palm", "up"): action})
+        mock_scroll = MagicMock()
+        d = ActionDispatcher(mock_sender, resolver, scroll_sender=mock_scroll)
+
+        signal = OrchestratorSignal(
+            OrchestratorAction.MOVING_FIRE, Gesture.OPEN_PALM,
+            direction=Direction.UP, velocity=0.5,
+        )
+        d.dispatch(signal)
+        mock_sender.send.assert_called_once_with([], Key.up)
+        mock_scroll.scroll.assert_not_called()
+
+    def test_constructor_accepts_scroll_sender_param(self, mock_sender):
+        """ActionDispatcher constructor accepts optional scroll_sender param."""
+        resolver = self._make_resolver()
+        mock_scroll = MagicMock()
+        d = ActionDispatcher(mock_sender, resolver, scroll_sender=mock_scroll)
+        assert d._scroll_sender is mock_scroll
+
+    def test_constructor_default_scroll_sender_is_none(self, mock_sender):
+        """ActionDispatcher constructor defaults scroll_sender to None."""
+        resolver = self._make_resolver()
+        d = ActionDispatcher(mock_sender, resolver)
+        assert d._scroll_sender is None
+
+    def test_release_all_resets_scroll_sender(self, mock_sender):
+        """release_all() calls scroll_sender.reset() when scroll_sender is not None."""
+        resolver = self._make_resolver()
+        mock_scroll = MagicMock()
+        d = ActionDispatcher(mock_sender, resolver, scroll_sender=mock_scroll)
+        d.release_all()
+        mock_scroll.reset.assert_called_once()
+
+    def test_release_all_no_scroll_sender_does_not_crash(self, mock_sender):
+        """release_all() with no scroll_sender (None) does not crash."""
+        resolver = self._make_resolver()
+        d = ActionDispatcher(mock_sender, resolver)
+        d.release_all()  # Should not raise
