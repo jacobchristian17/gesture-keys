@@ -24,6 +24,7 @@ from gesture_keys.detector import CameraCapture, HandDetector
 from gesture_keys.distance import DistanceFilter
 from gesture_keys.keystroke import KeystrokeSender, parse_key_string
 from gesture_keys.motion import MotionDetector, MotionState
+from gesture_keys.scroll import ScrollSender
 from gesture_keys.orchestrator import (
     GestureOrchestrator,
     LifecycleState,
@@ -109,6 +110,7 @@ class Pipeline:
         self._smoother = None
         self._orchestrator = None
         self._sender = None
+        self._scroll_sender = None
         self._distance_filter = None
         self._motion_detector = None
         self._watcher = None
@@ -180,6 +182,7 @@ class Pipeline:
             sequence_window=config.sequence_window,
         )
         self._sender = KeystrokeSender()
+        self._scroll_sender = ScrollSender()
 
         # Build ActionResolver with 8-map constructor from DerivedConfig
         try:
@@ -194,11 +197,15 @@ class Pipeline:
                 left_sequence=derived.left_sequence,
                 velocity_overrides=derived.moving_velocity_overrides,
                 dispatch_interval_overrides=derived.moving_dispatch_interval_overrides,
+                scroll_speed_overrides=derived.scroll_speed_overrides,
+                scroll_min_ticks_overrides=derived.scroll_min_ticks_overrides,
+                scroll_max_ticks_overrides=derived.scroll_max_ticks_overrides,
             )
             self._dispatcher = ActionDispatcher(
                 self._sender, self._resolver,
                 repeat_interval=config.hold_repeat_interval,
                 global_dispatch_interval=config.motion_dispatch_interval,
+                scroll_sender=self._scroll_sender,
             )
         except ValueError as e:
             logger.error("Invalid key mapping in config: %s", e)
@@ -246,10 +253,11 @@ class Pipeline:
             self._detector.close()
 
     def reset_pipeline(self) -> None:
-        """Reset smoother, orchestrator, motion_detector, and release held keys."""
+        """Reset smoother, orchestrator, motion_detector, scroll state, and release held keys."""
         self._smoother.reset()
         self._orchestrator.reset()
         self._motion_detector.reset()
+        self._scroll_sender.reset()
         self._dispatcher.release_all()
 
     def _filter_signals_through_gate(
@@ -422,7 +430,7 @@ class Pipeline:
             derived = derive_from_actions(new_config.actions)
             self._derived_config = derived
 
-            # Rebuild ActionResolver with new 8-map constructor + velocity overrides
+            # Rebuild ActionResolver with new 8-map constructor + velocity/scroll overrides
             self._resolver = ActionResolver(
                 right_static=derived.right_static,
                 left_static=derived.left_static,
@@ -434,6 +442,9 @@ class Pipeline:
                 left_sequence=derived.left_sequence,
                 velocity_overrides=derived.moving_velocity_overrides,
                 dispatch_interval_overrides=derived.moving_dispatch_interval_overrides,
+                scroll_speed_overrides=derived.scroll_speed_overrides,
+                scroll_min_ticks_overrides=derived.scroll_min_ticks_overrides,
+                scroll_max_ticks_overrides=derived.scroll_max_ticks_overrides,
             )
             self._dispatcher._resolver = self._resolver
             self._dispatcher._repeat_interval = new_config.hold_repeat_interval
@@ -465,6 +476,7 @@ class Pipeline:
             self._motion_detector.axis_ratio = new_config.motion_axis_ratio
             self._motion_detector.settling_frames = new_config.motion_settling_frames
             self._motion_detector.reset()
+            self._scroll_sender.reset()
 
             self._distance_filter.enabled = new_config.distance_enabled
             self._distance_filter.min_hand_size = new_config.min_hand_size

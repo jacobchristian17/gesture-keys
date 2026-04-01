@@ -283,6 +283,7 @@ class TestPipelineReset:
         pipeline._smoother = MagicMock()
         pipeline._orchestrator = MagicMock()
         pipeline._motion_detector = MagicMock()
+        pipeline._scroll_sender = MagicMock()
         pipeline._dispatcher = MagicMock()
 
         pipeline.reset_pipeline()
@@ -290,6 +291,7 @@ class TestPipelineReset:
         pipeline._smoother.reset.assert_called_once()
         pipeline._orchestrator.reset.assert_called_once()
         pipeline._motion_detector.reset.assert_called_once()
+        pipeline._scroll_sender.reset.assert_called_once()
         pipeline._dispatcher.release_all.assert_called_once()
 
 
