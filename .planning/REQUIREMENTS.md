@@ -14,9 +14,9 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 
 ### Scroll Dispatch
 
-- [ ] **SCROLL-03**: User can scroll vertically (up/down) by holding a gesture and moving hand up or down
-- [ ] **SCROLL-04**: User can scroll horizontally (left/right) by holding a gesture and moving hand left or right
-- [ ] **SCROLL-05**: Scroll speed is proportional to hand velocity — faster movement produces faster scrolling
+- [x] **SCROLL-03**: User can scroll vertically (up/down) by holding a gesture and moving hand up or down
+- [x] **SCROLL-04**: User can scroll horizontally (left/right) by holding a gesture and moving hand left or right
+- [x] **SCROLL-05**: Scroll speed is proportional to hand velocity — faster movement produces faster scrolling
 - [ ] **SCROLL-06**: Scroll fires continuously while hand is in motion with appropriate dispatch_interval (~0.05s)
 
 ### Scroll Tuning
@@ -65,9 +65,9 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 |-------------|-------|--------|
 | SCROLL-01 | Phase 30 | Pending |
 | SCROLL-02 | Phase 30 | Pending |
-| SCROLL-03 | Phase 29 | Pending |
-| SCROLL-04 | Phase 29 | Pending |
-| SCROLL-05 | Phase 29 | Pending |
+| SCROLL-03 | Phase 29 | Complete |
+| SCROLL-04 | Phase 29 | Complete |
+| SCROLL-05 | Phase 29 | Complete |
 | SCROLL-06 | Phase 31 | Pending |
 | SCROLL-07 | Phase 30 | Pending |
 | SCROLL-08 | Phase 30 | Pending |

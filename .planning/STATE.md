@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0.1
 milestone_name: Scroll Gesture Support
-status: ready_to_plan
-stopped_at: null
-last_updated: "2026-04-01"
+status: verifying
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-04-01T11:44:17.166Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 0
 ---
 
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-01)
 
 ## Current Position
 
-Phase: 29 (1 of 5 in v1.0.1 milestone) (ScrollSender)
-Plan: 0 of 0 in current phase
-Status: Ready to plan
-Last activity: 2026-04-01 — Roadmap created for v1.0.1 Scroll Gesture Support
+Phase: 29 (ScrollSender) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-04-01
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -42,6 +42,8 @@ Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions t
 - ScrollSender as peer to KeystrokeSender — clean separation of scroll vs keystroke dispatch
 - WHEEL_DELTA=120 handled in ScrollSender — velocity maps to 1-5 ticks, not raw values
 - All 6 critical pitfalls from research addressed in Phases 29-31
+- [Phase 29-scrollsender]: Power 1.5 nonlinear acceleration curve for velocity-to-ticks mapping
+- [Phase 29-scrollsender]: EMA alpha 0.3 for velocity smoothing — balances responsiveness and jitter dampening
 
 ### Pending Todos
 
@@ -62,6 +64,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-01
-Stopped at: Roadmap created for v1.0.1 milestone
+Last session: 2026-04-01T11:44:17.162Z
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
