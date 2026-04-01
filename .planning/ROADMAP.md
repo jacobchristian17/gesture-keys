@@ -31,7 +31,7 @@
   Plans:
   - [x] 29-01-PLAN.md — ScrollSender TDD: direction routing, velocity mapping, EMA smoothing
 - [x] **Phase 30: Fire Mode & Config** - FireMode.SCROLL enum, config parsing, and scroll tuning parameters (completed 2026-04-01)
-- [ ] **Phase 31: Dispatcher Integration** - ActionDispatcher scroll branch with continuous dispatch and safety stop
+- [x] **Phase 31: Dispatcher Integration** - ActionDispatcher scroll branch with continuous dispatch and safety stop (completed 2026-04-01)
 - [ ] **Phase 32: Pipeline Wiring & Logging** - ScrollSender instantiation in Pipeline and scroll event logging
 - [ ] **Phase 33: Default Config** - Default config.yaml scroll actions for all 4 directions
 
@@ -73,7 +73,7 @@ Plans:
   4. hold_key actions on the same gesture do not conflict with scroll dispatch
 **Plans**: 1 plan
 Plans:
-- [ ] 31-01-PLAN.md — ScrollSender per-call overrides + ActionDispatcher scroll branch with throttling and reset
+- [x] 31-01-PLAN.md — ScrollSender per-call overrides + ActionDispatcher scroll branch with throttling and reset
 
 ### Phase 32: Pipeline Wiring & Logging
 **Goal**: ScrollSender is integrated into the Pipeline lifecycle with proper logging for debugging and tuning
@@ -107,6 +107,6 @@ Phases execute in numeric order: 29 → 30 → 31 → 32 → 33
 | 28. Tray View Camera | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 29. ScrollSender | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
 | 30. Fire Mode & Config | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
-| 31. Dispatcher Integration | v1.0.1 | 0/1 | In progress | - |
+| 31. Dispatcher Integration | v1.0.1 | 1/1 | Complete   | 2026-04-01 |
 | 32. Pipeline Wiring & Logging | v1.0.1 | 0/0 | Not started | - |
 | 33. Default Config | v1.0.1 | 0/0 | Not started | - |

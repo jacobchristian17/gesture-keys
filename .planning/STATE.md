@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0.1
 milestone_name: Scroll Gesture Support
 status: verifying
-stopped_at: Completed 30-01-PLAN.md
-last_updated: "2026-04-01T12:15:16.635Z"
+stopped_at: Completed 31-01-PLAN.md
+last_updated: "2026-04-01T12:50:35.263Z"
 last_activity: 2026-04-01
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
   percent: 0
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 30 — Fire Mode & Config
+**Current focus:** Phase 31 — Dispatcher Integration
 
 ## Current Position
 
-Phase: 31
-Plan: Not started
+Phase: 31 (Dispatcher Integration) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-04-01
 
@@ -47,6 +47,8 @@ Archived to .planning/milestones/v2.0-ROADMAP.md. See PROJECT.md Key Decisions t
 - [Phase 30]: fire_mode: scroll overrides state-inferred fire mode only for moving triggers
 - [Phase 30]: Scroll actions skip parse_key_string -- empty key defaults for non-keystroke dispatch
 - [Phase 30]: Scroll param overrides keyed by (gesture_value, direction_value) matching existing patterns
+- [Phase 31]: Per-call overrides use keyword-only args with None defaults for backward compatibility
+- [Phase 31]: Scroll branch placed before keystroke send with early return to prevent dual dispatch
 
 ### Pending Todos
 
@@ -67,6 +69,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-01T12:11:34.846Z
-Stopped at: Completed 30-01-PLAN.md
+Last session: 2026-04-01T12:50:35.259Z
+Stopped at: Completed 31-01-PLAN.md
 Resume file: None
