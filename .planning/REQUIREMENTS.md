@@ -31,7 +31,7 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 
 ### Logging
 
-- [ ] **SCROLL-11**: Scroll events are logged with direction, velocity, and step count for debugging and tuning
+- [x] **SCROLL-11**: Scroll events are logged with direction, velocity, and step count for debugging and tuning
 
 ### Default Config
 
@@ -73,7 +73,7 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 | SCROLL-08 | Phase 30 | Complete |
 | SCROLL-09 | Phase 30 | Complete |
 | SCROLL-10 | Phase 31 | Complete |
-| SCROLL-11 | Phase 32 | Pending |
+| SCROLL-11 | Phase 32 | Complete |
 | SCROLL-12 | Phase 33 | Pending |
 
 **Coverage:**
