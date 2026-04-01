@@ -74,6 +74,31 @@ actions:
     trigger: "open_palm:moving:down"
     key: down
 
+  # Pinch scroll: hold pinch gesture and move hand to scroll
+  pinch_scroll_up:
+    trigger: "pinch:moving:up"
+    fire_mode: scroll
+    scroll_speed: 3.0
+    dispatch_interval: 0.05
+
+  pinch_scroll_down:
+    trigger: "pinch:moving:down"
+    fire_mode: scroll
+    scroll_speed: 3.0
+    dispatch_interval: 0.05
+
+  pinch_scroll_left:
+    trigger: "pinch:moving:left"
+    fire_mode: scroll
+    scroll_speed: 2.0
+    dispatch_interval: 0.05
+
+  pinch_scroll_right:
+    trigger: "pinch:moving:right"
+    fire_mode: scroll
+    scroll_speed: 2.0
+    dispatch_interval: 0.05
+
 # Motion detection settings (global thresholds for MotionDetector)
 # Per-action overrides: add min_velocity or dispatch_interval to individual moving actions above
 motion:
