@@ -58,7 +58,9 @@
   3. User can set `scroll_speed` per action to control velocity-to-scroll multiplier
   4. Acceleration curve gives precise control at slow hand speeds and rapid scrolling at fast speeds
   5. User can configure min/max scroll step bounds to prevent micro-scrolls or runaway scroll
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 30-01-PLAN.md — FireMode.SCROLL, config parsing, scroll tuning, ActionResolver scroll accessors
 
 ### Phase 31: Dispatcher Integration
 **Goal**: Scroll events fire continuously while hand moves and stop immediately when hand stops or gesture is released
@@ -102,7 +104,7 @@ Phases execute in numeric order: 29 → 30 → 31 → 32 → 33
 | 27. Entry Point Refactor | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 28. Tray View Camera | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 29. ScrollSender | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
-| 30. Fire Mode & Config | v1.0.1 | 0/0 | Not started | - |
+| 30. Fire Mode & Config | v1.0.1 | 0/1 | In progress | - |
 | 31. Dispatcher Integration | v1.0.1 | 0/0 | Not started | - |
 | 32. Pipeline Wiring & Logging | v1.0.1 | 0/0 | Not started | - |
 | 33. Default Config | v1.0.1 | 0/0 | Not started | - |
