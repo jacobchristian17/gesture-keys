@@ -219,3 +219,69 @@ class TestScrollSenderAPI:
             sender = ScrollSender()
             assert hasattr(sender, "reset")
             assert callable(sender.reset)
+
+
+class TestPerCallOverrides:
+    """Test per-call override params on ScrollSender.scroll()."""
+
+    def _make_sender(self, scroll_speed=3.0, max_ticks=10):
+        with patch("gesture_keys.scroll.Controller") as MockCtrl:
+            mock_controller = MagicMock()
+            MockCtrl.return_value = mock_controller
+            from gesture_keys.scroll import ScrollSender
+
+            sender = ScrollSender(scroll_speed=scroll_speed, max_ticks=max_ticks)
+            sender._controller = mock_controller
+            return sender, mock_controller
+
+    def test_scroll_speed_override_uses_override(self):
+        """scroll() with scroll_speed override uses override instead of instance default."""
+        sender, mock_ctrl = self._make_sender(scroll_speed=3.0)
+        # With a very high scroll_speed override, the same velocity should produce more ticks
+        sender.scroll(Direction.UP, 0.5, scroll_speed=20.0)
+        high_speed_ticks = mock_ctrl.scroll.call_args[0][1]
+
+        sender.reset()
+        mock_ctrl.reset_mock()
+
+        sender.scroll(Direction.UP, 0.5, scroll_speed=0.1)
+        low_speed_ticks = mock_ctrl.scroll.call_args[0][1]
+
+        assert high_speed_ticks > low_speed_ticks, (
+            f"Higher scroll_speed override ({high_speed_ticks}) should produce "
+            f"more ticks than lower ({low_speed_ticks})"
+        )
+
+    def test_min_ticks_override_clamps_floor(self):
+        """scroll() with min_ticks override clamps ticks to at least min_ticks."""
+        sender, mock_ctrl = self._make_sender()
+        # Very low velocity -> normally 1 tick, but min_ticks=3 should force at least 3
+        sender.scroll(Direction.UP, 0.0, min_ticks=3)
+        args = mock_ctrl.scroll.call_args[0]
+        assert args[1] >= 3, f"min_ticks=3 should produce at least 3 ticks, got {args[1]}"
+
+    def test_max_ticks_override_clamps_ceiling(self):
+        """scroll() with max_ticks override clamps ticks to override max instead of instance max."""
+        sender, mock_ctrl = self._make_sender(max_ticks=10)
+        # Very high velocity -> normally 10 ticks, but max_ticks=5 should cap at 5
+        sender.scroll(Direction.UP, 99.0, max_ticks=5)
+        args = mock_ctrl.scroll.call_args[0]
+        assert args[1] <= 5, f"max_ticks=5 should cap at 5 ticks, got {args[1]}"
+
+    def test_no_overrides_backward_compatible(self):
+        """scroll() with no overrides (None) behaves exactly as before."""
+        sender, mock_ctrl = self._make_sender(scroll_speed=3.0, max_ticks=10)
+        sender.scroll(Direction.UP, 0.5)
+        args = mock_ctrl.scroll.call_args[0]
+        assert args[1] >= 1, "Should produce at least 1 tick"
+        assert args[1] <= 10, "Should not exceed default max_ticks=10"
+
+    def test_all_three_overrides_applied_together(self):
+        """scroll() with all three overrides applied together."""
+        sender, mock_ctrl = self._make_sender(scroll_speed=3.0, max_ticks=10)
+        # min_ticks=4, max_ticks=6, scroll_speed=0.01 (very low -> would be 1 tick normally)
+        # min_ticks=4 should force at least 4 ticks
+        sender.scroll(Direction.UP, 0.0, scroll_speed=0.01, min_ticks=4, max_ticks=6)
+        args = mock_ctrl.scroll.call_args[0]
+        assert args[1] >= 4, f"min_ticks=4 should force at least 4 ticks, got {args[1]}"
+        assert args[1] <= 6, f"max_ticks=6 should cap at 6 ticks, got {args[1]}"

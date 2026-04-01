@@ -7,6 +7,7 @@ smoothing, and tick clamping.
 
 import logging
 import math
+from typing import Optional
 
 from pynput.mouse import Controller
 
@@ -41,16 +42,27 @@ class ScrollSender:
         self._smoothed_velocity: float = 0.0
         self._has_prev: bool = False
 
-    def scroll(self, direction: Direction, velocity: float) -> None:
+    def scroll(
+        self,
+        direction: Direction,
+        velocity: float,
+        *,
+        scroll_speed: Optional[float] = None,
+        min_ticks: Optional[int] = None,
+        max_ticks: Optional[int] = None,
+    ) -> None:
         """Scroll in the given direction at velocity-proportional speed.
 
         Applies EMA smoothing to the velocity, then converts to ticks
         via a nonlinear acceleration curve (power 1.5). Ticks are
-        clamped to [1, max_ticks].
+        clamped to [min_ticks, max_ticks].
 
         Args:
             direction: Cardinal direction to scroll.
             velocity: Raw velocity magnitude (0.0+).
+            scroll_speed: Per-call speed multiplier override (None = use instance default).
+            min_ticks: Per-call minimum ticks override (None = use default of 1).
+            max_ticks: Per-call maximum ticks override (None = use instance default).
         """
         # EMA smoothing
         if not self._has_prev:
@@ -62,10 +74,15 @@ class ScrollSender:
                 + (1 - self._ema_alpha) * self._smoothed_velocity
             )
 
+        # Resolve per-call overrides vs instance defaults
+        effective_speed = scroll_speed if scroll_speed is not None else self._scroll_speed
+        effective_min = min_ticks if min_ticks is not None else 1
+        effective_max = max_ticks if max_ticks is not None else self._max_ticks
+
         # Nonlinear acceleration curve
-        raw = self._smoothed_velocity * self._scroll_speed
+        raw = self._smoothed_velocity * effective_speed
         curved = math.pow(raw, 1.5)
-        ticks = max(1, min(self._max_ticks, round(curved)))
+        ticks = max(effective_min, min(effective_max, round(curved)))
 
         # Route direction to scroll axis
         if direction == Direction.UP:
