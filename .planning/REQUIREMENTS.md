@@ -63,24 +63,24 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCROLL-01 | — | Pending |
-| SCROLL-02 | — | Pending |
-| SCROLL-03 | — | Pending |
-| SCROLL-04 | — | Pending |
-| SCROLL-05 | — | Pending |
-| SCROLL-06 | — | Pending |
-| SCROLL-07 | — | Pending |
-| SCROLL-08 | — | Pending |
-| SCROLL-09 | — | Pending |
-| SCROLL-10 | — | Pending |
-| SCROLL-11 | — | Pending |
-| SCROLL-12 | — | Pending |
+| SCROLL-01 | Phase 30 | Pending |
+| SCROLL-02 | Phase 30 | Pending |
+| SCROLL-03 | Phase 29 | Pending |
+| SCROLL-04 | Phase 29 | Pending |
+| SCROLL-05 | Phase 29 | Pending |
+| SCROLL-06 | Phase 31 | Pending |
+| SCROLL-07 | Phase 30 | Pending |
+| SCROLL-08 | Phase 30 | Pending |
+| SCROLL-09 | Phase 30 | Pending |
+| SCROLL-10 | Phase 31 | Pending |
+| SCROLL-11 | Phase 32 | Pending |
+| SCROLL-12 | Phase 33 | Pending |
 
 **Coverage:**
 - v1.0.1 requirements: 12 total
-- Mapped to phases: 0
-- Unmapped: 12 ⚠️
+- Mapped to phases: 12
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-01*
-*Last updated: 2026-04-01 after initial definition*
+*Last updated: 2026-04-01 after roadmap creation*
