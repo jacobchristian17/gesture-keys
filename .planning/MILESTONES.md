@@ -1,5 +1,19 @@
 # Milestones
 
+## v1.0.1 Scroll Gesture Support (Shipped: 2026-04-01)
+
+**Phases completed:** 5 phases, 5 plans, 9 tasks
+
+**Key accomplishments:**
+
+- ScrollSender with EMA-smoothed velocity mapping, nonlinear acceleration curve, and 4-direction pynput scroll dispatch
+- FireMode.SCROLL enum with scroll config parsing, DerivedConfig override maps, and ActionResolver scroll accessors -- full config layer for scroll gestures
+- ScrollSender wired into ActionDispatcher with per-call override params and fire_mode=SCROLL branch routing
+- ScrollSender wired into Pipeline lifecycle with instantiation, dispatcher injection, resolver scroll overrides, and EMA reset on hot-reload/reset
+- Pinch scroll defaults for all 4 cardinal directions with velocity-tuned speed and 20Hz dispatch interval
+
+---
+
 ## v3.2 Unified Preview & Exec Mode (Shipped: 2026-03-31)
 
 **Phases completed:** 3 phases, 3 plans, 4 tasks

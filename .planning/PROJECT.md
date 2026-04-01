@@ -47,21 +47,16 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Unified dev mode with camera preview + logging always on — v3.2
 - ✓ Three-way main() routing: dev-camera, tray-headless, camera subprocess — v3.2
 - ✓ Tray "View Camera" menu item spawning camera subprocess with auto-resume — v3.2
-
-## Current Milestone: v1.0.1 Scroll Gesture Support
-
-**Goal:** Add mouse scroll events as a new fire mode, triggered by holding a gesture and moving the hand in any cardinal direction.
-
-**Target features:**
-- New `scroll` fire mode alongside existing `tap` and `hold_key`
-- Velocity-based scroll speed (faster swipe = faster scroll)
-- Both vertical (up/down) and horizontal (left/right) scroll support
-- Configurable on any gesture's holding+moving state (default: pinch)
-- Scroll events via pynput mouse controller
+- ✓ Scroll fire mode (fire_mode: scroll) for mouse scroll events via pynput mouse controller — v1.0.1
+- ✓ Velocity-proportional scroll speed with nonlinear acceleration curve and EMA jitter smoothing — v1.0.1
+- ✓ Both vertical (up/down) and horizontal (left/right) scroll support — v1.0.1
+- ✓ Configurable scroll_speed, min_ticks, max_ticks per action via YAML config — v1.0.1
+- ✓ Continuous scroll dispatch at ~20 events/sec with immediate stop on gesture release — v1.0.1
+- ✓ Default pinch scroll actions for all 4 cardinal directions in config.yaml — v1.0.1
 
 ## Current State
 
-Shipped v1.0.0 (2026-03-31). Phase 29 complete — ScrollSender class implemented with direction routing, velocity-proportional ticks, EMA smoothing, and nonlinear acceleration.
+Shipped v1.0.1 Scroll Gesture Support (2026-04-01). Mouse scroll events via new `scroll` fire mode — hold pinch (or any gesture) and move hand to scroll. Velocity-proportional with nonlinear acceleration, EMA jitter smoothing, configurable per-action scroll_speed/min_ticks/max_ticks. Both vertical and horizontal scroll. 11,891 LOC Python, 533+ tests passing.
 
 ### Out of Scope
 
@@ -73,13 +68,16 @@ Shipped v1.0.0 (2026-03-31). Phase 29 complete — ScrollSender class implemente
 - GPU acceleration (onnxruntime-gpu) — MediaPipe Python on Windows is CPU-only; 30+ FPS on CPU is sufficient
 - Simultaneous two-hand detection — one hand at a time; complexity deferred
 - MotionDetector config tuning via YAML — motion: section exists but is not parsed (hardcoded defaults sufficient for now)
+- Smooth/sub-pixel scroll interpolation — OS-level smooth scroll handles discrete events
+- Scroll inertia/momentum — webcam latency makes momentum unreliable; clean stop preferred
+- Pinch-to-zoom — different input signal (finger distance vs hand movement); separate feature
 
 ## Context
 
-Shipped v3.0 with ~9,000 LOC Python (down from v2.0's ~12,000 — cleanup removed ~3,000 lines of legacy swipe code). Architecture: unified Pipeline → ActivationGate → GestureOrchestrator (tri-state FSM) → ActionResolver (4 trigger-type maps) → ActionDispatcher → KeystrokeSender. MotionDetector provides continuous per-frame motion state. Config uses compact trigger string syntax (`gesture:state[:direction]`, sequences with `>`).
-Tech stack: mediapipe, opencv-python, pynput, pystray, Pillow, PyYAML.
+~11,900 LOC Python. Architecture: unified Pipeline → ActivationGate → GestureOrchestrator (tri-state FSM) → ActionResolver (4 trigger-type maps) → ActionDispatcher → KeystrokeSender + ScrollSender. MotionDetector provides continuous per-frame motion state. Config uses compact trigger string syntax (`gesture:state[:direction]`, sequences with `>`). ScrollSender handles mouse scroll events with velocity-proportional ticks, EMA smoothing, and nonlinear acceleration.
+Tech stack: mediapipe, opencv-python, pynput (keyboard + mouse), pystray, Pillow, PyYAML.
 Platform: Windows 11, CPU inference (30+ FPS sufficient).
-405 tests passing with full TDD coverage across pipeline, orchestrator, action dispatch, motion detection, trigger parsing, and activation gate subsystems.
+533+ tests passing with full TDD coverage across pipeline, orchestrator, action dispatch, scroll dispatch, motion detection, trigger parsing, config parsing, and activation gate subsystems.
 
 ## Constraints
 
@@ -116,6 +114,11 @@ Platform: Windows 11, CPU inference (30+ FPS sufficient).
 | MotionDetector with velocity hysteresis (v3.0) | Per-frame signal vs SwipeDetector's event-based approach | ✓ Good — simpler integration, no state machine, continuous updates |
 | DerivedConfig for trigger routing (v3.0) | 8 typed maps (4 trigger types × 2 hands) derived once at config load | ✓ Good — O(1) lookup per frame, hot-reload rebuilds maps |
 | Sequence gestures via orchestrator (v3.0) | Two-gesture sequences (A then B within 0.5s window) in FSM | ✓ Good — configurable window, clean signal emission |
+| ScrollSender as peer to KeystrokeSender (v1.0.1) | Separate class for scroll vs keyboard — different pynput subsystems, no held state | ✓ Good — clean separation, independently testable |
+| EMA smoothing inside ScrollSender (v1.0.1) | Velocity jitter at low speeds causes scroll stutter; EMA dampens without adding latency | ✓ Good — alpha 0.3 provides smooth scrolling |
+| Nonlinear acceleration curve pow(1.5) (v1.0.1) | Linear mapping feels flat at low speeds and jumpy at high speeds | ✓ Good — precise at slow, rapid at fast |
+| Explicit fire_mode: scroll in config (v1.0.1) | Moving triggers default to TAP; scroll needs explicit override since it can't be inferred | ✓ Good — clean separation, no ambiguity |
+| pynput mouse.Controller for scroll (v1.0.1) | No new dependencies — pynput already installed for keyboard, mouse scroll is built-in | ✓ Good — zero dependency addition |
 
 ---
 ## Evolution
@@ -136,4 +139,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-01 after Phase 29 completion*
+*Last updated: 2026-04-01 after v1.0.1 milestone*
