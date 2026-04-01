@@ -71,7 +71,9 @@ Plans:
   2. Scroll stops immediately when hand stops moving — no residual scroll events
   3. Scroll stops immediately when gesture is released — no runaway scroll on any exit path
   4. hold_key actions on the same gesture do not conflict with scroll dispatch
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 31-01-PLAN.md — ScrollSender per-call overrides + ActionDispatcher scroll branch with throttling and reset
 
 ### Phase 32: Pipeline Wiring & Logging
 **Goal**: ScrollSender is integrated into the Pipeline lifecycle with proper logging for debugging and tuning
@@ -105,6 +107,6 @@ Phases execute in numeric order: 29 → 30 → 31 → 32 → 33
 | 28. Tray View Camera | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 29. ScrollSender | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
 | 30. Fire Mode & Config | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
-| 31. Dispatcher Integration | v1.0.1 | 0/0 | Not started | - |
+| 31. Dispatcher Integration | v1.0.1 | 0/1 | In progress | - |
 | 32. Pipeline Wiring & Logging | v1.0.1 | 0/0 | Not started | - |
 | 33. Default Config | v1.0.1 | 0/0 | Not started | - |
