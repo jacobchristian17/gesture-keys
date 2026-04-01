@@ -35,7 +35,7 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 
 ### Default Config
 
-- [ ] **SCROLL-12**: Default config.yaml includes pinch scroll actions for all 4 directions with sensible defaults
+- [x] **SCROLL-12**: Default config.yaml includes pinch scroll actions for all 4 directions with sensible defaults
 
 ## Future Requirements
 
@@ -74,7 +74,7 @@ Requirements for scroll gesture support. Each maps to roadmap phases.
 | SCROLL-09 | Phase 30 | Complete |
 | SCROLL-10 | Phase 31 | Complete |
 | SCROLL-11 | Phase 32 | Complete |
-| SCROLL-12 | Phase 33 | Pending |
+| SCROLL-12 | Phase 33 | Complete |
 
 **Coverage:**
 - v1.0.1 requirements: 12 total

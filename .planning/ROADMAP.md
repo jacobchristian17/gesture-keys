@@ -33,7 +33,7 @@
 - [x] **Phase 30: Fire Mode & Config** - FireMode.SCROLL enum, config parsing, and scroll tuning parameters (completed 2026-04-01)
 - [x] **Phase 31: Dispatcher Integration** - ActionDispatcher scroll branch with continuous dispatch and safety stop (completed 2026-04-01)
 - [x] **Phase 32: Pipeline Wiring & Logging** - ScrollSender instantiation in Pipeline and scroll event logging (completed 2026-04-01)
-- [ ] **Phase 33: Default Config** - Default config.yaml scroll actions for all 4 directions
+- [x] **Phase 33: Default Config** - Default config.yaml scroll actions for all 4 directions (completed 2026-04-01)
 
 ## Phase Details
 
@@ -97,7 +97,7 @@ Plans:
   3. End-to-end scroll works with default config — hold pinch, move hand, content scrolls
 **Plans**: 1 plan
 Plans:
-- [ ] 33-01-PLAN.md — Add default pinch scroll actions for all 4 cardinal directions
+- [x] 33-01-PLAN.md — Add default pinch scroll actions for all 4 cardinal directions
 
 ## Progress
 
@@ -113,4 +113,4 @@ Phases execute in numeric order: 29 → 30 → 31 → 32 → 33
 | 30. Fire Mode & Config | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
 | 31. Dispatcher Integration | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
 | 32. Pipeline Wiring & Logging | v1.0.1 | 1/1 | Complete    | 2026-04-01 |
-| 33. Default Config | v1.0.1 | 0/1 | Not started | - |
+| 33. Default Config | v1.0.1 | 1/1 | Complete   | 2026-04-01 |
