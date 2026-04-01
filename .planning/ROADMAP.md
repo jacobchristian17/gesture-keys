@@ -28,6 +28,8 @@
 **Milestone Goal:** Add mouse scroll events as a new fire mode, triggered by holding a gesture and moving the hand in any cardinal direction, with velocity-based scroll speed.
 
 - [ ] **Phase 29: ScrollSender** - Pure scroll dispatch class with velocity-to-ticks mapping and direction routing
+  Plans:
+  - [ ] 29-01-PLAN.md — ScrollSender TDD: direction routing, velocity mapping, EMA smoothing
 - [ ] **Phase 30: Fire Mode & Config** - FireMode.SCROLL enum, config parsing, and scroll tuning parameters
 - [ ] **Phase 31: Dispatcher Integration** - ActionDispatcher scroll branch with continuous dispatch and safety stop
 - [ ] **Phase 32: Pipeline Wiring & Logging** - ScrollSender instantiation in Pipeline and scroll event logging
@@ -44,7 +46,7 @@
   2. Faster hand velocity produces more scroll ticks per dispatch (velocity-proportional)
   3. WHEEL_DELTA multiplier is accounted for — raw velocity values do not produce catastrophic scroll speed
   4. Velocity jitter at low speeds is smoothed before tick calculation
-**Plans**: TBD
+**Plans**: 1 plan
 
 ### Phase 30: Fire Mode & Config
 **Goal**: Users can configure scroll actions in YAML with explicit fire_mode, scroll_speed, and min/max bounds without requiring a key field
@@ -99,7 +101,7 @@ Phases execute in numeric order: 29 → 30 → 31 → 32 → 33
 | 26. Logging Consolidation | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 27. Entry Point Refactor | v3.2 | 1/1 | Complete | 2026-03-30 |
 | 28. Tray View Camera | v3.2 | 1/1 | Complete | 2026-03-30 |
-| 29. ScrollSender | v1.0.1 | 0/0 | Not started | - |
+| 29. ScrollSender | v1.0.1 | 0/1 | Not started | - |
 | 30. Fire Mode & Config | v1.0.1 | 0/0 | Not started | - |
 | 31. Dispatcher Integration | v1.0.1 | 0/0 | Not started | - |
 | 32. Pipeline Wiring & Logging | v1.0.1 | 0/0 | Not started | - |
