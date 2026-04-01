@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard commands via a structured pipeline: activation gate, gesture orchestrator (tri-state model: static/holding/moving), action resolver with 4 trigger types, and key lifecycle management. Runs as a Windows system tray app with optional camera preview.
+A Python desktop app that uses the webcam to detect hand gestures via MediaPipe and translates them into keyboard and mouse commands via a structured pipeline: activation gate, gesture orchestrator (tri-state model: static/holding/moving), action resolver with 4 trigger types, and key lifecycle management. Runs as a Windows system tray app with optional camera preview.
 
 ## Core Value
 
@@ -48,9 +48,20 @@ Hand gestures reliably trigger the correct keyboard commands in real application
 - ✓ Three-way main() routing: dev-camera, tray-headless, camera subprocess — v3.2
 - ✓ Tray "View Camera" menu item spawning camera subprocess with auto-resume — v3.2
 
+## Current Milestone: v1.0.1 Scroll Gesture Support
+
+**Goal:** Add mouse scroll events as a new fire mode, triggered by holding a gesture and moving the hand in any cardinal direction.
+
+**Target features:**
+- New `scroll` fire mode alongside existing `tap` and `hold_key`
+- Velocity-based scroll speed (faster swipe = faster scroll)
+- Both vertical (up/down) and horizontal (left/right) scroll support
+- Configurable on any gesture's holding+moving state (default: pinch)
+- Scroll events via pynput mouse controller
+
 ## Current State
 
-Shipped v3.2 Unified Preview & Exec Mode (2026-03-31). Dev mode shows camera preview + logging by default. Tray mode has "View Camera" menu item that spawns camera subprocess. --debug flag enables verbose logging in all modes.
+Shipped v1.0.0 (2026-03-31). Dev mode shows camera preview + logging by default. Tray mode has "View Camera" menu item that spawns camera subprocess. --debug flag enables verbose logging in all modes.
 
 ### Out of Scope
 

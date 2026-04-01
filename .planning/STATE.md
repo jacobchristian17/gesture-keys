@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.2
-milestone_name: Unified Preview & Exec Mode
-status: verifying
-stopped_at: Completed 28-01-PLAN.md
-last_updated: "2026-03-31T08:38:05.032Z"
-last_activity: 2026-03-31
+milestone: v1.0.1
+milestone_name: Scroll Gesture Support
+status: defining
+stopped_at: null
+last_updated: "2026-04-01"
+last_activity: 2026-04-01
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
   percent: 0
 ---
 
@@ -18,25 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-30)
+See: .planning/PROJECT.md (updated 2026-04-01)
 
 **Core value:** Hand gestures reliably trigger the correct keyboard commands in real applications without false fires.
-**Current focus:** Phase 28 — tray-view-camera
+**Current focus:** Defining requirements for v1.0.1
 
 ## Current Position
 
-Phase: 28
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-03-31
-
-Progress: [░░░░░░░░░░] 0%
-
-## Performance Metrics
-
-**Velocity:**
-
-- Total plans completed: 45 (v1.0: 7, v1.1: 8, v1.2: 8, v1.3: 5, v2.0: 9 + 1 gap closure, v3.0: 7)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-01 — Milestone v1.0.1 started
 
 ## Accumulated Context
 
@@ -67,6 +59,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-30T19:14:09.365Z
-Stopped at: Completed 28-01-PLAN.md
+Last session: 2026-04-01
+Stopped at: null
 Resume file: None
