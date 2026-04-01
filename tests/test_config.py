@@ -874,6 +874,124 @@ class TestDeriveFromActions:
             result.gesture_modes = {}
 
 
+class TestScrollDeriveFromActions:
+    """Tests for derive_from_actions() scroll action handling."""
+
+    def test_scroll_action_gets_scroll_fire_mode(self):
+        """ActionEntry with fire_mode='scroll' -> derived action has FireMode.SCROLL."""
+        entries = [
+            ActionEntry(
+                name="scroll_up",
+                trigger=Trigger(Gesture.PINCH, TriggerState.MOVING, Direction.UP),
+                key="",
+                fire_mode="scroll",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        action = result.right_moving[("pinch", "up")]
+        assert action.fire_mode == FireMode.SCROLL
+
+    def test_scroll_action_skips_key_parsing(self):
+        """Scroll action with key='' -> derived action has modifiers=[], key=''."""
+        entries = [
+            ActionEntry(
+                name="scroll_up",
+                trigger=Trigger(Gesture.PINCH, TriggerState.MOVING, Direction.UP),
+                key="",
+                fire_mode="scroll",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        action = result.right_moving[("pinch", "up")]
+        assert action.modifiers == []
+        assert action.key == ""
+
+    def test_scroll_speed_override_collected(self):
+        """Entry with scroll_speed=5.0 -> derived.scroll_speed_overrides has it."""
+        entries = [
+            ActionEntry(
+                name="scroll_up",
+                trigger=Trigger(Gesture.PINCH, TriggerState.MOVING, Direction.UP),
+                key="",
+                fire_mode="scroll",
+                scroll_speed=5.0,
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert result.scroll_speed_overrides[("pinch", "up")] == 5.0
+
+    def test_scroll_min_ticks_override_collected(self):
+        """Entry with scroll_min_ticks=2 -> derived.scroll_min_ticks_overrides has it."""
+        entries = [
+            ActionEntry(
+                name="scroll_up",
+                trigger=Trigger(Gesture.PINCH, TriggerState.MOVING, Direction.UP),
+                key="",
+                fire_mode="scroll",
+                scroll_min_ticks=2,
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert result.scroll_min_ticks_overrides[("pinch", "up")] == 2
+
+    def test_scroll_max_ticks_override_collected(self):
+        """Entry with scroll_max_ticks=8 -> derived.scroll_max_ticks_overrides has it."""
+        entries = [
+            ActionEntry(
+                name="scroll_up",
+                trigger=Trigger(Gesture.PINCH, TriggerState.MOVING, Direction.UP),
+                key="",
+                fire_mode="scroll",
+                scroll_max_ticks=8,
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert result.scroll_max_ticks_overrides[("pinch", "up")] == 8
+
+    def test_scroll_overrides_empty_when_not_set(self):
+        """Scroll entry with no overrides -> all three override dicts empty for that key."""
+        entries = [
+            ActionEntry(
+                name="scroll_up",
+                trigger=Trigger(Gesture.PINCH, TriggerState.MOVING, Direction.UP),
+                key="",
+                fire_mode="scroll",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("pinch", "up") not in result.scroll_speed_overrides
+        assert ("pinch", "up") not in result.scroll_min_ticks_overrides
+        assert ("pinch", "up") not in result.scroll_max_ticks_overrides
+
+    def test_non_scroll_moving_still_infers_tap(self):
+        """Moving entry without fire_mode -> fire_mode is FireMode.TAP (regression)."""
+        entries = [
+            ActionEntry(
+                name="swipe_left",
+                trigger=Trigger(Gesture.OPEN_PALM, TriggerState.MOVING, Direction.LEFT),
+                key="left",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        action = result.right_moving[("open_palm", "left")]
+        assert action.fire_mode == FireMode.TAP
+
+    def test_scroll_action_in_moving_maps(self):
+        """Scroll action appears in right_moving with correct key tuple."""
+        entries = [
+            ActionEntry(
+                name="scroll_down",
+                trigger=Trigger(Gesture.PINCH, TriggerState.MOVING, Direction.DOWN),
+                key="",
+                fire_mode="scroll",
+            ),
+        ]
+        result = derive_from_actions(entries)
+        assert ("pinch", "down") in result.right_moving
+        action = result.right_moving[("pinch", "down")]
+        assert action.gesture_name == "scroll_down"
+
+
 class TestMotionConfig:
     """Tests for motion config fields in AppConfig and load_config."""
 

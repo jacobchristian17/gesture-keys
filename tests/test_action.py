@@ -716,6 +716,54 @@ class TestDispatchIntervalOverrides:
 # TestMovingFireDispatchThrottling -- dispatch_interval throttling
 # ===========================================================================
 
+class TestScrollOverrides:
+    """ActionResolver scroll override get/set methods."""
+
+    def test_get_scroll_speed_returns_override(self):
+        """get_scroll_speed returns override for mapped (gesture, direction)."""
+        resolver = ActionResolver(
+            right_static={}, left_static={}, right_holding={}, left_holding={},
+            right_moving={}, left_moving={}, right_sequence={}, left_sequence={},
+            scroll_speed_overrides={("pinch", "up"): 5.0},
+        )
+        assert resolver.get_scroll_speed("pinch", Direction.UP) == 5.0
+
+    def test_get_scroll_speed_returns_none_unmapped(self):
+        """get_scroll_speed returns None for unmapped (gesture, direction)."""
+        resolver = ActionResolver(
+            right_static={}, left_static={}, right_holding={}, left_holding={},
+            right_moving={}, left_moving={}, right_sequence={}, left_sequence={},
+        )
+        assert resolver.get_scroll_speed("pinch", Direction.UP) is None
+
+    def test_get_scroll_min_ticks_returns_override(self):
+        """get_scroll_min_ticks returns override for mapped (gesture, direction)."""
+        resolver = ActionResolver(
+            right_static={}, left_static={}, right_holding={}, left_holding={},
+            right_moving={}, left_moving={}, right_sequence={}, left_sequence={},
+            scroll_min_ticks_overrides={("pinch", "up"): 2},
+        )
+        assert resolver.get_scroll_min_ticks("pinch", Direction.UP) == 2
+
+    def test_get_scroll_max_ticks_returns_override(self):
+        """get_scroll_max_ticks returns override for mapped (gesture, direction)."""
+        resolver = ActionResolver(
+            right_static={}, left_static={}, right_holding={}, left_holding={},
+            right_moving={}, left_moving={}, right_sequence={}, left_sequence={},
+            scroll_max_ticks_overrides={("pinch", "up"): 8},
+        )
+        assert resolver.get_scroll_max_ticks("pinch", Direction.UP) == 8
+
+    def test_set_scroll_speed_overrides(self):
+        """set_scroll_speed_overrides updates dict, subsequent get returns new value."""
+        resolver = ActionResolver(
+            right_static={}, left_static={}, right_holding={}, left_holding={},
+            right_moving={}, left_moving={}, right_sequence={}, left_sequence={},
+        )
+        resolver.set_scroll_speed_overrides({("pinch", "down"): 7.0})
+        assert resolver.get_scroll_speed("pinch", Direction.DOWN) == 7.0
+
+
 class TestMovingFireDispatchThrottling:
     """Dispatch interval throttling in ActionDispatcher._handle_moving_fire."""
 

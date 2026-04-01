@@ -234,6 +234,9 @@ class DerivedConfig:
     left_sequence: dict[tuple[str, str], Action]
     moving_velocity_overrides: dict[tuple[str, str], float]
     moving_dispatch_interval_overrides: dict[tuple[str, str], float]
+    scroll_speed_overrides: dict[tuple[str, str], float]
+    scroll_min_ticks_overrides: dict[tuple[str, str], int]
+    scroll_max_ticks_overrides: dict[tuple[str, str], int]
 
 
 def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
@@ -272,6 +275,9 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
     left_sequence: dict[tuple[str, str], Action] = {}
     moving_velocity_overrides: dict[tuple[str, str], float] = {}
     moving_dispatch_interval_overrides: dict[tuple[str, str], float] = {}
+    scroll_speed_overrides: dict[tuple[str, str], float] = {}
+    scroll_min_ticks_overrides: dict[tuple[str, str], int] = {}
+    scroll_max_ticks_overrides: dict[tuple[str, str], int] = {}
 
     for entry in actions:
         # Infer fire mode from trigger state
@@ -279,6 +285,10 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
             fire_mode = FireMode.TAP
         else:
             fire_mode = _trigger_state_to_fire_mode[entry.trigger.state]
+
+        # Explicit fire_mode override (scroll)
+        if not isinstance(entry.trigger, SequenceTrigger) and entry.fire_mode == "scroll":
+            fire_mode = FireMode.SCROLL
 
         # Key by gesture value (e.g. "fist") — orchestrator looks up gesture.value
         # Sequence triggers don't set gesture_modes: the first gesture's lifecycle
@@ -299,8 +309,11 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
             else:
                 activation_gate_bypass.append(entry.trigger.gesture.value)
 
-        # Build Action with pre-parsed key
-        modifiers, key = parse_key_string(entry.key)
+        # Build Action with pre-parsed key (skip for scroll actions)
+        if fire_mode == FireMode.SCROLL:
+            modifiers, key = [], ""
+        else:
+            modifiers, key = parse_key_string(entry.key)
         action = Action(
             key_string=entry.key,
             fire_mode=fire_mode,
@@ -343,6 +356,13 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
             # Collect per-action dispatch interval overrides
             if entry.dispatch_interval is not None:
                 moving_dispatch_interval_overrides[map_key] = entry.dispatch_interval
+            # Collect scroll param overrides
+            if entry.scroll_speed is not None:
+                scroll_speed_overrides[map_key] = entry.scroll_speed
+            if entry.scroll_min_ticks is not None:
+                scroll_min_ticks_overrides[map_key] = entry.scroll_min_ticks
+            if entry.scroll_max_ticks is not None:
+                scroll_max_ticks_overrides[map_key] = entry.scroll_max_ticks
 
     return DerivedConfig(
         gesture_modes=gesture_modes,
@@ -358,6 +378,9 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
         left_sequence=left_sequence,
         moving_velocity_overrides=moving_velocity_overrides,
         moving_dispatch_interval_overrides=moving_dispatch_interval_overrides,
+        scroll_speed_overrides=scroll_speed_overrides,
+        scroll_min_ticks_overrides=scroll_min_ticks_overrides,
+        scroll_max_ticks_overrides=scroll_max_ticks_overrides,
     )
 
 

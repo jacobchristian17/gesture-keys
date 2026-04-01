@@ -85,6 +85,9 @@ class ActionResolver:
         left_sequence: Optional[dict[tuple[str, str], Action]] = None,
         velocity_overrides: Optional[dict[tuple[str, str], float]] = None,
         dispatch_interval_overrides: Optional[dict[tuple[str, str], float]] = None,
+        scroll_speed_overrides: Optional[dict[tuple[str, str], float]] = None,
+        scroll_min_ticks_overrides: Optional[dict[tuple[str, str], int]] = None,
+        scroll_max_ticks_overrides: Optional[dict[tuple[str, str], int]] = None,
     ) -> None:
         if right_static is not None:
             # New 8-map path
@@ -113,6 +116,9 @@ class ActionResolver:
         self._active_sequence = self._right_sequence
         self._velocity_overrides: dict[tuple[str, str], float] = velocity_overrides or {}
         self._dispatch_interval_overrides: dict[tuple[str, str], float] = dispatch_interval_overrides or {}
+        self._scroll_speed_overrides: dict[tuple[str, str], float] = scroll_speed_overrides or {}
+        self._scroll_min_ticks_overrides: dict[tuple[str, str], int] = scroll_min_ticks_overrides or {}
+        self._scroll_max_ticks_overrides: dict[tuple[str, str], int] = scroll_max_ticks_overrides or {}
 
     def set_hand(self, handedness: str) -> None:
         """Switch active action maps based on detected hand.
@@ -214,6 +220,54 @@ class ActionResolver:
             overrides: Dict mapping (gesture_value, direction_value) -> dispatch_interval.
         """
         self._dispatch_interval_overrides = overrides
+
+    def get_scroll_speed(
+        self, gesture_name: str, direction: Direction,
+    ) -> Optional[float]:
+        """Look up per-action scroll speed override for a moving gesture.
+
+        Returns:
+            Scroll speed multiplier, or None if no override is set.
+        """
+        return self._scroll_speed_overrides.get((gesture_name, direction.value))
+
+    def set_scroll_speed_overrides(
+        self, overrides: dict[tuple[str, str], float],
+    ) -> None:
+        """Replace the scroll speed overrides dict (used during hot-reload)."""
+        self._scroll_speed_overrides = overrides
+
+    def get_scroll_min_ticks(
+        self, gesture_name: str, direction: Direction,
+    ) -> Optional[int]:
+        """Look up per-action scroll min ticks override for a moving gesture.
+
+        Returns:
+            Minimum ticks per scroll event, or None if no override is set.
+        """
+        return self._scroll_min_ticks_overrides.get((gesture_name, direction.value))
+
+    def set_scroll_min_ticks_overrides(
+        self, overrides: dict[tuple[str, str], int],
+    ) -> None:
+        """Replace the scroll min ticks overrides dict (used during hot-reload)."""
+        self._scroll_min_ticks_overrides = overrides
+
+    def get_scroll_max_ticks(
+        self, gesture_name: str, direction: Direction,
+    ) -> Optional[int]:
+        """Look up per-action scroll max ticks override for a moving gesture.
+
+        Returns:
+            Maximum ticks per scroll event, or None if no override is set.
+        """
+        return self._scroll_max_ticks_overrides.get((gesture_name, direction.value))
+
+    def set_scroll_max_ticks_overrides(
+        self, overrides: dict[tuple[str, str], int],
+    ) -> None:
+        """Replace the scroll max ticks overrides dict (used during hot-reload)."""
+        self._scroll_max_ticks_overrides = overrides
 
     # Legacy resolve() for backward compatibility with pipeline.py dispatcher path
     def resolve(self, gesture_name: str) -> Optional[Action]:
