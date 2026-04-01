@@ -47,6 +47,10 @@ class ActionEntry:
     threshold: Optional[float] = None
     min_velocity: Optional[float] = None
     dispatch_interval: Optional[float] = None
+    fire_mode: Optional[str] = None
+    scroll_speed: Optional[float] = None
+    scroll_min_ticks: Optional[int] = None
+    scroll_max_ticks: Optional[int] = None
 
 
 def parse_actions(actions_dict: dict) -> list[ActionEntry]:
@@ -78,13 +82,17 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
             raise ValueError(
                 f"Action '{action_name}' missing required 'trigger' field"
             )
-        if "key" not in settings:
+
+        fire_mode_str = settings.get("fire_mode")
+        is_scroll = fire_mode_str == "scroll"
+
+        if not is_scroll and "key" not in settings:
             raise ValueError(
                 f"Action '{action_name}' missing required 'key' field"
             )
 
         trigger_string = str(settings["trigger"])
-        key_string = str(settings["key"])
+        key_string = str(settings.get("key", "")) if is_scroll else str(settings["key"])
         hand = str(settings.get("hand", "both")).lower()
 
         if hand not in _VALID_HANDS:
@@ -98,6 +106,24 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
 
         # Parse the trigger string (may raise TriggerParseError)
         trigger = parse_trigger(trigger_string)
+
+        # Validate fire_mode: scroll only on moving triggers
+        if is_scroll:
+            if isinstance(trigger, SequenceTrigger) or trigger.state != TriggerState.MOVING:
+                raise ValueError(
+                    f"Action '{action_name}': fire_mode 'scroll' only valid on moving triggers"
+                )
+
+        # Parse scroll params
+        scroll_speed = settings.get("scroll_speed")
+        if scroll_speed is not None:
+            scroll_speed = float(scroll_speed)
+        scroll_min_ticks = settings.get("scroll_min_ticks")
+        if scroll_min_ticks is not None:
+            scroll_min_ticks = int(scroll_min_ticks)
+        scroll_max_ticks = settings.get("scroll_max_ticks")
+        if scroll_max_ticks is not None:
+            scroll_max_ticks = int(scroll_max_ticks)
 
         cooldown = settings.get("cooldown")
         if cooldown is not None:
@@ -126,6 +152,10 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
                 threshold=threshold,
                 min_velocity=min_velocity,
                 dispatch_interval=dispatch_interval,
+                fire_mode=fire_mode_str,
+                scroll_speed=scroll_speed,
+                scroll_min_ticks=scroll_min_ticks,
+                scroll_max_ticks=scroll_max_ticks,
             )
         )
 

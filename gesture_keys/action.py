@@ -33,6 +33,7 @@ class FireMode(Enum):
 
     TAP = "tap"
     HOLD_KEY = "hold_key"
+    SCROLL = "scroll"
 
 
 @dataclass(frozen=True)

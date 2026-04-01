@@ -944,6 +944,104 @@ class TestMotionConfig:
         assert config.motion_dispatch_interval == 0
 
 
+class TestScrollConfigParsing:
+    """Tests for scroll config parsing in parse_actions()."""
+
+    def test_scroll_action_without_key_accepted(self):
+        """fire_mode: scroll action without key field -> parse_actions succeeds."""
+        actions_dict = {
+            "scroll_up": {
+                "trigger": "pinch:moving:up",
+                "fire_mode": "scroll",
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert len(result) == 1
+        assert result[0].fire_mode == "scroll"
+        assert result[0].key == ""
+
+    def test_scroll_action_with_key_ignored(self):
+        """fire_mode: scroll with key: space -> succeeds, key preserved."""
+        actions_dict = {
+            "scroll_up": {
+                "trigger": "pinch:moving:up",
+                "fire_mode": "scroll",
+                "key": "space",
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].key == "space"
+
+    def test_non_scroll_action_missing_key_raises(self):
+        """Non-scroll action without key -> ValueError."""
+        actions_dict = {
+            "bad": {"trigger": "fist:static"},
+        }
+        with pytest.raises(ValueError, match="key"):
+            parse_actions(actions_dict)
+
+    def test_scroll_speed_parsed(self):
+        """fire_mode: scroll with scroll_speed: 5.0 -> entry.scroll_speed == 5.0."""
+        actions_dict = {
+            "scroll_up": {
+                "trigger": "pinch:moving:up",
+                "fire_mode": "scroll",
+                "scroll_speed": 5.0,
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].scroll_speed == 5.0
+
+    def test_scroll_min_max_ticks_parsed(self):
+        """scroll_min_ticks and scroll_max_ticks parsed from config."""
+        actions_dict = {
+            "scroll_up": {
+                "trigger": "pinch:moving:up",
+                "fire_mode": "scroll",
+                "scroll_min_ticks": 2,
+                "scroll_max_ticks": 8,
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].scroll_min_ticks == 2
+        assert result[0].scroll_max_ticks == 8
+
+    def test_scroll_defaults_none_when_absent(self):
+        """Scroll action with no scroll params -> all None."""
+        actions_dict = {
+            "scroll_up": {
+                "trigger": "pinch:moving:up",
+                "fire_mode": "scroll",
+            },
+        }
+        result = parse_actions(actions_dict)
+        assert result[0].scroll_speed is None
+        assert result[0].scroll_min_ticks is None
+        assert result[0].scroll_max_ticks is None
+
+    def test_fire_mode_scroll_on_static_trigger_raises(self):
+        """fire_mode: scroll on static trigger -> ValueError."""
+        actions_dict = {
+            "bad": {
+                "trigger": "fist:static",
+                "fire_mode": "scroll",
+            },
+        }
+        with pytest.raises(ValueError, match="scroll.*moving"):
+            parse_actions(actions_dict)
+
+    def test_fire_mode_scroll_on_holding_trigger_raises(self):
+        """fire_mode: scroll on holding trigger -> ValueError."""
+        actions_dict = {
+            "bad": {
+                "trigger": "fist:holding",
+                "fire_mode": "scroll",
+            },
+        }
+        with pytest.raises(ValueError, match="scroll.*moving"):
+            parse_actions(actions_dict)
+
+
 class TestActionEntryMinVelocity:
     """Tests for ActionEntry.min_velocity field."""
 
