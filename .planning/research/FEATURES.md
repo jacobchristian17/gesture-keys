@@ -1,177 +1,219 @@
-# Feature Research
+# Feature Research: Scroll Gesture Support
 
-**Domain:** Unified preview & exec mode for Python desktop tray app (gesture detection)
-**Researched:** 2026-03-30
+**Domain:** Gesture-controlled mouse scrolling (adding scroll fire mode to existing gesture-keys app)
+**Researched:** 2026-04-01
 **Confidence:** HIGH
 
 ## Feature Landscape
 
 ### Table Stakes (Users Expect These)
 
-Features required for the v3.2 milestone to deliver on "unified preview & exec mode." Without these the milestone is incomplete.
+Features that any scroll-via-gesture implementation must have. Without these the feature feels broken.
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Dev mode always shows camera + console logging | Currently `python -m gesture_keys` launches headless tray mode by default, which is confusing during development -- you see nothing. Developers expect `python -m gesture_keys` to give immediate visual feedback. | LOW | Flip the default: non-frozen = camera+logging, frozen exe = tray. The code paths already exist in `run_preview_mode()` and `run_tray_mode()`; this is routing logic in `main()`. Key change: the `if args.preview:` guard on line 146 of `__main__.py` that controls camera rendering must become always-on for dev mode. |
-| `--debug` flag for verbose console output | Standard CLI pattern. Every serious CLI tool supports `--debug` or `-v` for troubleshooting. | LOW | The argparse arg already exists (`__main__.py` lines 35-37). Console handler already uses it to set DEBUG level (line 87). Main gap: `--debug` only works in preview mode today because `run_tray_mode()` ignores the flag entirely and calls `setup_logging()` without a console handler. Need to wire it into both code paths. |
-| Remove `--preview` as a separate concept | The milestone explicitly says "preview is default dev behavior." Keeping `--preview` alongside the new default creates confusion about which flag to use. | LOW | Deprecate or remove the flag. The `args.preview` condition gating camera rendering in `run_preview_mode()` changes to unconditional for dev mode. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Vertical scroll (up/down) | Core scrolling use case -- web pages, documents, code editors | LOW | Existing `MotionDetector` direction + `pynput.mouse.Controller.scroll(dx, dy)` | `scroll(0, N)` for vertical. Positive dy = up, negative = down. Already have UP/DOWN from MotionDetector. |
+| Horizontal scroll (left/right) | Spreadsheets, timelines, wide documents -- expected alongside vertical | LOW | Same MotionDetector LEFT/RIGHT directions | `scroll(N, 0)` for horizontal. Same integration path as vertical. |
+| New `scroll` fire mode | Must be a distinct fire mode alongside `tap` and `hold_key` so config can declare scroll actions | LOW | `FireMode` enum, `ActionEntry`, config parsing, `ActionDispatcher` | New enum value, new handler in dispatcher. Needs explicit `fire_mode: scroll` in config since it cannot be inferred from trigger state alone (moving triggers default to TAP). |
+| Velocity-proportional scroll speed | Faster hand movement = faster scrolling. Without this, scroll feels robotic and uncontrollable | MEDIUM | MotionDetector already reports `velocity` on every frame via `MotionState.velocity` | Map velocity to scroll step count. Linear mapping with floor/ceiling: `steps = clamp(velocity * scale_factor, min_steps, max_steps)`. |
+| Configurable scroll sensitivity | Users need to tune how fast scrolling feels for their setup | LOW | Existing per-action config override pattern (like `min_velocity`, `dispatch_interval`) | Add `scroll_speed` per-action override in YAML. Global default in `motion:` section. |
+| Continuous scroll while moving | Scroll fires repeatedly while hand is in motion, not just once per swipe | LOW | Existing MOVING_FIRE signal fires continuously. Dispatch interval throttling already exists. | Scroll actions use same MOVING_FIRE path but with shorter `dispatch_interval` (e.g. 0.05s for ~20 scroll events/sec). |
 
 ### Differentiators (Competitive Advantage)
 
-Features that make this app more usable than the typical "run and hope" tray utility.
+Features that elevate the scroll experience beyond basic functionality. Not required for launch but add real value.
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Tray "View Camera" menu item | Lets non-developer users (or developers running the .exe) see what the camera sees without restarting manually. Turns debugging from "quit, relaunch with flag" into a single click. | MEDIUM | **This is the hardest feature in the milestone.** `cv2.imshow` and `cv2.waitKey` must run on the main thread on Windows (confirmed by OpenCV issue #8407). pystray's `Icon.run()` also blocks the main thread. This means the tray app cannot open an OpenCV window in a thread -- it requires a subprocess restart approach. See Implementation Approaches below. |
-| Tray icon state indicator (active vs camera-visible) | Visual feedback that camera mode is active. Users currently cannot tell if the app is detecting or idle without checking the menu. | LOW | Change icon color (green=active, blue=camera-active). Already have `_create_icon_image()` that draws a colored circle. Optional polish, not core. |
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| Acceleration curve | Slow movement = precise scroll (1-2 steps), fast movement = rapid scroll (10+ steps). Feels natural like a trackpad. BetterTouchTool uses `output = input * (1 + strength * sqrt(abs(input)/4))`. | LOW | Velocity already available per-frame. Pure math in the scroll step calculation. | Apply nonlinear mapping: `steps = base + floor(velocity^exponent * scale)`. Configurable `scroll_acceleration` strength parameter (0 = linear, 1 = moderate curve). |
+| Per-direction scroll tuning | Different sensitivity for vertical vs horizontal, or up vs down (e.g., scroll down faster for reading, scroll up slower for reviewing) | LOW | Per-action overrides already supported via existing config pattern | Each direction is already a separate action entry. User can set different `scroll_speed` on `pinch:moving:up` vs `pinch:moving:down`. No new code needed -- natural from existing per-action config. |
+| Scroll preview overlay | Visual feedback showing scroll direction and relative speed in the camera preview | MEDIUM | Existing preview overlay system (distance, hand indicator) | Add scroll indicator (arrow + magnitude bar) to preview. Helps users calibrate their hand speed. |
+| Configurable min/max scroll bounds | Prevent accidental micro-scrolls or dangerously fast scrolling by clamping output range | LOW | Pure config values applied during step calculation | `scroll_min_steps: 1` and `scroll_max_steps: 15` in motion section or per-action. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
+Features that seem appealing but create complexity without proportional value for this project.
+
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| In-process camera window toggle (show/hide OpenCV window from tray thread) | Seems simpler than restarting. "Just open a window." | `cv2.imshow`/`cv2.waitKey` must run on the main thread on Windows. pystray's `Icon.run()` blocks the main thread. Attempting to call OpenCV GUI from a background thread produces hangs, crashes, or no display. This is a hard platform constraint, not a fixable bug. | Use subprocess restart (Approach A below). |
-| `-v` / `-vv` counting verbosity pattern | Conventional in CLI tools for graduated verbosity. | Overkill for this app. There are exactly two useful log levels: normal (INFO signals/transitions) and debug (every-frame state). A third level adds nothing. The counting pattern adds argparse complexity for zero user benefit. | Single `--debug` boolean flag. Two levels: INFO (default) and DEBUG (with flag). |
-| Embedded GUI framework (Tkinter/Qt) for camera display | Would allow proper window management, show/hide, no threading issues. | Adds a massive dependency (Qt) or fights with pystray for main thread (Tkinter). The app is ~9k LOC with zero GUI framework dependency. OpenCV's highgui is already used and sufficient. | Keep cv2.imshow for camera. Accept the subprocess restart trade-off for tray integration. |
-| `--headless` flag for tray-only mode in development | "What if I'm developing but don't want the camera?" | Running a gesture detection app without seeing the camera in dev mode is not a real workflow. If you are developing, you want visual feedback. If you do not want the camera, you are running tests, and tests do not use the CLI. | Dev mode = camera always. No flag needed. |
-
-## Implementation Approaches for "View Camera" (Critical Decision)
-
-The core tension: **pystray needs the main thread. OpenCV GUI needs the main thread. Both on Windows.**
-
-### Approach A: Subprocess Restart (Recommended)
-
-"View Camera" menu item stops the current process and relaunches with a `--camera` flag (or equivalent internal flag) via `subprocess.Popen([sys.executable, ...])` then `os._exit(0)`.
-
-**Pros:**
-- Clean separation. New process owns the main thread for OpenCV.
-- Simple to implement. `sys.executable` + `sys.argv` reconstruction.
-- Works with both frozen (PyInstaller) and dev mode.
-- Camera window gets proper main-thread event loop (`cv2.waitKey`).
-
-**Cons:**
-- Brief restart gap (camera release + reacquire ~1-2 seconds).
-- User sees the tray icon disappear and reappear.
-
-**Complexity:** MEDIUM -- need to handle frozen vs dev `sys.executable` paths, pass config path through, and ensure clean shutdown of the current pipeline before respawn.
-
-**Implementation sketch:**
-```python
-# In tray.py _on_view_camera():
-def _on_view_camera(self, icon, item):
-    self._shutdown.set()
-    self._active.set()  # unblock wait
-    icon.stop()
-    # Relaunch with camera flag
-    args = [sys.executable] + sys.argv + ["--camera"]
-    subprocess.Popen(args)
-    os._exit(0)
-```
-
-For frozen exe, `sys.executable` is the .exe path. For dev, it is the Python interpreter and `sys.argv[0]` is the module. Both cases work with `sys.executable + sys.argv` reconstruction.
-
-### Approach B: Separate Camera Process (Over-engineered)
-
-Main process stays as tray. "View Camera" spawns a separate process that opens the camera in read-only/mirror mode.
-
-**Pros:**
-- Tray never restarts.
-
-**Cons:**
-- Two processes sharing the same camera = conflict. Only one process can hold `cv2.VideoCapture`.
-- Need IPC (pipe, shared memory, socket) to share frame data or pipeline state.
-- Massively more complex for a feature that will be used occasionally.
-
-**Verdict:** Use Approach A (subprocess restart). The 1-2 second restart is acceptable for an infrequent user action.
+| Smooth/sub-pixel scroll interpolation | "Make it feel like a trackpad" with 60fps interpolated inertia | Requires a background scroll animation thread, momentum physics, and deceleration curves. Massively increases complexity for a webcam-based input that already has inherent jitter. OS smooth scroll settings handle this for discrete scroll events. | Send integer scroll steps at high frequency (~20/sec via dispatch_interval). OS-level smooth scroll settings interpolate these into fluid motion. Let the OS do what it does best. |
+| Scroll inertia/momentum | Scroll continues after hand stops moving, decelerating gradually | MotionDetector disarms when velocity drops below threshold -- there is no "release velocity" event. Simulating momentum requires a timer thread that continues firing after MOVING_FIRE stops. Adds state complexity and feels unreliable with webcam input latency. | Use short dispatch_interval (0.05-0.1s) so scrolling feels responsive while hand is moving. Clean stop when hand stops. Users prefer predictable stop over momentum with webcam gestures. |
+| Diagonal/free-axis scrolling | Scroll diagonally by moving hand at 45 degrees | MotionDetector's axis_ratio filter explicitly rejects diagonals (ratio < 1.5 = rejected). This is by design to prevent ambiguous input. Diagonal scroll is rarely useful and confusing to control via hand gestures. | Keep cardinal-only scrolling. Users who need diagonal can lower axis_ratio, but this is not recommended. |
+| Pinch-to-zoom via scroll | Map pinch gesture changes to ctrl+scroll for zoom | Requires tracking pinch distance changes frame-over-frame (finger landmark distance), which is a different input signal than hand movement. Conflates two input dimensions. | Keep zoom as a separate feature (future milestone). Scroll is about hand movement direction/speed, not gesture geometry changes. |
+| Scroll-then-click combos | Scroll to position then click without releasing gesture | Requires mouse cursor control (separate feature domain). Mixing scroll and click in one gesture flow adds significant state complexity. | Keep scroll and cursor control as separate feature domains. |
 
 ## Feature Dependencies
 
 ```
-[Remove --preview flag]
-    └──enables──> [Dev mode always shows camera]
-                      └──shares entry point logic with──> [Tray "View Camera" restart]
+[velocity-proportional scroll speed]
+    |-- requires --> [scroll fire mode in dispatcher]
+    |-- requires --> [MotionDetector velocity (EXISTING)]
+    |-- requires --> [pynput mouse Controller (NEW dependency)]
 
-[--debug flag wired to both modes]
-    └──independent (no dependencies on other features)
+[scroll fire mode in dispatcher]
+    |-- requires --> [FireMode.SCROLL enum value]
+    |-- requires --> [config parsing: explicit fire_mode field for scroll]
+    |-- requires --> [ActionDispatcher._handle_moving_fire scroll branch]
 
-[Tray "View Camera" menu item]
-    └──requires──> [Unified entry point that can launch camera OR tray based on args]
+[configurable scroll sensitivity]
+    |-- requires --> [scroll fire mode in dispatcher]
+    |-- enhances --> [velocity-proportional scroll speed]
+
+[acceleration curve]
+    |-- requires --> [velocity-proportional scroll speed]
+    |-- enhances --> [configurable scroll sensitivity]
+
+[scroll preview overlay]
+    |-- requires --> [scroll fire mode in dispatcher]
+    |-- requires --> [preview overlay system (EXISTING)]
 ```
 
 ### Dependency Notes
 
-- **Remove --preview requires updating entry point logic:** The `main()` function currently branches on `args.preview`. Removing the flag means the branch condition changes to "am I frozen?" or "was I launched with --camera?" (internal restart flag).
-- **"View Camera" requires unified entry point:** The subprocess restart re-enters through `main()`, so `main()` must be able to launch camera mode when requested. This is the same entry point refactor needed for dev-mode-default.
-- **--debug is independent:** It only affects logging handler configuration. Can be implemented in any order, in any phase.
-- **Entry point refactor is the foundation:** Both dev-mode-default and "View Camera" depend on `main()` understanding three launch modes: (1) dev with camera, (2) tray headless, (3) tray-to-camera restart. This is the first thing to build.
+- **scroll fire mode requires FireMode.SCROLL:** New enum value triggers new dispatch path. The existing `_handle_moving_fire` already receives velocity -- it just needs a branch that sends `mouse.scroll()` instead of `sender.send()`.
+- **velocity-proportional speed requires MotionDetector velocity:** Already provided via `MotionState.velocity` on every frame. No changes to MotionDetector needed.
+- **pynput mouse Controller is a NEW dependency for scroll sending:** The app currently only uses `pynput.keyboard.Controller`. Adding `pynput.mouse.Controller` is zero-install (pynput already in dependencies) but requires a new sender class or method.
+- **config parsing needs explicit fire_mode field:** Currently fire_mode is inferred from trigger state (moving = TAP). Scroll actions use moving triggers but need SCROLL fire_mode. The `fire_mode: scroll` field on the action config entry solves this cleanly. This is the first config change needed.
 
 ## MVP Definition
 
-### Launch With (v3.2)
+### Launch With (v1.0.1)
 
-These are the milestone deliverables. All three are needed to call the milestone complete.
+Minimum viable scroll -- what validates the concept works.
 
-- [ ] **Unified dev mode** -- `python -m gesture_keys` shows camera + console logging by default (no flag needed)
-- [ ] **Tray "View Camera"** -- menu item that restarts the app with camera visible via subprocess
-- [ ] **`--debug` flag** -- enables DEBUG-level console output in both dev and camera modes
+- [ ] `FireMode.SCROLL` enum value and config recognition
+- [ ] `ScrollSender` or mouse scroll method using `pynput.mouse.Controller.scroll(dx, dy)`
+- [ ] Vertical scroll (up/down) via `pinch:moving:up` and `pinch:moving:down`
+- [ ] Horizontal scroll (left/right) via `pinch:moving:left` and `pinch:moving:right`
+- [ ] Velocity-to-steps mapping: `steps = clamp(int(velocity * scroll_speed), 1, max_steps)`
+- [ ] `scroll_speed` config field per action (default sensible global value)
+- [ ] Appropriate dispatch_interval default for scroll actions (~0.05s for responsive feel)
 
-### Add After Validation (v3.2.x)
+### Add After Validation (v1.0.x)
 
-Features to add once the core unification works and has been used for a few sessions.
+Features to add once core scroll is working and tested.
 
-- [ ] **Tray icon color change when camera is active** -- visual indicator without opening menu
-- [ ] **"Hide Camera" / "Back to Tray" menu item when camera is showing** -- reverse of "View Camera", restarts back to tray-only
-- [ ] **Log level in banner** -- print whether debug logging is active in the startup banner
+- [ ] Acceleration curve -- when linear mapping feels too flat at low speeds or too jumpy at high speeds
+- [ ] Scroll preview overlay -- when users need visual feedback to calibrate hand speed
+- [ ] Per-direction default tuning -- if vertical and horizontal need different default sensitivities
 
-### Future Consideration (v4+)
+### Future Consideration (v2+)
 
-- [ ] **`--log-file` flag** -- redirect console logging to a custom file path
-- [ ] **Camera window resize/position memory** -- remember window position across restarts (Windows registry or config file)
+- [ ] Pinch-to-zoom -- separate input signal, separate milestone
+- [ ] Scroll inertia -- only if users report clean-stop feels abrupt (unlikely with webcam input)
 
 ## Feature Prioritization Matrix
 
-| Feature | User Value | Implementation Cost | Priority | Depends On |
-|---------|------------|---------------------|----------|------------|
-| Dev mode default camera | HIGH | LOW | P1 | Entry point refactor |
-| Remove --preview | HIGH | LOW | P1 | Dev mode default |
-| --debug flag (both modes) | MEDIUM | LOW | P1 | None |
-| Tray "View Camera" restart | HIGH | MEDIUM | P1 | Entry point refactor |
-| Tray icon state color | LOW | LOW | P2 | None |
-| "Hide Camera" reverse toggle | MEDIUM | LOW | P2 | "View Camera" |
-| Banner log level display | LOW | LOW | P3 | --debug flag |
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| Vertical scroll (up/down) | HIGH | LOW | P1 |
+| Horizontal scroll (left/right) | HIGH | LOW | P1 |
+| `scroll` fire mode + dispatcher | HIGH | LOW | P1 |
+| Velocity-proportional speed | HIGH | MEDIUM | P1 |
+| Configurable scroll_speed | MEDIUM | LOW | P1 |
+| Continuous scroll via dispatch_interval | HIGH | LOW | P1 (existing infrastructure) |
+| Acceleration curve | MEDIUM | LOW | P2 |
+| Min/max scroll bounds | LOW | LOW | P2 |
+| Scroll preview overlay | LOW | MEDIUM | P3 |
 
 **Priority key:**
-- P1: Must have for v3.2 milestone completion
-- P2: Should have, add in v3.2.x once core is stable
-- P3: Nice to have, future consideration
+- P1: Must have for launch -- core scroll functionality
+- P2: Should have, add when possible -- polish and feel
+- P3: Nice to have, future consideration -- visual feedback
 
-## Existing Code to Reuse
+## Integration Points With Existing Architecture
 
-The codebase already has almost everything needed. This milestone is primarily a **routing/entry-point refactor**, not new functionality.
+### Where Scroll Plugs Into Existing Code
 
-| Existing Code | Location | Reuse For |
-|---------------|----------|-----------|
-| Camera preview loop | `__main__.py:run_preview_mode()` | Dev mode default camera display |
-| Console logging handler setup | `__main__.py:87-89` | Both dev and camera-from-tray modes |
-| `--debug` argparse arg | `__main__.py:35-37` | Already defined, needs wiring to tray path |
-| File logging (rotating handlers) | `logging_setup.py:setup_logging()` | No changes needed, already writes to logs/ |
-| Tray menu builder | `tray.py:_build_menu()` | Add "View Camera" item here |
-| Pipeline start/stop | `pipeline.py:Pipeline` | Unchanged, both modes use it |
-| Console window hide | `__main__.py:hide_console_window()` | Tray-only mode (already exists) |
-| Frozen detection | `__main__.py:178` via `sys.frozen` | Dev vs tray mode branching |
-| Banner printer | `__main__.py:print_banner()` | Dev and camera modes |
-| Preview rendering | `preview.py:render_preview()` | Camera display in both dev and tray-restart modes |
-| Config path resolution | `__main__.py:178-180` | Pass through on subprocess restart |
+| Component | Current State | Change Needed |
+|-----------|---------------|---------------|
+| `FireMode` enum (`action.py`) | `TAP`, `HOLD_KEY` | Add `SCROLL` |
+| `Action` dataclass (`action.py`) | Has `key_string`, `modifiers`, `key` | Scroll actions don't use key_string/modifiers/key. Need either: (a) sentinel/placeholder values, or (b) make key fields Optional. Option (b) is cleaner but touches more code. Option (a) is pragmatic. |
+| `ActionEntry` (`config.py`) | Has `trigger`, `key`, `min_velocity`, `dispatch_interval` | Add explicit `fire_mode` field (currently inferred from trigger state). Add `scroll_speed` field. For scroll actions, `key` field is unused -- make optional or accept placeholder. |
+| `derive_from_actions()` (`config.py`) | Infers fire_mode from trigger state | Respect explicit `fire_mode: scroll` override. Moving + fire_mode:scroll = SCROLL instead of TAP. |
+| `ActionDispatcher._handle_moving_fire()` (`action.py`) | Resolves action, checks velocity, sends keystroke | Branch on `action.fire_mode == FireMode.SCROLL`: compute steps from velocity, call `scroll_sender.scroll(dx, dy)`. |
+| `KeystrokeSender` (`keystroke.py`) | Only keyboard Controller | Add `ScrollSender` with `pynput.mouse.Controller` or add scroll method to existing sender. Separate class is cleaner -- single responsibility. |
+| Config YAML | `key: up` for moving actions | Scroll actions need `fire_mode: scroll` and optionally `scroll_speed: 5.0`. The `key` field becomes unused. |
+| `release_all()` (`action.py`) | Releases held keyboard keys | Scroll has no held state -- no change needed. |
+
+### Recommended Config Syntax
+
+```yaml
+actions:
+  scroll_up:
+    trigger: "pinch:moving:up"
+    fire_mode: scroll
+    scroll_speed: 5.0        # velocity multiplier (steps = velocity * scroll_speed)
+    dispatch_interval: 0.05  # 20 scroll events/sec for smooth feel
+
+  scroll_down:
+    trigger: "pinch:moving:down"
+    fire_mode: scroll
+    scroll_speed: 5.0
+
+  scroll_left:
+    trigger: "pinch:moving:left"
+    fire_mode: scroll
+    scroll_speed: 3.0        # horizontal often needs less speed
+
+  scroll_right:
+    trigger: "pinch:moving:right"
+    fire_mode: scroll
+    scroll_speed: 3.0
+```
+
+Key design decision: scroll actions do not need a `key` field. The `fire_mode: scroll` field makes the action type unambiguous. The `key` field should be optional for scroll actions (validated at parse time).
+
+## Scroll Step Calculation
+
+### Recommended Algorithm
+
+```python
+def compute_scroll_steps(velocity: float, scroll_speed: float, max_steps: int = 15) -> int:
+    """Convert hand velocity to scroll step count.
+
+    Args:
+        velocity: Hand velocity from MotionDetector (normalized coords/sec, typically 0.15-2.0).
+        scroll_speed: Multiplier from config (default ~5.0).
+        max_steps: Safety ceiling to prevent scroll explosion.
+
+    Returns:
+        Integer scroll steps, minimum 1 when moving.
+    """
+    raw = velocity * scroll_speed
+    return max(1, min(int(raw), max_steps))
+```
+
+### Velocity-to-Steps Reference
+
+With `scroll_speed: 5.0` and typical MotionDetector velocities:
+
+| Hand Speed | Velocity | Steps | Feel |
+|------------|----------|-------|------|
+| Slow drift | 0.15-0.3 | 1 | Precise, line-by-line |
+| Normal move | 0.3-0.6 | 1-3 | Comfortable reading pace |
+| Fast swipe | 0.6-1.2 | 3-6 | Quick navigation |
+| Very fast | 1.2-2.0+ | 6-10 | Rapid page skip |
+
+### Direction-to-Axis Mapping
+
+| MotionDetector Direction | pynput scroll(dx, dy) | Effect |
+|--------------------------|----------------------|--------|
+| Direction.UP | `scroll(0, steps)` | Scroll up (content moves down) |
+| Direction.DOWN | `scroll(0, -steps)` | Scroll down (content moves up) |
+| Direction.LEFT | `scroll(-steps, 0)` | Scroll left |
+| Direction.RIGHT | `scroll(steps, 0)` | Scroll right |
+
+Note: pynput's scroll dy convention -- positive = scroll up. This matches the natural expectation: move hand up = scroll up (content goes down, like pulling a page up).
 
 ## Sources
 
-- [OpenCV imshow threading issue #8407](https://github.com/opencv/opencv/issues/8407) -- confirms cv2.imshow/waitKey must be main thread on Windows
-- [pystray issue #17 -- terminating from tray](https://github.com/moses-palmer/pystray/issues/17) -- pystray shutdown and Icon.stop() patterns
-- [Python subprocess docs](https://docs.python.org/3/library/subprocess.html) -- subprocess.Popen for restart pattern
-- [Python CLI logging with argparse patterns](https://gist.github.com/ms5/9f6df9c42a5f5435be0e) -- --debug flag conventions
-- [CLI logging verbosity best practices](https://xahteiwi.eu/resources/hints-and-kinks/python-cli-logging-options/) -- two-level vs counting pattern analysis
-- [pystray PyPI](https://pypi.org/project/pystray/) -- pystray threading model (setup callback runs in separate thread)
-- Direct codebase analysis of `__main__.py`, `tray.py`, `pipeline.py`, `logging_setup.py`, `GestureKeys.spec`
+- [pynput mouse documentation](https://pynput.readthedocs.io/en/latest/mouse.html) -- `Controller.scroll(dx, dy)` API (HIGH confidence, pynput already in project dependencies)
+- [PyTutorial: Mouse scrolling with pynput](https://pytutorial.com/master-mouse-scrolling-with-pynputmousescroll-in-python/) -- scroll(dx, dy) parameters and examples (HIGH confidence, verified against pynput source)
+- [BetterTouchTool Scroll Modifiers](https://docs.folivora.ai/docs/4001_scroll_modifiers.html) -- acceleration formula `output = input * (1 + strength * sqrt(abs(input)/4))`, smooth scrolling patterns, dead zones (MEDIUM confidence, different platform but proven UX patterns)
+- [Android fling/scroll gesture docs](https://developer.android.com/develop/ui/views/touch-and-input/gestures/scroll) -- velocity-based drag/swipe/fling distinction (MEDIUM confidence, mobile patterns but velocity mapping is transferable)
+- Direct codebase analysis of `action.py`, `motion.py`, `keystroke.py`, `config.py`, `trigger.py` (HIGH confidence)
 
 ---
-*Feature research for: Unified preview & exec mode (v3.2)*
-*Researched: 2026-03-30*
+*Feature research for: scroll gesture support in gesture-keys v1.0.1*
+*Researched: 2026-04-01*

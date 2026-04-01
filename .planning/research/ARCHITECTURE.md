@@ -1,424 +1,372 @@
-# Architecture Research: Unified Preview & Exec Mode
+# Architecture Research: Scroll Gesture Integration
 
-**Domain:** Desktop gesture-to-keyboard app (Python, Windows)
-**Researched:** 2026-03-30
-**Confidence:** HIGH (all recommendations based on reading actual codebase; no external dependencies needed)
+**Domain:** Scroll fire mode for gesture-keys desktop app
+**Researched:** 2026-04-01
+**Confidence:** HIGH
 
-## Current Architecture (Baseline)
-
-```
-                    __main__.py
-                   /           \
-          --preview?            else (default)
-             |                     |
-      run_preview_mode()      run_tray_mode()
-             |                     |
-      Pipeline + OpenCV       TrayApp (pystray)
-      + console logging         |
-                            _detection_loop()
-                                |
-                             Pipeline (headless)
-```
-
-**Key observations from the code:**
-
-1. `run_preview_mode()` and `run_tray_mode()` are entirely separate entry paths
-2. Both instantiate `Pipeline` identically -- the Pipeline has no awareness of display mode
-3. Preview mode owns the OpenCV window loop (frame read + render + waitKey)
-4. Tray mode runs Pipeline.process_frame() in a daemon thread, pystray owns the main thread
-5. `Pipeline.last_frame` already exposes the frame for external rendering
-6. Logging is configured differently: tray calls `setup_logging()` alone; preview adds a console handler on top
-
-## Target Architecture (v3.2)
+## System Overview: Current Architecture
 
 ```
-                    __main__.py
-                   /           \
-          frozen/exe?           else (dev mode)
-             |                     |
-      run_tray_mode()       run_dev_mode()
-             |                     |
-        TrayApp              Pipeline + OpenCV
-        (pystray)            + console logging
-             |               (always shows camera)
-      _detection_loop()
-             |
-          Pipeline (headless)
-             |
-      "View Camera" menu item
-             |
-      _restart_with_camera()
-             |
-      subprocess: self-exe --view-camera
-             |
-      run_camera_mode()
-             |
-      Pipeline + OpenCV (no tray, closeable window)
+Camera Frame
+    |
+    v
+Pipeline.process_frame()
+    |
+    +-- HandDetector.detect() --> landmarks, handedness
+    +-- GestureClassifier.classify() --> raw_gesture
+    +-- GestureSmoother.update() --> gesture
+    +-- MotionDetector.update() --> MotionState(moving, direction, velocity)
+    +-- GestureOrchestrator.update() --> OrchestratorResult(signals[])
+    |       |
+    |       +-- FIRE, HOLD_START, HOLD_END, MOVING_FIRE, SEQUENCE_FIRE
+    |
+    +-- ActivationGate filter
+    +-- ActionDispatcher.dispatch(signal)
+    |       |
+    |       +-- ActionResolver.resolve_{static,holding,moving,sequence}()
+    |       +-- KeystrokeSender.send() / tick()
+    |
+    +-- ActionDispatcher.tick() --> held-key tap-repeat
+    |
+    v
+FrameResult
 ```
 
-### Mode Matrix
+### Where Scroll Fits
 
-| Entry | Camera | Tray Icon | Console Log | File Log | How Entered |
-|-------|--------|-----------|-------------|----------|-------------|
-| Dev mode | YES (always) | NO | YES (INFO, or DEBUG with --debug) | YES | `python -m gesture_keys` |
-| Tray mode | NO | YES | NO (console hidden) | YES | `GestureKeys.exe` (frozen) |
-| View Camera | YES | NO (parent keeps tray) | YES (INFO) | YES | Tray menu "View Camera" |
+Scroll is a new **fire mode**, not a new signal type. The orchestrator already emits `MOVING_FIRE` signals with velocity and direction when a gesture is held while the hand moves. The only missing piece is that `ActionDispatcher._handle_moving_fire()` currently always routes to `KeystrokeSender.send()` -- it needs a branch for scroll-type actions.
 
-## Integration Design: Component by Component
+## Recommended Architecture: Scroll Integration
 
-### 1. __main__.py Changes (MODIFY)
+### Core Decision: ScrollSender as Peer to KeystrokeSender
 
-**Current:** Two modes selected by `--preview` flag.
-**New:** Three modes selected by frozen state + flags.
+Create a `ScrollSender` class alongside `KeystrokeSender` rather than adding scroll logic into KeystrokeSender. Rationale:
+
+1. **Single Responsibility** -- KeystrokeSender owns keyboard via `pynput.keyboard.Controller`; ScrollSender owns mouse scroll via `pynput.mouse.Controller`. Different pynput subsystems, different controllers.
+2. **No keystroke state** -- Scroll has no held-key state (no press/release lifecycle). It fires discrete `mouse.scroll(dx, dy)` calls. Mixing this into KeystrokeSender's held-key tracking would muddy the interface.
+3. **Clean testing** -- ScrollSender can be mocked independently in tests without touching keyboard mocks.
+
+### New Fire Mode: SCROLL
+
+Add `FireMode.SCROLL = "scroll"` to the existing enum. This is checked in `ActionDispatcher._handle_moving_fire()` to route to ScrollSender instead of KeystrokeSender.
+
+### Modified Component Map
+
+| Component | Change | What Changes |
+|-----------|--------|--------------|
+| `FireMode` (action.py) | **ADD** | New `SCROLL = "scroll"` enum value |
+| `Action` (action.py) | **NONE** | Already has `fire_mode` field; scroll actions just use `FireMode.SCROLL`. The `key_string`, `modifiers`, `key` fields are unused for scroll actions (set to empty/None sentinels). |
+| `ScrollSender` (scroll.py) | **NEW** | Wraps `pynput.mouse.Controller`, exposes `scroll(direction, velocity)` |
+| `ActionDispatcher` (action.py) | **MODIFY** | Accept `ScrollSender` in constructor; `_handle_moving_fire()` branches on `fire_mode == SCROLL` |
+| `ActionEntry` (config.py) | **MODIFY** | Allow `key` field to be optional/empty for scroll actions; add `fire_mode` field to ActionEntry |
+| `derive_from_actions()` (config.py) | **MODIFY** | Detect `fire_mode: scroll` in YAML and set `FireMode.SCROLL` instead of inferring from trigger state |
+| `Pipeline` (pipeline.py) | **MODIFY** | Create `ScrollSender` in `start()`, pass to `ActionDispatcher` |
+
+### Components That Do NOT Change
+
+| Component | Why Unchanged |
+|-----------|---------------|
+| `MotionDetector` | Already provides velocity and direction per frame -- scroll consumes these, does not need to modify them |
+| `GestureOrchestrator` | Already emits `MOVING_FIRE` with velocity for holding+moving gestures. No new signal needed. |
+| `ActionResolver` | Already resolves `(gesture, direction)` -> `Action` for moving triggers. Scroll actions are just Actions with `fire_mode=SCROLL`. |
+| `Trigger` / `parse_trigger()` | Trigger syntax `pinch:moving:up` already works. Fire mode is an Action property, not a Trigger property. |
+| `KeystrokeSender` | Scroll does not touch keyboard. No changes needed. |
+| `ActivationGate` | Gate filters signals, not fire modes. Scroll actions pass through the same gate logic. |
+| `GestureSmoother` | Upstream of action dispatch, unaffected. |
+| `DistanceFilter` | Upstream of action dispatch, unaffected. |
+
+## Data Flow: Scroll Path
+
+### Current MOVING_FIRE Flow (keystroke)
+
+```
+MotionDetector.update()
+    --> MotionState(moving=True, direction=UP, velocity=0.8)
+
+GestureOrchestrator.update()
+    --> OrchestratorSignal(MOVING_FIRE, gesture=pinch, direction=UP, velocity=0.8)
+
+ActionDispatcher._handle_moving_fire()
+    --> resolver.resolve_moving("pinch", UP) --> Action(key="up", fire_mode=TAP)
+    --> velocity check (min_velocity)
+    --> dispatch interval throttle
+    --> sender.send(modifiers=[], key="up")
+```
+
+### New MOVING_FIRE Flow (scroll)
+
+```
+MotionDetector.update()
+    --> MotionState(moving=True, direction=UP, velocity=0.8)
+
+GestureOrchestrator.update()
+    --> OrchestratorSignal(MOVING_FIRE, gesture=pinch, direction=UP, velocity=0.8)
+
+ActionDispatcher._handle_moving_fire()
+    --> resolver.resolve_moving("pinch", UP) --> Action(fire_mode=SCROLL)
+    --> velocity check (min_velocity)        <-- reuse existing logic
+    --> dispatch interval throttle            <-- reuse existing logic
+    --> velocity_to_scroll_amount(0.8, UP)   <-- NEW: map velocity to scroll ticks
+    --> scroll_sender.scroll(dx=0, dy=3)     <-- NEW: scroll instead of keystroke
+```
+
+The only divergence point is AFTER velocity/throttle checks, at the final dispatch step.
+
+## Architectural Patterns
+
+### Pattern 1: Velocity-to-Scroll Mapping
+
+**What:** Convert MotionDetector velocity (normalized coords/sec, typically 0.15-2.0 range) to integer scroll ticks (1-10 range).
+
+**Approach:** Linear mapping with floor/ceiling clamps.
 
 ```python
-def parse_args():
-    parser = argparse.ArgumentParser(...)
-    # REMOVE: --preview flag
-    parser.add_argument("--debug", action="store_true",
-        help="Enable verbose DEBUG logging to console")
-    parser.add_argument("--view-camera", action="store_true",
-        help="Show camera window (used internally by tray 'View Camera')")
-    parser.add_argument("--config", default="config.yaml", ...)
-    return parser.parse_args()
-
-def main():
-    args = parse_args()
-    # Resolve config path for frozen
-    if not os.path.isabs(args.config) and getattr(sys, 'frozen', False):
-        base = os.path.dirname(os.path.abspath(sys.argv[0]))
-        args.config = os.path.join(base, args.config)
-
-    if args.view_camera:
-        # Spawned by tray "View Camera" -- camera window, no tray
-        run_camera_mode(args)
-    elif getattr(sys, 'frozen', False):
-        # Exe launch -- tray mode, no camera
-        run_tray_mode(args)
-    else:
-        # Dev launch -- always camera + console logging
-        run_dev_mode(args)
+def velocity_to_scroll(velocity: float, min_ticks: int = 1, max_ticks: int = 5,
+                        velocity_floor: float = 0.15, velocity_ceiling: float = 1.5) -> int:
+    """Map continuous velocity to discrete scroll ticks."""
+    if velocity <= velocity_floor:
+        return min_ticks
+    if velocity >= velocity_ceiling:
+        return max_ticks
+    # Linear interpolation
+    ratio = (velocity - velocity_floor) / (velocity_ceiling - velocity_floor)
+    return min_ticks + int(ratio * (max_ticks - min_ticks))
 ```
 
-**Three run functions:**
+**Why linear:** Simple, predictable, tunable with 4 parameters. Non-linear (exponential, sigmoid) curves add complexity without proven UX benefit for this use case. Start linear, tune later if needed.
 
-- `run_dev_mode(args)` -- Replaces `run_preview_mode`. Always shows camera. Console logging at INFO (or DEBUG with `--debug`). No tray icon. This IS the old `--preview` behavior, just made the default for dev.
-- `run_tray_mode(args)` -- Largely unchanged. Adds "View Camera" menu item. Hides console.
-- `run_camera_mode(args)` -- New. Shows camera window like dev mode but intended for the frozen exe. Console logging at INFO. No tray icon (parent process keeps the tray). Exits cleanly when window closed.
+**Where it lives:** Inside `ScrollSender` or as a module-level function in `scroll.py`. NOT in ActionDispatcher -- keep the dispatcher routing-only.
 
-**Rationale:** `run_dev_mode` and `run_camera_mode` share 95% of their loop logic. Extract a shared `_camera_loop(pipeline, args, log_level)` helper that both call.
+**Trade-offs:** Linear may feel too slow at low velocities or too fast at high. But dispatch_interval throttling already gates how many scroll events fire per second, providing a separate speed control.
 
-### 2. Shared Camera Loop (NEW helper in __main__.py)
+### Pattern 2: Direction-to-Scroll-Axis Mapping
+
+**What:** Convert Direction enum to (dx, dy) sign pairs for `mouse.scroll(dx, dy)`.
 
 ```python
-def _camera_loop(pipeline: Pipeline, log_level: int) -> None:
-    """Run detection loop with OpenCV camera window.
-
-    Used by both dev mode and tray "View Camera" mode.
-    Pipeline must already be started.
-    """
-    prev_time = time.perf_counter()
-    fps = 0.0
-    try:
-        while True:
-            current_time = time.perf_counter()
-            dt = current_time - prev_time
-            if dt > 0:
-                fps = 1.0 / dt
-            prev_time = current_time
-
-            result = pipeline.process_frame()
-            if not result.frame_valid:
-                continue
-
-            # Per-frame debug logging (existing logic, unchanged)
-            if result.landmarks:
-                # ... same debug logging as current run_preview_mode ...
-                pass
-
-            # Signal logging (existing logic, unchanged)
-            if result.orchestrator and result.orchestrator.signals:
-                # ... same signal logging ...
-                pass
-
-            # Preview rendering (always -- no conditional)
-            frame = pipeline.last_frame
-            if result.landmarks:
-                draw_hand_landmarks(frame, result.landmarks)
-            render_preview(frame, ...)
-
-            key = cv2.waitKey(1) & 0xFF
-            if key == 27:
-                break
-            try:
-                if cv2.getWindowProperty("Gesture Keys", cv2.WND_PROP_VISIBLE) < 1:
-                    break
-            except cv2.error:
-                break
-    except KeyboardInterrupt:
-        pass
-    finally:
-        pipeline.stop()
-        cv2.destroyAllWindows()
+_DIRECTION_TO_SCROLL = {
+    Direction.UP:    (0, 1),    # pynput: positive dy = scroll up
+    Direction.DOWN:  (0, -1),   # pynput: negative dy = scroll down
+    Direction.LEFT:  (-1, 0),   # pynput: negative dx = scroll left
+    Direction.RIGHT: (1, 0),    # pynput: positive dx = scroll right
+}
 ```
 
-**Key difference from current `run_preview_mode`:** No `if args.preview:` guard around rendering. Camera is always shown.
+**Note on pynput convention:** `mouse.scroll(0, 2)` scrolls UP (positive = up). This is the opposite of MediaPipe's Y-axis convention (positive = down). The MotionDetector already handles this inversion when classifying direction, so Direction.UP correctly means "user moved hand up" and should map to scroll-up (positive dy).
 
-### 3. TrayApp Changes (MODIFY tray.py)
+### Pattern 3: Fire Mode Override in Config
 
-**New menu item:** "View Camera" between "Active" toggle and "Edit Config".
+**What:** Currently, fire mode is inferred from trigger state (`holding` -> `hold_key`, `static` -> `tap`, `moving` -> `tap`). For scroll, the user must explicitly set `fire_mode: scroll` in the action config to override the default inference.
 
-```python
-def _build_menu(self) -> pystray.Menu:
-    return pystray.Menu(
-        pystray.MenuItem(
-            text=lambda item: "Active" if self._active.is_set() else "Inactive",
-            action=self._on_toggle,
-            checked=lambda item: self._active.is_set(),
-        ),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("View Camera", self._on_view_camera),
-        pystray.MenuItem("Edit Config", self._on_edit_config),
-        pystray.MenuItem("Quit", self._on_quit),
-    )
+**Config syntax:**
+
+```yaml
+actions:
+  scroll_up:
+    trigger: "pinch:moving:up"
+    fire_mode: scroll          # <-- NEW: override inferred fire mode
+    # key field omitted -- not needed for scroll
+
+  scroll_down:
+    trigger: "pinch:moving:down"
+    fire_mode: scroll
 ```
 
-**"View Camera" handler:** Spawns a child process with `--view-camera` flag.
+**Why explicit:** Inferring scroll from trigger state would require a new trigger state or magic values. Explicit `fire_mode` is clearer, opt-in, and extends naturally (future fire modes like `mouse_click` follow the same pattern).
 
-```python
-def _on_view_camera(self, icon, item) -> None:
-    """Spawn a camera window subprocess."""
-    import subprocess
-    exe = sys.executable if not getattr(sys, 'frozen', False) else sys.argv[0]
-    cmd = [exe, "--view-camera", "--config", self._config_path]
-    if not getattr(sys, 'frozen', False):
-        cmd = [sys.executable, "-m", "gesture_keys",
-               "--view-camera", "--config", self._config_path]
-    subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+**Impact on ActionEntry:** Add optional `fire_mode` field. When present, it overrides the state-inferred mode. When absent, behavior is identical to today.
+
+### Pattern 4: Scroll Config Parameters
+
+**What:** Scroll-specific tuning parameters. Two options for where they live:
+
+**Option A -- Per-action config (recommended):**
+
+```yaml
+actions:
+  scroll_up:
+    trigger: "pinch:moving:up"
+    fire_mode: scroll
+    dispatch_interval: 0.05     # reuse existing field -- controls scroll event rate
+    min_velocity: 0.2           # reuse existing field -- minimum hand speed to start scrolling
 ```
 
-**Critical design decision -- subprocess, NOT in-process:**
+This reuses the existing `dispatch_interval` and `min_velocity` per-action overrides. No new config fields needed. The dispatch_interval effectively controls scroll smoothness (lower = more frequent smaller scrolls = smoother).
 
-Why not open the OpenCV window in the tray process?
-- pystray owns the main thread on Windows (Win32 message loop).
-- OpenCV's `cv2.imshow` / `cv2.waitKey` also needs a message-pumping thread.
-- Running both in one process requires careful thread coordination and is fragile.
-- A subprocess is clean: the tray keeps running, the camera window is independent, closing the window just kills the child process.
+**Option B -- Global scroll section (defer):**
 
-**Camera resource conflict:** The tray's detection thread holds the camera (via Pipeline). The child process would need its OWN camera access. Two options:
-
-- **Option A (recommended):** Tray pauses its pipeline (releases camera) while "View Camera" is open, resumes when child exits. The child runs its own Pipeline with camera.
-- **Option B:** Tray keeps running headless, child only reads frames for display without its own Pipeline. Requires shared memory or socket -- overengineered.
-
-**Option A implementation:**
-
-```python
-def _on_view_camera(self, icon, item) -> None:
-    """Pause tray detection, spawn camera window, resume on close."""
-    import subprocess
-
-    # Pause tray detection (releases camera in _detection_loop)
-    self._active.clear()
-
-    exe_cmd = self._build_view_camera_cmd()
-    proc = subprocess.Popen(exe_cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
-
-    # Monitor child in background thread, re-activate when done
-    def _wait_and_resume():
-        proc.wait()
-        if not self._shutdown.is_set():
-            self._active.set()
-
-    threading.Thread(target=_wait_and_resume, daemon=True).start()
+```yaml
+scroll:
+  min_ticks: 1
+  max_ticks: 5
+  velocity_floor: 0.15
+  velocity_ceiling: 1.5
 ```
 
-When `_active` is cleared, the tray's `_detection_loop` exits its inner `while self._active.is_set()` loop and calls `pipeline.stop()` (releasing the camera). The child process can then open the camera. When the child exits, `_active` is re-set and the tray's detection loop re-creates a new Pipeline and resumes.
+Defer this. Hard-code the velocity-to-ticks mapping initially; tune after real-world testing. If users need per-action scroll speed tuning, the velocity thresholds already provide that.
 
-### 4. Logging Changes (MODIFY logging_setup.py + __main__.py)
+## Integration Points
 
-**Current state:** `setup_logging()` creates file handlers only. Console handler is added ad-hoc in `run_preview_mode`.
+### ActionDispatcher Changes (action.py)
 
-**New design:** `setup_logging()` gains an optional `console` parameter.
+The dispatcher is the single modification point. Current `_handle_moving_fire()` unconditionally calls `self._sender.send()`. Change to:
 
 ```python
-def setup_logging(console: bool = False, debug: bool = False) -> None:
-    """Configure the 'gesture_keys' logger.
-
-    Args:
-        console: If True, add a StreamHandler for console output.
-        debug: If True (and console=True), set console level to DEBUG.
-               Otherwise console level is INFO.
-    File handlers (preview.log, debug.log) are always added.
-    """
-    logger = logging.getLogger("gesture_keys")
-    logger.setLevel(logging.DEBUG)
-
-    if logger.handlers:
+def _handle_moving_fire(self, signal: OrchestratorSignal) -> None:
+    action = self._resolver.resolve_moving(signal.gesture.value, signal.direction)
+    if action is None:
         return
 
-    logs = _logs_dir()
-    formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATEFMT)
+    # Existing velocity check (unchanged)
+    min_vel = self._resolver.get_min_velocity(signal.gesture.value, signal.direction)
+    if min_vel is not None and signal.velocity < min_vel:
+        return
 
-    # File handlers (unchanged)
-    # ... preview.log at INFO, debug.log at DEBUG ...
+    # Existing dispatch interval throttle (unchanged)
+    key = (signal.gesture.value, signal.direction.value)
+    interval = self._resolver.get_dispatch_interval(signal.gesture.value, signal.direction)
+    if interval is None:
+        interval = self._global_dispatch_interval
+    if interval > 0:
+        now = time.perf_counter()
+        last = self._last_dispatch_times.get(key, 0.0)
+        if now - last < interval:
+            return
 
-    # Console handler (new)
-    if console:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG if debug else logging.INFO)
-        console_handler.setFormatter(logging.Formatter(
-            "[%(asctime)s] %(message)s", datefmt="%H:%M:%S"
-        ))
-        logger.addHandler(console_handler)
+    # NEW: branch on fire_mode
+    if action.fire_mode == FireMode.SCROLL:
+        self._scroll_sender.scroll(signal.direction, signal.velocity)
+    else:
+        self._sender.send(action.modifiers, action.key)
+
+    if interval > 0:
+        self._last_dispatch_times[key] = time.perf_counter()
 ```
 
-**Call sites:**
+### ActionDispatcher Constructor Change
 
-| Mode | Call |
-|------|------|
-| Dev mode | `setup_logging(console=True, debug=args.debug)` |
-| Tray mode | `setup_logging()` (no console, unchanged) |
-| View Camera | `setup_logging(console=True)` |
-
-This centralizes the console handler logic that is currently scattered inline in `run_preview_mode`.
-
-### 5. Pipeline (NO CHANGES)
-
-The Pipeline class requires zero modifications. It already:
-- Exposes `last_frame` for external rendering
-- Has clean `start()` / `stop()` lifecycle
-- Is mode-agnostic (caller decides what to do with FrameResult)
-- Handles config hot-reload internally
-
-This is a sign of good existing architecture -- the new features only touch the entry points and the tray wrapper.
-
-## Data Flow: Mode Transitions
-
-### Dev Mode (default for `python -m gesture_keys`)
-
-```
-main() -> run_dev_mode(args)
-  -> setup_logging(console=True, debug=args.debug)
-  -> Pipeline(config_path).start()
-  -> _camera_loop(pipeline, log_level)
-     -> pipeline.process_frame() per frame
-     -> draw_hand_landmarks() + render_preview() per frame
-     -> cv2.waitKey() for exit
-  -> pipeline.stop()
+```python
+def __init__(self, sender, resolver, scroll_sender=None, ...):
+    self._scroll_sender = scroll_sender  # None = no scroll support (backward compat)
 ```
 
-### Tray Mode (default for frozen exe)
+### Config Parsing Changes (config.py)
 
-```
-main() -> run_tray_mode(args)
-  -> setup_logging()
-  -> hide_console_window()
-  -> TrayApp(config_path).run()
-     -> pystray.Icon.run(setup=_on_setup)
-        -> _start_detection() in daemon thread
-           -> _detection_loop()
-              -> Pipeline(config_path).start()
-              -> pipeline.process_frame() in loop
-              -> pipeline.stop() on pause/quit
+In `ActionEntry`: add `fire_mode: Optional[str] = None` field, parsed from YAML.
 
-  [User clicks "View Camera"]
-     -> _on_view_camera()
-        -> self._active.clear()  (pauses detection, releases camera)
-        -> subprocess.Popen([exe, "--view-camera", ...])
-        -> background thread waits for child exit
-        -> self._active.set()  (resumes detection)
+In `derive_from_actions()`: when `entry.fire_mode == "scroll"`, set `FireMode.SCROLL` instead of inferring from trigger state. For scroll actions, skip `parse_key_string()` (no key to parse). Use sentinel values for Action's key fields:
+
+```python
+if entry.fire_mode == "scroll":
+    fire_mode = FireMode.SCROLL
+    modifiers, key = [], ""  # Unused for scroll
+else:
+    fire_mode = _trigger_state_to_fire_mode[entry.trigger.state]
+    modifiers, key = parse_key_string(entry.key)
 ```
 
-### View Camera Mode (spawned by tray)
+Also make `key` field optional in ActionEntry validation (skip "missing required 'key' field" error when `fire_mode: scroll`).
 
+### Pipeline Changes (pipeline.py)
+
+In `start()`:
+
+```python
+from gesture_keys.scroll import ScrollSender
+self._scroll_sender = ScrollSender()
+self._dispatcher = ActionDispatcher(
+    self._sender, self._resolver,
+    scroll_sender=self._scroll_sender,  # NEW
+    ...
+)
 ```
-main() -> run_camera_mode(args)
-  -> setup_logging(console=True)
-  -> Pipeline(config_path).start()
-  -> _camera_loop(pipeline, logging.INFO)
-  -> pipeline.stop()
-  -> process exits -> parent tray resumes
-```
 
-## Anti-Patterns to Avoid
+In `reload_config()`: pass `scroll_sender` when rebuilding dispatcher (or just keep the existing reference -- ScrollSender is stateless).
 
-### Anti-Pattern 1: OpenCV Window in the Tray Process
+## Anti-Patterns
 
-**What people do:** Try to open `cv2.imshow` from the tray's detection thread.
-**Why it's wrong:** OpenCV's HighGUI needs a message loop. On Windows, `cv2.waitKey()` pumps messages for OpenCV's window, but pystray's main thread is already running the Win32 message loop. Two competing message loops in one process cause hangs and missed events.
-**Do this instead:** Spawn a separate process for the camera window. The tray process stays headless.
+### Anti-Pattern 1: Encoding Scroll as Keystroke
 
-### Anti-Pattern 2: Sharing Camera Between Processes
+**What people do:** Map scroll to Page Up/Page Down keystrokes instead of using mouse scroll events.
+**Why it's wrong:** Page Up/Down is not scroll. It jumps by page in some apps, does nothing in others (maps, games), and does not support horizontal scroll. Mouse scroll events are universally handled by the foreground window's scroll handler.
+**Do this instead:** Use `pynput.mouse.Controller.scroll(dx, dy)` for native scroll events.
 
-**What people do:** Try to have both tray detection and camera window read from the same physical camera simultaneously.
-**Why it's wrong:** Most webcams only allow one process to hold the capture handle. The second `cv2.VideoCapture.open()` will fail silently or block.
-**Do this instead:** Pause the tray's pipeline (which releases the camera) before spawning the camera window process. Resume after it exits.
+### Anti-Pattern 2: New Orchestrator Signal for Scroll
 
-### Anti-Pattern 3: Conditional Preview Rendering in the Detection Loop
+**What people do:** Add `OrchestratorAction.SCROLL_FIRE` signal type.
+**Why it's wrong:** The orchestrator reports WHAT happened (gesture + motion), not HOW to respond. Scroll vs keystroke is a dispatch concern, not an orchestration concern. Adding scroll-specific signals couples the orchestrator to fire modes, violating the existing separation.
+**Do this instead:** Keep `MOVING_FIRE` as the signal. Branch on `Action.fire_mode` in the dispatcher.
 
-**What people do:** Keep `if show_camera:` checks inside the frame loop, toggling a boolean.
-**Why it's wrong:** Mixing "should I render?" logic into the frame loop makes it harder to reason about. The current codebase already has `if args.preview:` in 3 places inside the loop.
-**Do this instead:** Have separate entry functions where camera-showing modes ALWAYS render, and headless modes NEVER render. The Pipeline stays agnostic.
+### Anti-Pattern 3: Velocity-to-Ticks in the Orchestrator
 
-### Anti-Pattern 4: Passing --debug to File Handler Levels
+**What people do:** Put velocity mapping logic in the orchestrator or MotionDetector.
+**Why it's wrong:** The orchestrator and MotionDetector are fire-mode-agnostic. They report raw velocity. Mapping velocity to scroll ticks is a scroll-specific dispatch concern.
+**Do this instead:** Put velocity-to-ticks conversion in ScrollSender or a helper function called by the dispatcher.
 
-**What people do:** Make `--debug` change file handler levels.
-**Why it's wrong:** File handlers already capture DEBUG to `debug.log`. The `--debug` flag should ONLY affect console verbosity.
-**Do this instead:** `--debug` controls the StreamHandler level. File handlers are always INFO + DEBUG as they are today.
+### Anti-Pattern 4: Continuous Scroll Without Dispatch Interval
+
+**What people do:** Fire scroll on every frame (30+ Hz) with no throttle.
+**Why it's wrong:** At 30 FPS with 3 ticks per event, that is 90 scroll ticks per second -- unusably fast. The existing `dispatch_interval` throttle is essential for scroll usability.
+**Do this instead:** Set a sane default `dispatch_interval` for scroll actions (0.05-0.1s recommended, yielding 10-20 scroll events/sec).
 
 ## Suggested Build Order
 
-Dependencies flow top-down. Each step is testable independently.
+Based on dependency analysis, build in this order:
 
-### Step 1: Consolidate logging (logging_setup.py)
+### Phase 1: ScrollSender (leaf node, no dependencies on existing code)
 
-**Modify:** `setup_logging()` to accept `console` and `debug` parameters.
-**Why first:** Zero risk, no behavior change to existing callers (default args preserve current behavior). Enables clean logging in all subsequent steps.
-**Test:** Call `setup_logging(console=True, debug=True)`, verify console handler added at DEBUG. Call `setup_logging()`, verify no console handler (existing behavior).
+1. Create `gesture_keys/scroll.py` with `ScrollSender` class
+2. `scroll(direction: Direction, velocity: float)` method
+3. Velocity-to-ticks mapping (internal)
+4. Direction-to-axis mapping (internal)
+5. Tests: `tests/test_scroll.py`
 
-### Step 2: Extract _camera_loop helper (__main__.py)
+### Phase 2: FireMode + Config Changes (modifies shared types)
 
-**Add:** `_camera_loop(pipeline, log_level)` function extracted from `run_preview_mode`.
-**Modify:** `run_preview_mode` to call `_camera_loop` (proving extraction works).
-**Why second:** Pure refactor. --preview still works exactly as before. Validates the extraction before building new modes on top.
-**Test:** Run `python -m gesture_keys --preview` and confirm identical behavior.
+1. Add `FireMode.SCROLL` to enum
+2. Add `fire_mode` field to `ActionEntry`
+3. Update `parse_actions()` to read `fire_mode` from YAML
+4. Update `derive_from_actions()` to handle `fire_mode: scroll` (skip key parsing, set FireMode.SCROLL)
+5. Make `key` field optional when `fire_mode: scroll`
+6. Tests: update `tests/test_config.py`, `tests/test_action.py`
 
-### Step 3: Create run_dev_mode and run_camera_mode (__main__.py)
+### Phase 3: ActionDispatcher Integration (consumes Phase 1 + 2)
 
-**Add:** `run_dev_mode(args)` -- calls `setup_logging(console=True, debug=args.debug)`, creates Pipeline, calls `_camera_loop`. Always shows camera (no --preview needed).
-**Add:** `run_camera_mode(args)` -- calls `setup_logging(console=True)`, creates Pipeline, calls `_camera_loop`. Used by tray "View Camera".
-**Modify:** `main()` routing logic: frozen -> tray, `--view-camera` -> camera mode, else -> dev mode.
-**Remove:** `--preview` argument. `run_preview_mode` function (replaced by `run_dev_mode`).
-**Test:** `python -m gesture_keys` shows camera (no --preview needed). `python -m gesture_keys --debug` shows verbose console. `python -m gesture_keys --view-camera` shows camera window and exits cleanly on close.
+1. Add `scroll_sender` parameter to `ActionDispatcher.__init__()`
+2. Branch in `_handle_moving_fire()` on `fire_mode == SCROLL`
+3. Tests: `tests/test_action.py` -- mock ScrollSender, verify dispatch routing
 
-### Step 4: Add "View Camera" to TrayApp (tray.py)
+### Phase 4: Pipeline Wiring (consumes Phase 3)
 
-**Modify:** `_build_menu()` -- add "View Camera" item.
-**Add:** `_on_view_camera()` -- pauses detection, spawns subprocess, resumes on child exit.
-**Why last:** Depends on `--view-camera` flag existing (Step 3). Most complex piece due to subprocess lifecycle.
-**Test:** Build exe, launch, click "View Camera" -- camera window opens, tray stays running. Close camera window -- tray resumes detection. Click "View Camera" again -- works repeatedly.
+1. Create `ScrollSender` in `Pipeline.start()`
+2. Pass to `ActionDispatcher`
+3. Handle in `reload_config()`
+4. Tests: `tests/test_pipeline.py` -- integration test with scroll config
 
-## Integration Points Summary
+### Phase 5: Config + Documentation
 
-| Component | Change Type | What Changes |
-|-----------|-------------|--------------|
-| `__main__.py` | MODIFY | New routing logic, 3 run functions, remove --preview |
-| `__main__.py` | NEW | `_camera_loop()` helper |
-| `logging_setup.py` | MODIFY | `setup_logging()` gains console/debug params |
-| `tray.py` | MODIFY | "View Camera" menu item + subprocess spawn |
-| `pipeline.py` | NONE | No changes needed |
-| `preview.py` | NONE | No changes needed |
-| `config.py` | NONE | No changes needed |
-| All other modules | NONE | No changes needed |
+1. Add example scroll actions to `config.yaml`
+2. Verify hot-reload works with scroll actions
 
-**Total scope:** 2 files modified (main, tray), 1 file with minor signature change (logging_setup). ~80 lines added, ~30 lines removed, ~50 lines moved (extraction).
+**Why this order:** Phase 1 is pure-new code with no risk to existing functionality. Phase 2 modifies shared types but is backward compatible (new enum value, optional field). Phase 3 is the critical integration point. Phase 4 is wiring. Each phase is independently testable.
+
+## Scaling Considerations
+
+| Concern | Current | With Scroll |
+|---------|---------|-------------|
+| Frame budget | ~5ms for dispatch path | +negligible: one `mouse.scroll()` call is <0.1ms |
+| Controller instances | 1 keyboard Controller | +1 mouse Controller (created once in start()) |
+| Config complexity | 4 trigger types x 2 hands = 8 maps | Same 8 maps; scroll is a fire_mode, not a trigger type |
+| Memory | Action objects per trigger | Same; scroll Actions are identical size (unused key fields are empty strings) |
+
+No performance concerns. Scroll adds one conditional branch in `_handle_moving_fire()` and one `mouse.scroll()` call per dispatch event.
 
 ## Sources
 
-- Direct codebase analysis: `gesture_keys/__main__.py`, `gesture_keys/tray.py`, `gesture_keys/pipeline.py`, `gesture_keys/logging_setup.py`, `gesture_keys/preview.py`
-- pystray threading model: pystray requires main thread on Windows for Win32 message pump (confirmed by existing `_on_setup` callback pattern and daemon thread for detection)
-- OpenCV HighGUI: `cv2.waitKey()` pumps the window message loop; must be called from the thread that created the window
+- [pynput mouse documentation](https://pynput.readthedocs.io/en/latest/mouse.html) -- `Controller.scroll(dx, dy)` API, positive dy = scroll up (HIGH confidence)
+- [pynput mouse base source](https://pynput.readthedocs.io/en/latest/_modules/pynput/mouse/_base.html) -- scroll method signature verification (HIGH confidence)
+- Existing codebase analysis: action.py, config.py, pipeline.py, orchestrator.py, motion.py, trigger.py, keystroke.py (HIGH confidence -- direct code reading)
 
 ---
-*Architecture research for: Gesture Keys v3.2 Unified Preview & Exec Mode*
-*Researched: 2026-03-30*
+*Architecture research for: Scroll gesture integration into gesture-keys*
+*Researched: 2026-04-01*
