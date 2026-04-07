@@ -10,6 +10,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from types import SimpleNamespace
 
 from gesture_keys.action import ActionDispatcher, ActionResolver
 from gesture_keys.activation import ActivationGate
@@ -79,6 +80,54 @@ class FrameResult:
     activation_armed: bool = False
 
 
+class LandmarkSmoother:
+    """Exponential moving average filter for landmark positions.
+
+    Smooths per-frame jitter in landmark x/y/z before classification.
+    Alpha controls responsiveness: 1.0 = no smoothing, 0.0 = max smoothing.
+    """
+
+    def __init__(self, alpha: float = 0.6) -> None:
+        self._alpha = alpha
+        self._prev: list[tuple[float, float, float]] | None = None
+
+    @property
+    def alpha(self) -> float:
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, value: float) -> None:
+        self._alpha = value
+
+    def smooth(self, landmarks: list) -> list:
+        """Apply EMA to each landmark's position.
+
+        Returns a list of SimpleNamespace objects with smoothed x, y, z.
+        First call (or after reset) returns landmarks unchanged.
+        """
+        if self._prev is None or len(landmarks) != len(self._prev):
+            self._prev = [(lm.x, lm.y, lm.z) for lm in landmarks]
+            return landmarks
+
+        a = self._alpha
+        b = 1.0 - a
+        smoothed = []
+        new_prev = []
+        for i, lm in enumerate(landmarks):
+            px, py, pz = self._prev[i]
+            sx = a * lm.x + b * px
+            sy = a * lm.y + b * py
+            sz = a * lm.z + b * pz
+            smoothed.append(SimpleNamespace(x=sx, y=sy, z=sz))
+            new_prev.append((sx, sy, sz))
+        self._prev = new_prev
+        return smoothed
+
+    def reset(self) -> None:
+        """Clear smoothing state."""
+        self._prev = None
+
+
 class Pipeline:
     """Unified gesture detection pipeline.
 
@@ -113,6 +162,7 @@ class Pipeline:
         self._scroll_sender = None
         self._distance_filter = None
         self._motion_detector = None
+        self._landmark_smoother = None
         self._watcher = None
 
         # Action dispatch (created in start())
@@ -150,15 +200,29 @@ class Pipeline:
         """Initialize camera, detector, and all pipeline components."""
         config = self._config
 
-        self._camera = CameraCapture(config.camera_index).start()
-        self._detector = HandDetector(preferred_hand=config.preferred_hand)
+        self._camera = CameraCapture(
+            config.camera_index,
+            width=config.camera_width,
+            height=config.camera_height,
+        ).start()
+        cam_w = int(self._camera.cap.get(3))  # CAP_PROP_FRAME_WIDTH
+        cam_h = int(self._camera.cap.get(4))  # CAP_PROP_FRAME_HEIGHT
+        logger.info("Camera resolution: %dx%d", cam_w, cam_h)
+        self._detector = HandDetector(
+            preferred_hand=config.preferred_hand,
+            min_detection_confidence=config.min_detection_confidence,
+            min_tracking_confidence=config.min_tracking_confidence,
+        )
 
         # Extract per-gesture thresholds from action entries
         thresholds = {
             entry.name: entry.threshold if entry.threshold is not None else 0.7
             for entry in config.actions
         }
-        self._classifier = GestureClassifier(thresholds)
+        self._classifier = GestureClassifier(
+            thresholds, hysteresis_margin=config.hysteresis_margin,
+        )
+        self._landmark_smoother = LandmarkSmoother(alpha=config.landmark_smoothing)
         self._smoother = GestureSmoother(config.smoothing_window)
 
         # Build DerivedConfig from actions
@@ -180,6 +244,7 @@ class Pipeline:
             hold_release_delay=config.hold_release_delay,
             sequence_definitions=sequence_definitions,
             sequence_window=config.sequence_window,
+            gesture_activation_delays=derived.gesture_activation_delays,
         )
         self._sender = KeystrokeSender()
         self._scroll_sender = ScrollSender()
@@ -257,6 +322,8 @@ class Pipeline:
         self._smoother.reset()
         self._orchestrator.reset()
         self._motion_detector.reset()
+        self._classifier.reset()
+        self._landmark_smoother.reset()
         self._scroll_sender.reset()
         self._dispatcher.release_all()
 
@@ -329,6 +396,8 @@ class Pipeline:
             self._smoother.reset()
             self._orchestrator.reset()
             self._motion_detector.reset()
+            self._classifier.reset()
+            self._landmark_smoother.reset()
             self._resolver.set_hand(handedness)
             logger.info("Hand switch: %s -> %s", self._prev_handedness, handedness)
 
@@ -347,6 +416,8 @@ class Pipeline:
                     self._smoother.reset()
                     self._orchestrator.reset()
                     self._motion_detector.reset()
+                    self._classifier.reset()
+                    self._landmark_smoother.reset()
                 self._hand_was_in_range = False
                 landmarks = None
             else:
@@ -356,9 +427,11 @@ class Pipeline:
 
         # --- Gesture classification (always runs when landmarks present) ---
         if landmarks:
-            raw_gesture = self._classifier.classify(landmarks)
+            smoothed_landmarks = self._landmark_smoother.smooth(landmarks)
+            raw_gesture = self._classifier.classify(smoothed_landmarks)
             gesture = self._smoother.update(raw_gesture)
         else:
+            self._landmark_smoother.reset()
             raw_gesture = None
             gesture = self._smoother.update(None)
 
@@ -466,9 +539,14 @@ class Pipeline:
             for first_val, second_val in derived.left_sequence:
                 sequence_definitions.add((Gesture(first_val), Gesture(second_val)))
             self._orchestrator._sequence_definitions = sequence_definitions
+            self._orchestrator._gesture_activation_delays = derived.gesture_activation_delays
 
             self._orchestrator.reset()
             self._smoother.reset()
+            self._classifier._hysteresis_margin = new_config.hysteresis_margin
+            self._classifier.reset()
+            self._landmark_smoother.alpha = new_config.landmark_smoothing
+            self._landmark_smoother.reset()
 
             # MotionDetector hot-reload: update properties from config, then reset state
             self._motion_detector.arm_threshold = new_config.motion_arm_threshold

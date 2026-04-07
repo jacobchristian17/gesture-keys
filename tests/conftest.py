@@ -180,6 +180,45 @@ def mock_landmarks_pinch():
 
 
 @pytest.fixture
+def mock_landmarks_ok():
+    """OK sign: thumb+index pinching, middle+ring+pinky extended.
+
+    Same pinch as mock_landmarks_pinch but with 3 remaining fingers extended.
+    """
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.38, 0.5, 0.0),   # THUMB_IP
+        4: (0.35, 0.45, 0.0),  # THUMB_TIP (extended)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.36, 0.45, 0.0),  # INDEX_TIP (close to thumb tip)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.2, 0.0),   # MIDDLE_TIP (extended)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.2, 0.0),   # RING_TIP (extended)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.2, 0.0),   # PINKY_TIP (extended)
+    })
+
+
+@pytest.fixture
+def mock_landmarks_left_ok():
+    """Left-hand OK sign: thumb+index pinching on right side, middle+ring+pinky extended."""
+    return _make_hand({
+        0: (0.5, 0.8, 0.0),    # WRIST
+        3: (0.62, 0.5, 0.0),   # THUMB_IP (mirrored)
+        4: (0.65, 0.45, 0.0),  # THUMB_TIP (mirrored, extended)
+        6: (0.4, 0.5, 0.0),    # INDEX_PIP
+        8: (0.64, 0.45, 0.0),  # INDEX_TIP (close to thumb tip)
+        10: (0.5, 0.5, 0.0),   # MIDDLE_PIP
+        12: (0.5, 0.2, 0.0),   # MIDDLE_TIP (extended)
+        14: (0.6, 0.5, 0.0),   # RING_PIP
+        16: (0.6, 0.2, 0.0),   # RING_TIP (extended)
+        18: (0.7, 0.5, 0.0),   # PINKY_PIP
+        20: (0.7, 0.2, 0.0),   # PINKY_TIP (extended)
+    })
+
+
+@pytest.fixture
 def mock_landmarks_close_hand():
     """Hand close to camera -- palm span 0.25 (passes default 0.15 threshold).
 

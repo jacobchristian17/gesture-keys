@@ -1,29 +1,111 @@
-preferred_hand: left  # Which hand to prefer when both are visible at startup ("left" or "right")
+# ============================================================================
+# gesture-keys configuration
+# ============================================================================
+# This file controls hand-gesture-to-keystroke mapping. Changes are
+# hot-reloaded automatically (no restart required).
+#
+# Supported gestures:
+#   open_palm, fist, thumbs_up, peace, pointing, pinch, ok, scout
+#
+# Trigger formats:
+#   "gesture:static"              - fires once when gesture is confirmed
+#   "gesture:holding"             - holds key while gesture persists
+#   "gesture:moving:direction"    - fires repeatedly while hand moves
+#                                   (directions: left, right, up, down)
+#   "gesture > gesture"           - fires on gesture-to-gesture transition
+#
+# Fire modes (set via fire_mode):
+#   tap       (default) - single press-and-release
+#   hold_key  (default for holding triggers) - key held down until gesture lost
+#   scroll    (moving triggers only) - converts hand velocity to scroll ticks
+#
+# Key format:  "modifier+modifier+key"
+#   Modifiers: ctrl, alt, shift, win
+#   Keys:      a-z, 0-9, space, enter, tab, esc, backspace, delete,
+#              up, down, left, right, home, end, page_up, page_down, f1-f12
+#   Examples:  "z", "ctrl+z", "alt+tab", "win+ctrl+right"
+# ============================================================================
 
+
+# Which hand to prefer when both are visible at startup ("left" or "right")
+preferred_hand: left
+
+
+# --- Camera ---
+# Controls the webcam device and MediaPipe hand-detection thresholds.
+#   index:  device number (0 = default webcam)
+#   width / height:  capture resolution in pixels (0 = camera default)
+#   min_detection_confidence:  how confident MediaPipe must be to detect a
+#       new hand (0.0-1.0; higher = fewer false positives, may miss real hands)
+#   min_tracking_confidence:  how confident MediaPipe must be to keep tracking
+#       a hand frame-to-frame (0.0-1.0; higher = re-detects more often)
 camera:
   index: 0
+  width: 1280
+  height: 720
+  min_detection_confidence: 0.7
+  min_tracking_confidence: 0.5
 
+
+# --- Detection ---
+# Tuning knobs for gesture recognition stability and responsiveness.
+#   smoothing_window:    majority-vote window size; higher = more stable but
+#                        adds latency (e.g., 3 means 3-frame majority vote)
+#   activation_delay:    seconds a gesture must be held before it fires
+#   cooldown_duration:   seconds after firing during which the same gesture
+#                        is blocked from firing again
+#   sequence_window:     max seconds between first and second gesture in a
+#                        sequence trigger (e.g., "open_palm > fist")
+#   hysteresis_margin:   dead-zone margin for finger extension detection;
+#                        prevents flicker at the open/closed boundary
+#   landmark_smoothing:  exponential moving average alpha for hand landmarks
+#                        (1.0 = raw input, lower = smoother but laggier)
 detection:
-  smoothing_window: 2
+  smoothing_window: 3
   activation_delay: 0.2
   cooldown_duration: 0.1
-  sequence_window: 0.2       # seconds window for sequence gesture detection
+  sequence_window: 0.2
+  hysteresis_margin: 0.02
+  landmark_smoothing: 0.6
 
+
+# --- Distance ---
+# Filters hands that are too far from (or too close to) the camera based on
+# palm span (wrist-to-middle-knuckle distance in normalized coordinates).
+# When a hand is out of range, all gestures and held keys are released.
+#   enabled:        toggle distance gating on/off
+#   min_hand_size:  minimum palm span to accept (raise to require closer hand)
+#   max_hand_size:  maximum palm span (0 = no upper limit)
 distance:
   enabled: true
   min_hand_size: 0.12
   max_hand_size: 0.4
 
+
+# --- Actions ---
+# Each entry maps a gesture trigger to a keystroke.
+#
+# Required fields:
+#   trigger:  gesture trigger string (see formats above)
+#   key:      keystroke to send (omit only for scroll fire_mode)
+#
+# Optional fields:
+#   threshold:          confidence threshold for this action (0.0-1.0)
+#   fire_mode:          "tap", "hold_key", or "scroll"
+#   cooldown:           per-action cooldown override (seconds)
+#   activation_delay:   per-action activation delay override (seconds)
+#   hand:               "left", "right", or "both" (default: both)
+#   bypass_gate:        if true, fires even when activation gate is not armed
+#   min_velocity:       per-action motion velocity override (moving only)
+#   dispatch_interval:  per-action throttle between fires (seconds, moving only)
+#   scroll_speed:       velocity multiplier (scroll mode only, default 3.0)
+#   scroll_min_ticks:   minimum scroll ticks per fire (scroll mode only)
+#   scroll_max_ticks:   maximum scroll ticks per fire (scroll mode only)
 actions:
+  # -- Static gestures (fire once on recognition) --
   open_palm_switch:
     trigger: "open_palm:static"
     key: win+tab
-    threshold: 0.7
-
-
-  fist_hold:
-    trigger: "fist:holding"
-    key: space
     threshold: 0.7
 
   thumbs_up_tap:
@@ -34,8 +116,19 @@ actions:
   pointing_switch:
     trigger: "pointing:static"
     key: alt+tab
+    threshold: 0.9
+
+  ok_confirm:
+    trigger: "ok:static"
+    key: enter
+
+  # -- Holding gestures (key held while gesture persists) --
+  fist_hold:
+    trigger: "fist:holding"
+    key: space
     threshold: 0.7
 
+  # -- Desktop navigation (bypass activation gate) --
   peace_desktop_right:
     trigger: "peace:static"
     key: win+ctrl+right
@@ -48,16 +141,12 @@ actions:
     threshold: 0.7
     bypass_gate: true
 
-  pinch_minimize:
-    trigger: "pinch:static"
-    key: win+down
-    threshold: 0.06
-               
+  # -- Sequence gestures (two-gesture transitions) --
   fist_to_palm:
     trigger: "open_palm > fist"
     key: alt+tab
-    # bypass_gate: true
 
+  # -- Directional swipes (fire on hand movement) --
   swipe_left:
     trigger: "open_palm:moving:right"
     key: left
@@ -74,18 +163,18 @@ actions:
     trigger: "open_palm:moving:down"
     key: down
 
-  # Pinch scroll: hold pinch gesture and move hand to scroll
+  # -- Pinch scroll (hold pinch and move hand to scroll) --
   pinch_scroll_up:
-    trigger: "pinch:moving:up"
-    fire_mode: scroll
-    scroll_speed: 3.0
-    dispatch_interval: 0.05
-
-  pinch_scroll_down:
     trigger: "pinch:moving:down"
     fire_mode: scroll
     scroll_speed: 3.0
-    dispatch_interval: 0.05
+    dispatch_interval: 0.01
+
+  pinch_scroll_down:
+    trigger: "pinch:moving:up"
+    fire_mode: scroll
+    scroll_speed: 3.0
+    dispatch_interval: 0.01
 
   pinch_scroll_left:
     trigger: "pinch:moving:left"
@@ -99,25 +188,47 @@ actions:
     scroll_speed: 2.0
     dispatch_interval: 0.05
 
-# Motion detection settings (global thresholds for MotionDetector)
-# Per-action overrides: add min_velocity or dispatch_interval to individual moving actions above
+  # pinch_minimize:
+  #   trigger: "pinch:static"
+  #   key: win+down
+  #   threshold: 0.06
+
+
+# --- Motion ---
+# Global thresholds for the motion detector (used by all moving triggers).
+# Individual moving actions can override min_velocity and dispatch_interval.
+#   settling_frames:   frames to ignore after a hand first appears (absorbs
+#                      entry jitter so a hand entering view isn't read as motion)
+#   cooldown:          seconds to suppress motion after a direction fires
+#   min_velocity:      hand speed (normalized coords/sec) required to start
+#                      detecting motion
+#   min_displacement:  minimum distance hand must travel before motion counts
+#   axis_ratio:        ratio of dominant-to-minor axis required to accept a
+#                      cardinal direction (rejects diagonal movement)
+#   dispatch_interval: global minimum seconds between moving-trigger fires
+#                      (0 = fire every frame; per-action overrides take priority)
 motion:
   settling_frames: 2
   cooldown: 0.3
   min_velocity: 0.15
   min_displacement: 0.03
   axis_ratio: 1.5
-  dispatch_interval: 0.4  # Minimum seconds between moving_fire dispatches (0 = no throttle)
-                          # Per-action override: add dispatch_interval to individual actions
+  dispatch_interval: 0.4
 
-# Activation gate: arm/disarm gesture detection with an activation gesture.
-# When enabled, gestures only fire actions while the gate is armed.
-# The activation gesture arms the gate for the configured duration.
+
+# --- Activation Gate ---
+# Arms/disarms gesture detection behind an activation gesture. When enabled,
+# most gestures only fire while the gate is armed. Perform an activation
+# gesture to arm the gate for the configured duration.
+#   enabled:    true to require activation before gestures fire
+#   gestures:   list of gestures that arm the gate
+#   bypass:     list of action names that fire regardless of gate state
+#   duration:   seconds the gate stays armed (resets on each non-bypass fire)
 activation_gate:
-  enabled: true          # Set to true to enable activation gating (default: bypass, v1.x behavior)
-  gestures:               # Gestures that arm the gate (perform any of these to activate)
-    - pointing
+  enabled: true
+  gestures:
+    - ok
   bypass:
     - peace_desktop_right
     - scout_desktop_left
-  duration: 3.0           # Seconds the gate stays armed after activation
+  duration: 2.0

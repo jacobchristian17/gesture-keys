@@ -48,6 +48,7 @@ class ActionEntry:
     min_velocity: Optional[float] = None
     dispatch_interval: Optional[float] = None
     fire_mode: Optional[str] = None
+    activation_delay: Optional[float] = None
     scroll_speed: Optional[float] = None
     scroll_min_ticks: Optional[int] = None
     scroll_max_ticks: Optional[int] = None
@@ -141,6 +142,10 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
         if dispatch_interval is not None:
             dispatch_interval = float(dispatch_interval)
 
+        activation_delay = settings.get("activation_delay")
+        if activation_delay is not None:
+            activation_delay = float(activation_delay)
+
         entries.append(
             ActionEntry(
                 name=action_name,
@@ -153,6 +158,7 @@ def parse_actions(actions_dict: dict) -> list[ActionEntry]:
                 min_velocity=min_velocity,
                 dispatch_interval=dispatch_interval,
                 fire_mode=fire_mode_str,
+                activation_delay=activation_delay,
                 scroll_speed=scroll_speed,
                 scroll_min_ticks=scroll_min_ticks,
                 scroll_max_ticks=scroll_max_ticks,
@@ -232,6 +238,7 @@ class DerivedConfig:
     left_moving: dict[tuple[str, str], Action]
     right_sequence: dict[tuple[str, str], Action]
     left_sequence: dict[tuple[str, str], Action]
+    gesture_activation_delays: dict[str, float]
     moving_velocity_overrides: dict[tuple[str, str], float]
     moving_dispatch_interval_overrides: dict[tuple[str, str], float]
     scroll_speed_overrides: dict[tuple[str, str], float]
@@ -264,6 +271,7 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
 
     gesture_modes: dict[str, str] = {}
     gesture_cooldowns: dict[str, float] = {}
+    gesture_activation_delays: dict[str, float] = {}
     activation_gate_bypass: list[str] = []
     right_static: dict[str, Action] = {}
     left_static: dict[str, Action] = {}
@@ -300,6 +308,10 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
         # Collect cooldown overrides
         if entry.cooldown is not None:
             gesture_cooldowns[entry.name] = entry.cooldown
+
+        # Collect per-gesture activation delay overrides
+        if entry.activation_delay is not None and not isinstance(entry.trigger, SequenceTrigger):
+            gesture_activation_delays[gesture_key] = entry.activation_delay
 
         # Collect bypass_gate — key by gesture value (gate checks gesture.value)
         if entry.bypass_gate:
@@ -367,6 +379,7 @@ def derive_from_actions(actions: list[ActionEntry]) -> DerivedConfig:
     return DerivedConfig(
         gesture_modes=gesture_modes,
         gesture_cooldowns=gesture_cooldowns,
+        gesture_activation_delays=gesture_activation_delays,
         activation_gate_bypass=activation_gate_bypass,
         right_static=right_static,
         left_static=left_static,
@@ -389,10 +402,12 @@ class AppConfig:
     """Application configuration loaded from YAML."""
 
     camera_index: int = 0
-    smoothing_window: int = 2
+    camera_width: int = 0
+    camera_height: int = 0
+    smoothing_window: int = 3
     activation_delay: float = 0.15
     cooldown_duration: float = 0.3
-    distance_enabled: bool = False
+    distance_enabled: bool = True
     min_hand_size: float = 0.15
     max_hand_size: float = 0.0
     gesture_cooldowns: dict[str, float] = field(default_factory=dict)
@@ -411,6 +426,11 @@ class AppConfig:
     motion_axis_ratio: float = 2.0
     motion_settling_frames: int = 3
     motion_dispatch_interval: float = 0
+    min_detection_confidence: float = 0.7
+    min_tracking_confidence: float = 0.5
+    hysteresis_margin: float = 0.02
+    landmark_smoothing: float = 0.6
+    gesture_activation_delays: dict[str, float] = field(default_factory=dict)
 
 
 class ConfigWatcher:
@@ -532,10 +552,12 @@ def load_config(path: str = "config.yaml") -> AppConfig:
 
     return AppConfig(
         camera_index=int(camera.get("index", 0)),
-        smoothing_window=int(detection.get("smoothing_window", 2)),
+        camera_width=int(camera.get("width", 0)),
+        camera_height=int(camera.get("height", 0)),
+        smoothing_window=int(detection.get("smoothing_window", 3)),
         activation_delay=float(detection.get("activation_delay", 0.15)),
         cooldown_duration=float(detection.get("cooldown_duration", 0.3)),
-        distance_enabled=bool(distance.get("enabled", False)),
+        distance_enabled=bool(distance.get("enabled", True)),
         min_hand_size=float(distance.get("min_hand_size", 0.15)),
         max_hand_size=float(distance.get("max_hand_size", 0.0)),
         hold_release_delay=float(detection.get("hold_release_delay", 0.1)),
@@ -547,6 +569,7 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         activation_gate_duration=activation_gate_duration,
         gesture_modes=derived.gesture_modes,
         gesture_cooldowns=derived.gesture_cooldowns,
+        gesture_activation_delays=derived.gesture_activation_delays,
         activation_gate_bypass=activation_gate_bypass,
         actions=action_entries,
         motion_arm_threshold=float(motion.get("min_velocity", 0.25)),
@@ -554,4 +577,8 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         motion_axis_ratio=float(motion.get("axis_ratio", 2.0)),
         motion_settling_frames=int(motion.get("settling_frames", 3)),
         motion_dispatch_interval=float(motion.get("dispatch_interval", 0)),
+        min_detection_confidence=float(camera.get("min_detection_confidence", 0.7)),
+        min_tracking_confidence=float(camera.get("min_tracking_confidence", 0.5)),
+        hysteresis_margin=float(detection.get("hysteresis_margin", 0.02)),
+        landmark_smoothing=float(detection.get("landmark_smoothing", 0.6)),
     )

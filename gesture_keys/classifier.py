@@ -14,6 +14,7 @@ class Gesture(Enum):
     PEACE = "peace"
     POINTING = "pointing"
     PINCH = "pinch"
+    OK = "ok"
     SCOUT = "scout"
 
 
@@ -49,22 +50,41 @@ FINGER_MCPS = [INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP]
 class GestureClassifier:
     """Classify hand gestures from MediaPipe landmark positions.
 
-    Uses rule-based finger state detection (extended/curled) and
-    priority-ordered classification:
-    PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > SCOUT > None
+    Uses rule-based finger state detection (extended/curled) with
+    hysteresis to prevent boundary flicker, and priority-ordered
+    classification:
+    OK > PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > SCOUT > None
     """
 
-    def __init__(self, thresholds: Optional[dict[str, float]] = None):
+    def __init__(
+        self,
+        thresholds: Optional[dict[str, float]] = None,
+        hysteresis_margin: float = 0.02,
+    ):
         """Initialize classifier with optional per-gesture thresholds.
 
         Args:
             thresholds: Dict mapping gesture name to threshold value.
                         For pinch, this is the max distance between
                         thumb tip and index tip (default 0.05).
-                        Other thresholds reserved for future use.
+            hysteresis_margin: Y-coordinate margin for finger/thumb
+                               extension hysteresis. Higher = more stable
+                               but less responsive.
         """
         self._thresholds = thresholds or {}
         self._pinch_threshold = self._thresholds.get("pinch", 0.05)
+        self._hysteresis_margin = hysteresis_margin
+
+        # Hysteresis state
+        self._prev_finger_states = [False, False, False, False]
+        self._prev_thumb_extended = False
+        self._prev_pinch = False
+
+    def reset(self) -> None:
+        """Reset hysteresis state. Call on hand switch or config reload."""
+        self._prev_finger_states = [False, False, False, False]
+        self._prev_thumb_extended = False
+        self._prev_pinch = False
 
     def classify(self, landmarks: list[Any]) -> Optional[Gesture]:
         """Classify a gesture from 21 hand landmarks.
@@ -75,15 +95,23 @@ class GestureClassifier:
         Returns:
             Gesture enum value, or None if no gesture matches.
         """
-        # Priority order: PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > SCOUT
-        if self._is_pinch(landmarks):
-            return Gesture.PINCH
-
+        # Compute all states once (hysteresis is applied per-call)
         finger_states = self._get_finger_states(landmarks)
         thumb_extended = self._is_thumb_extended(landmarks)
+        pinch_detected = self._is_pinch(landmarks, thumb_extended)
 
         # finger_states: [index, middle, ring, pinky] True = extended
         index_ext, middle_ext, ring_ext, pinky_ext = finger_states
+
+        # Priority order: OK > PINCH > FIST > THUMBS_UP > POINTING > PEACE > OPEN_PALM > SCOUT
+
+        # OK: pinch (thumb+index touching) + middle+ring+pinky extended
+        if pinch_detected and middle_ext and ring_ext and pinky_ext:
+            return Gesture.OK
+
+        # PINCH: thumb+index touching, remaining fingers not all extended
+        if pinch_detected:
+            return Gesture.PINCH
 
         # FIST: all fingers curled + thumb curled
         if not any(finger_states) and not thumb_extended:
@@ -111,44 +139,76 @@ class GestureClassifier:
 
         return None
 
-    def _is_finger_extended(self, landmarks: list, tip_idx: int, pip_idx: int, mcp_idx: int) -> bool:
-        """Check if a finger is extended (tip above PIP and PIP above MCP).
+    def _is_finger_extended(
+        self,
+        landmarks: list,
+        tip_idx: int,
+        pip_idx: int,
+        mcp_idx: int,
+        finger_index: int,
+    ) -> bool:
+        """Check if a finger is extended with hysteresis.
 
-        Uses both tip-vs-PIP and PIP-vs-MCP checks to reduce false positives
-        from borderline finger positions (e.g. pinky following ring finger).
-        In normalized coordinates, lower Y = higher on screen = extended.
+        Uses arm/disarm margins around the extension boundary to prevent
+        flicker from borderline finger positions.
         """
-        return (landmarks[tip_idx].y < landmarks[pip_idx].y and
-                landmarks[pip_idx].y < landmarks[mcp_idx].y)
+        margin = self._hysteresis_margin
+        was_extended = self._prev_finger_states[finger_index]
+
+        if was_extended:
+            # Already extended: stays extended unless clearly curled (relaxed check)
+            extended = (landmarks[tip_idx].y < landmarks[pip_idx].y + margin and
+                        landmarks[pip_idx].y < landmarks[mcp_idx].y + margin)
+        else:
+            # Currently curled: needs clear extension to switch (strict check)
+            extended = (landmarks[tip_idx].y < landmarks[pip_idx].y - margin and
+                        landmarks[pip_idx].y < landmarks[mcp_idx].y - margin)
+
+        self._prev_finger_states[finger_index] = extended
+        return extended
 
     def _is_thumb_extended(self, landmarks: list) -> bool:
-        """Check if thumb is extended.
-
-        Compare thumb tip x-distance from wrist vs thumb IP x-distance
-        from wrist. If tip is further, thumb is extended.
-        """
+        """Check if thumb is extended with hysteresis."""
         tip_dist = abs(landmarks[THUMB_TIP].x - landmarks[WRIST].x)
         ip_dist = abs(landmarks[THUMB_IP].x - landmarks[WRIST].x)
-        return tip_dist > ip_dist
+        margin = self._hysteresis_margin
 
-    def _is_pinch(self, landmarks: list) -> bool:
-        """Check if thumb tip is close to index tip (pinch gesture).
+        if self._prev_thumb_extended:
+            extended = tip_dist > ip_dist - margin
+        else:
+            extended = tip_dist > ip_dist + margin
 
-        Excludes fist poses where thumb naturally rests against curled
-        index finger: in a fist the thumb is curled (not extended),
-        while in a pinch the thumb reaches out (extended).
+        self._prev_thumb_extended = extended
+        return extended
+
+    def _is_pinch(self, landmarks: list, thumb_extended: bool) -> bool:
+        """Check for pinch gesture with hysteresis on distance threshold.
+
+        Uses tighter threshold to enter pinch, looser to exit, preventing
+        flicker at the boundary. Excludes fist poses via thumb_extended guard.
         """
         dx = landmarks[THUMB_TIP].x - landmarks[INDEX_TIP].x
         dy = landmarks[THUMB_TIP].y - landmarks[INDEX_TIP].y
         dz = landmarks[THUMB_TIP].z - landmarks[INDEX_TIP].z
         distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-        if distance >= self._pinch_threshold:
+
+        if self._prev_pinch:
+            # Was pinching: need larger distance to release
+            threshold = self._pinch_threshold * 1.3
+        else:
+            # Not pinching: need smaller distance to trigger
+            threshold = self._pinch_threshold * 0.85
+
+        if distance >= threshold:
+            self._prev_pinch = False
             return False
-        return self._is_thumb_extended(landmarks)
+
+        self._prev_pinch = thumb_extended
+        return thumb_extended
 
     def _get_finger_states(self, landmarks: list) -> list[bool]:
-        """Get extended/curled state for index, middle, ring, pinky."""
+        """Get extended/curled state for index, middle, ring, pinky with hysteresis."""
         return [
-            self._is_finger_extended(landmarks, tip, pip, mcp)
-            for tip, pip, mcp in zip(FINGER_TIPS, FINGER_PIPS, FINGER_MCPS)
+            self._is_finger_extended(landmarks, tip, pip, mcp, i)
+            for i, (tip, pip, mcp) in enumerate(zip(FINGER_TIPS, FINGER_PIPS, FINGER_MCPS))
         ]

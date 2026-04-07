@@ -283,6 +283,8 @@ class TestPipelineReset:
         pipeline._smoother = MagicMock()
         pipeline._orchestrator = MagicMock()
         pipeline._motion_detector = MagicMock()
+        pipeline._classifier = MagicMock()
+        pipeline._landmark_smoother = MagicMock()
         pipeline._scroll_sender = MagicMock()
         pipeline._dispatcher = MagicMock()
 
@@ -291,6 +293,8 @@ class TestPipelineReset:
         pipeline._smoother.reset.assert_called_once()
         pipeline._orchestrator.reset.assert_called_once()
         pipeline._motion_detector.reset.assert_called_once()
+        pipeline._classifier.reset.assert_called_once()
+        pipeline._landmark_smoother.reset.assert_called_once()
         pipeline._scroll_sender.reset.assert_called_once()
         pipeline._dispatcher.release_all.assert_called_once()
 
@@ -589,6 +593,8 @@ class TestScrollSenderWiring:
         pipeline._smoother = MagicMock()
         pipeline._orchestrator = MagicMock()
         pipeline._motion_detector = MagicMock()
+        pipeline._classifier = MagicMock()
+        pipeline._landmark_smoother = MagicMock()
         pipeline._dispatcher = MagicMock()
 
         # Use a real ScrollSender to verify actual state reset

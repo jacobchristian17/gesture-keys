@@ -42,11 +42,11 @@ class TestLoadConfigDefault:
 
     def test_smoothing_window_default(self):
         config = load_config(DEFAULT_CONFIG)
-        assert config.smoothing_window == 2
+        assert config.smoothing_window == 3
 
-    def test_has_sixteen_actions(self):
+    def test_has_fifteen_actions(self):
         config = load_config(DEFAULT_CONFIG)
-        assert len(config.actions) == 16
+        assert len(config.actions) == 15
 
     def test_action_names(self):
         config = load_config(DEFAULT_CONFIG)
@@ -54,7 +54,7 @@ class TestLoadConfigDefault:
         expected = {
             "open_palm_switch", "fist_hold", "thumbs_up_tap",
             "pointing_switch", "peace_desktop_right", "scout_desktop_left",
-            "pinch_minimize", "fist_to_palm",
+            "fist_to_palm",
             "swipe_left", "swipe_right", "swipe_up", "swipe_down",
             "pinch_scroll_up", "pinch_scroll_down",
             "pinch_scroll_left", "pinch_scroll_right",
@@ -219,11 +219,11 @@ class TestDistanceConfig:
         assert config.distance_enabled is False
         assert config.min_hand_size == 0.20
 
-    def test_missing_distance_section_defaults_disabled(self, tmp_path):
+    def test_missing_distance_section_defaults_enabled(self, tmp_path):
         cfg = tmp_path / "cfg.yaml"
         cfg.write_text(self.MINIMAL_YAML)
         config = load_config(str(cfg))
-        assert config.distance_enabled is False
+        assert config.distance_enabled is True
         assert config.min_hand_size == 0.15
 
     def test_default_config_yaml_has_distance_enabled(self):

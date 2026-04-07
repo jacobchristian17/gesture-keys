@@ -92,8 +92,10 @@ class GestureOrchestrator:
         hold_release_delay: float = 0.1,
         sequence_definitions: set[tuple[Gesture, Gesture]] | None = None,
         sequence_window: float = 0.5,
+        gesture_activation_delays: dict[str, float] | None = None,
     ) -> None:
         self._activation_delay = activation_delay
+        self._gesture_activation_delays = gesture_activation_delays or {}
         self._cooldown_duration = cooldown_duration
         self._gesture_cooldowns = gesture_cooldowns or {}
         self._gesture_modes = gesture_modes or {}
@@ -221,7 +223,8 @@ class GestureOrchestrator:
             logger.debug("ACTIVATING reset: switched to %s", gesture.value)
             return
 
-        if timestamp - self._activation_start >= self._activation_delay:
+        delay = self._gesture_activation_delays.get(gesture.value, self._activation_delay)
+        if timestamp - self._activation_start >= delay:
             mode = self._gesture_modes.get(gesture.value, "tap")
             if mode == "hold_key":
                 # ACTIVATING -> ACTIVE(HOLD) + HOLD_START
